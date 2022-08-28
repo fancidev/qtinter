@@ -1,10 +1,12 @@
 """ _base_events.py - event loop implementation using Qt """
 
 import asyncio
+import functools
+import selectors
 import sys
 import threading
 from asyncio import events
-from typing import Optional
+from typing import List, Optional, Protocol, Tuple
 
 from PySide6 import QtCore
 
@@ -16,35 +18,56 @@ class AsyncSlotYield(Exception):
     pass
 
 
-class _AsyncSlotEventNotifier(QtCore.QObject):
-    asyncioEventAvailable = QtCore.Signal(int)
+class AsyncSlotNotifier(QtCore.QObject):
+    notified = QtCore.Signal()
+
+    def notify(self):
+        self.notified.emit()
+
+
+class AsyncSlotSelectorProtocol(Protocol):
+    def select(self, timeout: Optional[float] = None) \
+            -> List[Tuple[selectors.SelectorKey, int]]:
+        """
+        If timeout <= 0 or some IO is ready, return whatever is ready
+        immediately.  Otherwise, perform select with the given timeout in
+        a separate thread and raise AsyncSlotYield.  When that select
+        completes (either due to IO availability or timeout), call notify()
+        on the notifier object.
+
+        set_notifier must have been called before with a not-None argument.
+        """
+        pass
+
+    def set_notifier(self, notifier: Optional[AsyncSlotNotifier]) -> None:
+        pass
 
 
 class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, selector: AsyncSlotSelectorProtocol):
+        super().__init__(selector)  # noqa
 
         # If self is running in blocking mode (using a nested QEventLoop),
-        # _qt_event_loop is set to that QEventLoop.  If self is not running
-        # or running in non-blocking (guest) mode, _qt_event_loop is set
-        # to None.
-        self._qt_event_loop: Optional[QtCore.QEventLoop] = None
+        # __qt_event_loop is set to that QEventLoop.  If self is not running
+        # or running in non-blocking mode, __qt_event_loop is set to None.
+        self.__qt_event_loop: Optional[QtCore.QEventLoop] = None
 
-        # If self is running, _event_notifier is set to a QObject whose
-        # sole use is to emit a signal for self to process asyncio events.
-        self._event_notifier: Optional[_AsyncSlotEventNotifier] = None
+        # When self is running, __notifier is attached to the selector to
+        # receive notifications when IO is available or timeout occurs.
+        # We connect to its notified signal to process asyncio events.
+        self.__notifier: Optional[AsyncSlotNotifier] = None
 
-        # A counter that is incremented for each loop start and stop.
-        # It is used to distinguish queued Qt events from prior or stopped
-        # runs of self.
-        self._event_notifier_version: int = 0
+        # True if the last call to _run_once raised AsyncSlotYield, which
+        # means the embedded asyncio event loop is "logically" blocked in
+        # select() waiting for IO or timeout.
+        self.__blocked_in_select = False
 
         # Any exception raised by self._process_asyncio_events is stored
-        # in _event_processor_error to be propagated to the caller of
-        # self.run_forever, because QEventLoop.exec() does not propagate
+        # in __run_once_error to be propagated later to the caller of
+        # self.run_forever, as QEventLoop.exec() does not propagate
         # exceptions.  Exceptions raised by tasks are normally not
         # propagated except for SystemExit and KeyboardInterrupt.
-        self._event_processor_error: Optional[BaseException] = None
+        self.__run_once_error: Optional[BaseException] = None
 
     # =========================================================================
     # Custom method for AsyncSlot
@@ -53,20 +76,23 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
     def run_task(self, coro, *, name=None):
         raise NotImplementedError
 
-    def _process_asyncio_events(self, event_notifier_version: int):
-        """ This slot is connected to the asyncioEventAvailable signal,
+    def __process_asyncio_events(self, *, notifier: AsyncSlotNotifier):
+        """ This slot is connected to the notified signal of self.__notifier,
         which is emitted whenever asyncio events are possibly available
         and need to be processed."""
-        if event_notifier_version != self._event_notifier_version:
-            # ignore queued signal from previous or stopped loop run
+        if self.__notifier is not notifier:
+            # Called from a queued signal handler for a stopped loop run
+            # TODO: print a warning
             return
 
-        assert not self.is_closed(), "unexpectedly closed"
-        assert self.is_running(), "unexpectedly stopped"
+        assert not self.is_closed(), 'loop unexpectedly closed'
+        assert self.is_running(), 'loop unexpectedly stopped'
+
+        self.__blocked_in_select = False
 
         if self._stopping:
-            if self._qt_event_loop is not None:  # called from run_forever
-                self._qt_event_loop.exit(0)
+            if self.__qt_event_loop is not None:  # called from run_forever
+                self.__qt_event_loop.exit(0)
             return
 
         # Process ready callbacks, ready IO, and scheduled callbacks that
@@ -75,15 +101,16 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         try:
             self._run_once()  # defined in asyncio.BaseEventLoop
         except AsyncSlotYield:
-            pass
+            self.__blocked_in_select = True
         except BaseException as exc:
-            self._event_processor_error = exc
-            if self._qt_event_loop is not None:  # called from run_forever
-                self._qt_event_loop.exit(1)
+            self.__run_once_error = exc
+            if self.__qt_event_loop is not None:  # called from run_forever
+                self.__qt_event_loop.exit(1)
             else:
                 raise  # TODO: check what to do if called from run_task
         else:
-            self._event_notifier.emit(event_notifier_version)
+            # Schedule next iteration if this iteration did not block
+            self.__notifier.notify()
 
     # =========================================================================
     # Methods defined in asyncio.AbstractEventLoop
@@ -112,27 +139,27 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         # ---- END COPIED FROM BaseEventLoop.run_forever
 
         # Must make queued connection so that it is handled in QEventLoop
-        self._event_notifier_version += 1
-        self._event_notifier = _AsyncSlotEventNotifier()
-        self._event_notifier.asyncioEventAvailable.connect(
-            self._process_asyncio_events, QtCore.Qt.QueuedConnection)
-        self._event_notifier.asyncioEventAvailable.emit(
-            self._event_notifier_version)
+        self.__notifier = AsyncSlotNotifier()
+        self.__notifier.notified.connect(functools.partial(
+            self.__process_asyncio_events, notifier=self.__notifier),
+            QtCore.Qt.QueuedConnection)
+        self.__notifier.notify()  # schedule initial _run_once
 
         try:
             events._set_running_loop(self)
-            self._qt_event_loop = QtCore.QEventLoop()
-            exit_code = self._qt_event_loop.exec()
+            self._selector.set_notifier(self.__notifier)  # noqa
+            self.__qt_event_loop = QtCore.QEventLoop()
+            exit_code = self.__qt_event_loop.exec()
             if exit_code != 0:
                 # propagate exception from _process_asyncio_events
-                assert self._event_processor_error is not None
-                raise self._event_processor_error  # TODO: test this
+                assert self.__run_once_error is not None
+                raise self.__run_once_error  # TODO: test this
         finally:
-            self._event_processor_error = None
-            self._qt_event_loop = None
-            self._event_notifier_version += 1
-            self._event_notifier.asyncioEventAvailable.disconnect()
-            self._event_notifier = None
+            self.__run_once_error = None
+            self.__qt_event_loop = None
+            self._selector.set_notifier(None)  # noqa
+            self.__notifier.notified.disconnect()
+            self.__notifier = None
             # ---- BEGIN COPIED FROM BaseEventLoop.run_forever
             self._stopping = False
             self._thread_id = None
@@ -142,7 +169,18 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
             # ---- END COPIED FROM BaseEventLoop.run_forever
 
     # run_until_complete = BaseEventLoop.run_until_complete
-    # stop = BaseEventLoop.stop
+
+    def stop(self) -> None:
+        # A standalone asyncio event loop can never be stopped while it's
+        # blocked in select(), because stop() must be called from the
+        # event loop's thread.  But when embedded in a Qt event loop,
+        # stop() may be called from a Qt slot when the asyncio loop is
+        # blocked in select().  We treat this as if stop() was called
+        # from call_soon_threadsafe().
+        if self.__blocked_in_select:
+            self._write_to_self()
+        super().stop()
+
     # is_running = BaseEventLoop.is_running
     # is_closed = BaseEventLoop.is_closed
     # close = BaseEventLoop.close
@@ -154,9 +192,23 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
     # -------------------------------------------------------------------------
 
     # _timer_handle_cancelled: see BaseEventLoop
-    # call_soon: see BaseEventLoop
-    # call_later: see BaseEventLoop
-    # call_at: see BaseEventLoop
+
+    def call_soon(self, *args, **kwargs):
+        if self.__blocked_in_select:
+            self._write_to_self()
+        # TODO: implement eager execution if called from run_task().
+        return super().call_soon(*args, **kwargs)
+
+    def call_later(self, *args, **kwargs):
+        if self.__blocked_in_select:
+            self._write_to_self()
+        return super().call_later(*args, **kwargs)
+
+    def call_at(self, *args, **kwargs):
+        if self.__blocked_in_select:
+            self._write_to_self()
+        return super().call_at(*args, **kwargs)
+
     # time: see BaseEventLoop
     # create_future: see BaseEventLoop
 
