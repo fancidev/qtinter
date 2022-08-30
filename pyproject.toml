@@ -28,3 +28,5 @@ PySide6 = ["PySide6"]
 [project.urls]
 "Homepage" = "https://github.com/fancidev/asyncslot"
 "Bug Tracker" = "https://github.com/fancidev/asyncslot/issues"
+
+[tool.setuptools_scm]
