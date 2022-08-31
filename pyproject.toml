@@ -1,23 +1,25 @@
 [build-system]
-requires = ["setuptools>=61.0", "setuptools-scm"]
+requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "example_package_asyncslot"
-authors = [
-    { name="fancidev", email="fancidev@gmail.com" },
-]
+name = "asyncslot"
+authors = [ { name="fancidev", email="fancidev@gmail.com" } ]
 description = "Use asyncio-based library from Python for Qt."
+version = "0.0.1"
 readme = "README.md"
 license = { text="BSD 2-Clause License" }
 requires-python = ">=3.8"
-keywords = ["qt", "asyncio"]
+keywords = ["async", "asyncio", "qt", "signal", "slot"]
 classifiers = [
-    "Programming Language :: Python :: 3",
+    "Development Status :: 1 - Planning",
+    "Environment :: X11 Applications :: Qt",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
     "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
 ]
-dynamic = ["version"]
 
 [project.optional-dependencies]
 PyQt5 = ["PyQt5"]
@@ -28,5 +30,3 @@ PySide6 = ["PySide6"]
 [project.urls]
 "Homepage" = "https://github.com/fancidev/asyncslot"
 "Bug Tracker" = "https://github.com/fancidev/asyncslot/issues"
-
-[tool.setuptools_scm]
