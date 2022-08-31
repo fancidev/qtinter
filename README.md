@@ -187,4 +187,4 @@ scratch.  qasync is a fork of
 
 ## License
 
-See [LICENSE](/LICENSE) (2-clause BSD).
+BSD License.
