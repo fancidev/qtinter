@@ -3,15 +3,17 @@
 import asyncio
 import selectors
 import concurrent.futures
-from typing import Callable, List, Optional, Tuple
-from ._base_events import AsyncSlotBaseEventLoop, AsyncSlotNotifier, AsyncSlotYield
+import weakref
+from typing import List, Optional, Tuple
+from ._base_events import *
 
 
 class AsyncSlotSelector(selectors.BaseSelector):
-    def __init__(self, write_to_self: Callable[[], None]):
+    def __init__(self, selector: selectors.BaseSelector,
+                 write_to_self: weakref.WeakMethod):
         super().__init__()
+        self._selector = selector
         self._write_to_self = write_to_self
-        self._selector = selectors.DefaultSelector()
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
         self._select_future: Optional[concurrent.futures.Future] = None
         self._notifier: Optional[AsyncSlotNotifier] = None
@@ -23,7 +25,11 @@ class AsyncSlotSelector(selectors.BaseSelector):
 
     def _unblock_if_blocked(self):
         if self._select_future is not None and not self._select_future.done():
-            self._write_to_self()
+            write_to_self = self._write_to_self()
+            assert write_to_self is not None, (
+                'AsyncSlotEventLoop is supposed to close AsyncSlotSelector '
+                'before being deleted')
+            write_to_self()
             self._select_future.result()  # waits
 
     def register(self, fileobj, events, data=None):
@@ -96,5 +102,6 @@ class AsyncSlotSelectorEventLoop(AsyncSlotBaseEventLoop,
                                  asyncio.SelectorEventLoop):
 
     def __init__(self):
-        selector = AsyncSlotSelector(self._write_to_self)
+        selector = AsyncSlotSelector(selectors.DefaultSelector(),
+                                     weakref.WeakMethod(self._write_to_self))
         super().__init__(selector)

@@ -13,7 +13,10 @@ async def test():
 def main():
     app = QtCore.QCoreApplication()
     loop = AsyncSlotSelectorEventLoop()
-    loop.run_until_complete(test())
+    try:
+        loop.run_until_complete(test())
+    finally:
+        loop.close()
 
 
 if __name__ == '__main__':

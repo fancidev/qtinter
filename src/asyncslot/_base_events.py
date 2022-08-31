@@ -11,10 +11,12 @@ from typing import List, Optional, Protocol, Tuple
 from PySide6 import QtCore
 
 
+__all__ = ('AsyncSlotYield', 'AsyncSlotNotifier', 'AsyncSlotBaseEventLoop')
+
+
 class AsyncSlotYield(Exception):
-    """ Raised by a custom AsyncSlot selector to indicate that no IO
-    is immediately available and that _run_once should yield to the Qt
-    event loop. """
+    """ Raised by an AsyncSlotSelectable to indicate that no IO is readily
+    available and that _run_once should yield to the Qt event loop. """
     pass
 
 
@@ -25,7 +27,7 @@ class AsyncSlotNotifier(QtCore.QObject):
         self.notified.emit()
 
 
-class AsyncSlotSelectorProtocol(Protocol):
+class AsyncSlotSelectable(Protocol):
     def select(self, timeout: Optional[float] = None) \
             -> List[Tuple[selectors.SelectorKey, int]]:
         """
@@ -33,9 +35,7 @@ class AsyncSlotSelectorProtocol(Protocol):
         immediately.  Otherwise, perform select with the given timeout in
         a separate thread and raise AsyncSlotYield.  When that select
         completes (either due to IO availability or timeout), call notify()
-        on the notifier object.
-
-        set_notifier must have been called before with a not-None argument.
+        on the notifier object set by a previous call to set_notifier().
         """
         pass
 
@@ -44,7 +44,7 @@ class AsyncSlotSelectorProtocol(Protocol):
 
 
 class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
-    def __init__(self, selector: AsyncSlotSelectorProtocol):
+    def __init__(self, selector: AsyncSlotSelectable):
         super().__init__(selector)  # noqa
 
         # If self is running in blocking mode (using a nested QEventLoop),
