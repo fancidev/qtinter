@@ -63,7 +63,7 @@ class AsyncSlotSelector(selectors.BaseSelector):
         # Try select with zero timeout.  If any IO is ready or if the caller
         # does not require IO to be ready, return that.
         event_list = self._selector.select(0)
-        if timeout <= 0 or event_list:
+        if event_list or (timeout is not None and timeout <= 0):
             return event_list
 
         # No IO is ready and caller wants to wait.  select() in a separate

@@ -1,9 +1,11 @@
 """ testwindow.py - simple GUI to test async slot """
 
+import asyncio
 import sys
 import time
 from PySide6 import QtCore, QtWidgets
 from bouncingwidget import BouncingWidget
+from asyncslot import AsyncSlot, AsyncSlotSelectorEventLoop
 
 
 class MyWidget(QtWidgets.QWidget):
@@ -28,17 +30,28 @@ class MyWidget(QtWidgets.QWidget):
     @QtCore.Slot()
     def sync_sleep(self):
         time.sleep(3)
+        QtWidgets.QMessageBox.information(self, 'Test', 'Done')
 
-    @QtCore.Slot()
-    def async_sleep(self):
-        raise NotImplementedError
+    @AsyncSlot()
+    async def async_sleep(self):
+        self._async_button.setEnabled(False)
+        await asyncio.sleep(3)
+        QtWidgets.QMessageBox.information(self, 'Test', 'Done')
+        self._async_button.setEnabled(True)
 
 
-if __name__ == "__main__":
+def main():
     app = QtWidgets.QApplication([])
 
     widget = MyWidget()
     widget.resize(400, 300)
     widget.show()
 
-    sys.exit(app.exec())
+    # sys.exit(app.exec())
+    loop = AsyncSlotSelectorEventLoop()
+    loop.run_forever()
+    loop.close()
+
+
+if __name__ == "__main__":
+    main()
