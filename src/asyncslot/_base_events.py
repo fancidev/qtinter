@@ -69,12 +69,53 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         # propagated except for SystemExit and KeyboardInterrupt.
         self.__run_once_error: Optional[BaseException] = None
 
+        self.__old_agen_hooks = None
+
     # =========================================================================
     # Custom method for AsyncSlot
     # =========================================================================
 
     def run_task(self, coro, *, name=None):
         raise NotImplementedError
+
+    def attach(self) -> None:
+        """Start the asyncio event loop by attaching to a Qt event loop."""
+
+        # ---- BEGIN COPIED FROM BaseEventLoop.run_forever
+        self._check_closed()
+        self._check_running()
+        self._set_coroutine_origin_tracking(self._debug)
+        self._thread_id = threading.get_ident()
+
+        old_agen_hooks = sys.get_asyncgen_hooks()
+        sys.set_asyncgen_hooks(firstiter=self._asyncgen_firstiter_hook,
+                               finalizer=self._asyncgen_finalizer_hook)
+        # ---- END COPIED FROM BaseEventLoop.run_forever
+
+        self.__old_agen_hooks = old_agen_hooks
+        # Must make queued connection so that it is handled in QEventLoop
+        self.__notifier = AsyncSlotNotifier()
+        self.__notifier.notified.connect(functools.partial(
+            self.__process_asyncio_events, notifier=self.__notifier),
+            QtCore.Qt.QueuedConnection)
+        self.__notifier.notify()  # schedule initial _run_once
+        self._selector.set_notifier(self.__notifier)  # noqa
+
+        events._set_running_loop(self)  # TODO: what does this do?
+
+    def detach(self) -> None:
+        old_agen_hooks = self.__old_agen_hooks
+        self.__old_agen_hooks = None
+        self._selector.set_notifier(None)  # noqa
+        self.__notifier.notified.disconnect()
+        self.__notifier = None
+        # ---- BEGIN COPIED FROM BaseEventLoop.run_forever
+        self._stopping = False
+        self._thread_id = None
+        events._set_running_loop(None)
+        self._set_coroutine_origin_tracking(False)
+        sys.set_asyncgen_hooks(*old_agen_hooks)
+        # ---- END COPIED FROM BaseEventLoop.run_forever
 
     def __process_asyncio_events(self, *, notifier: AsyncSlotNotifier):
         """ This slot is connected to the notified signal of self.__notifier,
@@ -127,27 +168,8 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
                                'derived class must be create before running '
                                'AsyncSlotEventLoop')
 
-        # ---- BEGIN COPIED FROM BaseEventLoop.run_forever
-        self._check_closed()
-        self._check_running()
-        self._set_coroutine_origin_tracking(self._debug)
-        self._thread_id = threading.get_ident()
-
-        old_agen_hooks = sys.get_asyncgen_hooks()
-        sys.set_asyncgen_hooks(firstiter=self._asyncgen_firstiter_hook,
-                               finalizer=self._asyncgen_finalizer_hook)
-        # ---- END COPIED FROM BaseEventLoop.run_forever
-
-        # Must make queued connection so that it is handled in QEventLoop
-        self.__notifier = AsyncSlotNotifier()
-        self.__notifier.notified.connect(functools.partial(
-            self.__process_asyncio_events, notifier=self.__notifier),
-            QtCore.Qt.QueuedConnection)
-        self.__notifier.notify()  # schedule initial _run_once
-
+        self.attach()
         try:
-            events._set_running_loop(self)
-            self._selector.set_notifier(self.__notifier)  # noqa
             self.__qt_event_loop = QtCore.QEventLoop()
             exit_code = self.__qt_event_loop.exec()
             if exit_code != 0:
@@ -157,16 +179,7 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         finally:
             self.__run_once_error = None
             self.__qt_event_loop = None
-            self._selector.set_notifier(None)  # noqa
-            self.__notifier.notified.disconnect()
-            self.__notifier = None
-            # ---- BEGIN COPIED FROM BaseEventLoop.run_forever
-            self._stopping = False
-            self._thread_id = None
-            events._set_running_loop(None)
-            self._set_coroutine_origin_tracking(False)
-            sys.set_asyncgen_hooks(*old_agen_hooks)
-            # ---- END COPIED FROM BaseEventLoop.run_forever
+            self.detach()
 
     # run_until_complete = BaseEventLoop.run_until_complete
 

@@ -19,8 +19,9 @@ class AsyncSlotSelector(selectors.BaseSelector):
         self._notifier: Optional[AsyncSlotNotifier] = None
 
     def set_notifier(self, notifier: Optional[AsyncSlotNotifier]) -> None:
-        # TODO: should it be + or self._select_future.done() ?
-        assert self._select_future is None, 'unexpected set_notifier'
+        self._unblock_if_blocked()
+        # # TODO: should it be + or self._select_future.done() ?
+        # assert self._select_future is None, 'unexpected set_notifier'
         self._notifier = notifier
 
     def _unblock_if_blocked(self):
