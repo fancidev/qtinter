@@ -2,10 +2,9 @@
 
 import asyncio
 from PySide6 import QtWidgets
-from asyncslot import AsyncSlot, install_event_loop
+from asyncslot import asyncSlot, AsyncSlotRunner
 
 
-@AsyncSlot()
 async def say_hi():
     await asyncio.sleep(1)
     QtWidgets.QMessageBox.information(None, "Demo", "Hi")
@@ -16,8 +15,8 @@ if __name__ == '__main__':
 
     button = QtWidgets.QPushButton()
     button.setText('Say Hi after one second')
-    button.clicked.connect(say_hi)
+    button.clicked.connect(asyncSlot(say_hi))
     button.show()
 
-    with install_event_loop():
+    with AsyncSlotRunner():
         app.exec()

@@ -3,43 +3,50 @@
 import asyncio
 import functools
 import inspect
-from PySide6.QtCore import Slot
-from ._base_events import *
-from ._selector_events import AsyncSlotSelectorEventLoop
+from typing import Callable, Coroutine, Set
+from ._base_events import AsyncSlotBaseEventLoop
 
 
-__all__ = 'AsyncSlot',
+__all__ = 'asyncSlot',
 
 
-def AsyncSlot(*slot_args, **slot_kwargs):  # noqa
+# Global variable to store strong reference to AsyncSlot tasks so that they
+# don't get garbage collected during execution.
+_running_tasks: Set[asyncio.Task] = set()
 
-    def decorator(fn):
-        if not inspect.iscoroutinefunction(fn):
-            raise TypeError(f'AsyncSlot can only decorate a coroutine '
-                            f'function, but got {fn!r}')
 
-        @Slot(*slot_args, **slot_kwargs)
-        @functools.wraps(fn)
-        def invoke_coroutine_function(*args, **kwargs):
-            try:
-                loop = asyncio.get_running_loop()
-            except RuntimeError:
-                loop = None
-                # # TODO: check (or not) that there's a Qt event loop running
-                # loop = AsyncSlotSelectorEventLoop()
-                # # TODO: close the loop when done
+CoroutineFunction = Callable[[...], Coroutine]
 
-            if loop is None:
-                raise NotImplementedError
 
-            if not isinstance(loop, AsyncSlotBaseEventLoop):
-                raise RuntimeError(f"AsyncSlot is not compatible with the "
-                                   f"running event loop '{loop!r}'")
+def asyncSlot(fn: CoroutineFunction):  # noqa
+    """ Wrap a coroutine function to make it usable as a Qt slot. """
 
-            coro = fn(*args, **kwargs)
-            loop.create_task(coro)
-            # TODO: dangling task instance
+    if not inspect.iscoroutinefunction(fn):
+        raise TypeError('asyncSlot must wrap a coroutine function')
 
-        return invoke_coroutine_function
+    @functools.wraps(fn)
+    def invoke(*args, **kwargs):
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # TODO: log warning
+            raise
 
-    return decorator
+        if not isinstance(loop, AsyncSlotBaseEventLoop):
+            raise RuntimeError(f"asyncSlot is not compatible with the "
+                               f"running event loop '{loop!r}'")
+
+        coro = fn(*args, **kwargs)
+        task = loop.run_task(coro)  # TODO: set name
+        _running_tasks.add(task)
+        task.add_done_callback(_running_tasks.discard)
+
+    # fn may have been decorated with Slot() or pyqtSlot().  "Carry over"
+    # the decoration if so.
+    # TODO: double check the field names
+    if hasattr(fn, '_slots'):  # PySide6
+        invoke._slots = fn._slots  # noqa
+    if hasattr(fn, '__pyqtSignature__'):  # PyQt6
+        invoke.__pyqtSignature__ = fn.__pyqtSignature__
+
+    return invoke

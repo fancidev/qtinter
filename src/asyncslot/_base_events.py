@@ -28,6 +28,8 @@ class AsyncSlotNotifier(QtCore.QObject):
 
 
 class AsyncSlotSelectable(Protocol):
+    # A Selectable must support being called from interleaving code.
+
     def select(self, timeout: Optional[float] = None) \
             -> List[Tuple[selectors.SelectorKey, int]]:
         """
@@ -76,10 +78,11 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
     # =========================================================================
 
     def run_task(self, coro, *, name=None):
-        raise NotImplementedError
+        # TODO: implement eager execution
+        return self.create_task(coro, name=name)
 
-    def attach(self) -> None:
-        """Start the asyncio event loop by attaching to a Qt event loop."""
+    def __enter__(self) -> None:
+        """ Start the logical asyncio event loop. """
 
         # ---- BEGIN COPIED FROM BaseEventLoop.run_forever
         self._check_closed()
@@ -93,22 +96,26 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         # ---- END COPIED FROM BaseEventLoop.run_forever
 
         self.__old_agen_hooks = old_agen_hooks
-        # Must make queued connection so that it is handled in QEventLoop
+
+        # Must make queued connection to avoid calling the handler immediately
         self.__notifier = AsyncSlotNotifier()
         self.__notifier.notified.connect(functools.partial(
             self.__process_asyncio_events, notifier=self.__notifier),
             QtCore.Qt.QueuedConnection)
         self.__notifier.notify()  # schedule initial _run_once
+
         self._selector.set_notifier(self.__notifier)  # noqa
 
         events._set_running_loop(self)  # TODO: what does this do?
 
-    def detach(self) -> None:
+    def __exit__(self, *args) -> None:
+        """ Stop the logical asyncio event loop. """
         old_agen_hooks = self.__old_agen_hooks
         self.__old_agen_hooks = None
-        self._selector.set_notifier(None)  # noqa
-        self.__notifier.notified.disconnect()
-        self.__notifier = None
+        if self.__notifier is not None:
+            self._selector.set_notifier(None)  # noqa
+            self.__notifier.notified.disconnect()
+            self.__notifier = None
         # ---- BEGIN COPIED FROM BaseEventLoop.run_forever
         self._stopping = False
         self._thread_id = None
@@ -144,6 +151,7 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         except AsyncSlotYield:
             self.__blocked_in_select = True
         except BaseException as exc:
+            # TODO: call the exception handler if running in attached mode
             self.__run_once_error = exc
             if self.__qt_event_loop is not None:  # called from run_forever
                 self.__qt_event_loop.exit(1)
@@ -168,18 +176,17 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
                                'derived class must be create before running '
                                'AsyncSlotEventLoop')
 
-        self.attach()
-        try:
-            self.__qt_event_loop = QtCore.QEventLoop()
-            exit_code = self.__qt_event_loop.exec()
-            if exit_code != 0:
-                # propagate exception from _process_asyncio_events
-                assert self.__run_once_error is not None
-                raise self.__run_once_error  # TODO: test this
-        finally:
-            self.__run_once_error = None
-            self.__qt_event_loop = None
-            self.detach()
+        with self:
+            try:
+                self.__qt_event_loop = QtCore.QEventLoop()
+                exit_code = self.__qt_event_loop.exec()
+                if exit_code != 0:
+                    # propagate exception from _process_asyncio_events
+                    assert self.__run_once_error is not None
+                    raise self.__run_once_error  # TODO: test this
+            finally:
+                self.__run_once_error = None
+                self.__qt_event_loop = None
 
     # run_until_complete = BaseEventLoop.run_until_complete
 
