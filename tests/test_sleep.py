@@ -25,12 +25,13 @@ class TestSleep(unittest.TestCase):
         async def entry():
             nonlocal total_time
             t1 = time.time()
-            await asyncio.gather(sleep_for(4, 0.5), sleep_for(8, 0.25))
+            await asyncio.gather(sleep_for(4, 1.0), sleep_for(2, 2.0))
             t2 = time.time()
             total_time = t2 - t1
 
         self.loop.run_until_complete(entry())
-        self.assertTrue(1.8 < total_time < 2.2)
+        self.assertGreater(total_time, 3.5)
+        self.assertLess(total_time, 4.5)
 
 
 if __name__ == '__main__':
