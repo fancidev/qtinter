@@ -7,8 +7,7 @@ import sys
 import threading
 from asyncio import events
 from typing import List, Optional, Protocol, Tuple
-
-from PySide6 import QtCore
+from ._shim import QtCore
 
 
 __all__ = ('AsyncSlotYield', 'AsyncSlotNotifier', 'AsyncSlotBaseEventLoop')
@@ -179,7 +178,10 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         with self:
             try:
                 self.__qt_event_loop = QtCore.QEventLoop()
-                exit_code = self.__qt_event_loop.exec()
+                if hasattr(QtCore.QEventLoop, 'exec'):
+                    exit_code = self.__qt_event_loop.exec()
+                else:
+                    exit_code = self.__qt_event_loop.exec_()
                 if exit_code != 0:
                     # propagate exception from _process_asyncio_events
                     assert self.__run_once_error is not None
