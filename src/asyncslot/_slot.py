@@ -15,7 +15,7 @@ __all__ = 'asyncSlot',
 _running_tasks: Set[asyncio.Task] = set()
 
 
-CoroutineFunction = Callable[[...], Coroutine]
+CoroutineFunction = Callable[..., Coroutine]
 
 
 def asyncSlot(fn: CoroutineFunction):  # noqa
