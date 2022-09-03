@@ -2,12 +2,17 @@
 
 import asyncio
 import sys
-from typing import Callable
+from typing import Callable, Optional
 
+from ._base_events import *
 from ._selector_events import *
 
 
-__all__ = ('AsyncSlotDefaultEventLoop', 'AsyncSlotRunner', )
+__all__ = (
+    'AsyncSlotDefaultEventLoop',
+    'AsyncSlotDefaultEventLoopPolicy',
+    'AsyncSlotRunner',
+)
 
 
 # Adapted from asyncio.runners
@@ -48,3 +53,4 @@ if sys.platform == 'win32':
     raise NotImplementedError
 else:
     AsyncSlotDefaultEventLoop = AsyncSlotSelectorEventLoop
+    AsyncSlotDefaultEventLoopPolicy = AsyncSlotSelectorEventLoopPolicy

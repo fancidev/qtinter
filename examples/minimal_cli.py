@@ -1,6 +1,6 @@
 import asyncio
 from PySide6 import QtCore
-from asyncslot import AsyncSlotSelectorEventLoop
+from asyncslot import AsyncSlotDefaultEventLoopPolicy
 
 
 async def test():
@@ -12,11 +12,8 @@ async def test():
 
 def main():
     app = QtCore.QCoreApplication()
-    loop = AsyncSlotSelectorEventLoop()
-    try:
-        loop.run_until_complete(test())
-    finally:
-        loop.close()
+    asyncio.set_event_loop_policy(AsyncSlotDefaultEventLoopPolicy())
+    asyncio.run(test())
 
 
 if __name__ == '__main__':

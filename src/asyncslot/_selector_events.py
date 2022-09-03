@@ -8,6 +8,9 @@ from typing import List, Optional, Tuple
 from ._base_events import *
 
 
+__all__ = 'AsyncSlotSelectorEventLoop', 'AsyncSlotSelectorEventLoopPolicy',
+
+
 class AsyncSlotSelector(selectors.BaseSelector):
     def __init__(self, selector: selectors.BaseSelector,
                  write_to_self: weakref.WeakMethod):
@@ -106,3 +109,7 @@ class AsyncSlotSelectorEventLoop(AsyncSlotBaseEventLoop,
         selector = AsyncSlotSelector(selectors.DefaultSelector(),
                                      weakref.WeakMethod(self._write_to_self))
         super().__init__(selector)
+
+
+class AsyncSlotSelectorEventLoopPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
+    _loop_factory = AsyncSlotSelectorEventLoop
