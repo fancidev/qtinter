@@ -72,13 +72,23 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
 
         self.__old_agen_hooks = None
 
+        # If __call_soon_eagerly is True, _call_soon does not schedule the
+        # callback but instead invoke it immediately.  This flag is used by
+        # run_task to eagerly execute the first step of a task.
+        self.__call_soon_eagerly = False
+
     # =========================================================================
     # Custom method for AsyncSlot
     # =========================================================================
 
     def run_task(self, coro, *, name=None):
-        # TODO: implement eager execution
-        return self.create_task(coro, name=name)
+        try:
+            self.__call_soon_eagerly = True
+            return self.create_task(coro, name=name)
+        finally:
+            # This flag is normally reset by _call_soon, but also reset here
+            # in case _call_soon is not called due to exception.
+            self.__call_soon_eagerly = False
 
     def __enter__(self) -> None:
         """ Start the logical asyncio event loop. """
@@ -219,7 +229,25 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         if self.__blocked_in_select:
             self._write_to_self()
         # TODO: implement eager execution if called from run_task().
-        return super().call_soon(*args, **kwargs)
+        handle = super().call_soon(*args, **kwargs)
+        if self.__call_soon_eagerly:
+            self.__call_soon_eagerly = False
+            # asyncio does not support recursive task execution, so 'suspend'
+            # the current task before running the child task and 'resume' it
+            # after the child task completes one step.
+            current_task = asyncio.tasks.current_task(self)
+            if current_task is not None:
+                asyncio.tasks._leave_task(self, current_task)
+            try:
+                # only propagates SystemExit and KeyboardInterrupt
+                handle._run()
+            finally:
+                # Cancel the handle because it is already in the _ready queue
+                handle.cancel()
+                # Resume the parent task if any.
+                if current_task is not None:
+                    asyncio.tasks._enter_task(self, current_task)
+        return handle
 
     def call_later(self, *args, **kwargs):
         if self.__blocked_in_select:
