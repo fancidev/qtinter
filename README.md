@@ -8,32 +8,34 @@ SPECIFICATION BUT IS NOT IMPLEMENTED!**
 
 ## Synopsis
 
-This module provides the `AsyncSlot` decorator, which decorates a coroutine 
-function to make it usable as a Qt slot.
+To use asyncio-based libraries in Python for Qt, wrap `app.exec()` inside 
+`AsyncSlotRunner`, and connect signal to a coroutine function using 
+`asyncSlot`.
 
-Example code snippet:
+A minimal working GUI example (taken from `examples/minimal_gui.py`):
 
 ```Python
 import asyncio
-import PySide6
-from asyncslot import AsyncSlot
+from PySide6 import QtWidgets
+from asyncslot import asyncSlot, AsyncSlotRunner
 
-# lines omitted
-
-@AsyncSlot()
-async def say_something():
-    print('Hi')
+async def say_hi():
     await asyncio.sleep(1)
-    print('Bye')
+    QtWidgets.QMessageBox.information(None, "Demo", "Hi")
 
-# lines omitted
-    
-some_button.clicked.connect(say_something)
+app = QtWidgets.QApplication()
+button = QtWidgets.QPushButton()
+button.setText('Say Hi after one second')
+button.clicked.connect(asyncSlot(say_hi))  # <-- instead of connect(say_hi)
+button.show()
+
+with AsyncSlotRunner():  # <-- wrap in Runner
+    app.exec()
 ```
 
 ## Requirements
 
-`asyncslot` runs with Python 3.8 and PySide6 under MacOS.  Additional Python 
+`asyncslot` runs with Python 3.9 and PySide6 under MacOS.  Additional Python 
 version, Qt binding and OS may be supported in the future.
 
 ## Installation
@@ -50,75 +52,79 @@ pip install PySide6
 
 ## Details
 
-`asyncslot` implements the asyncio `AbstractEventLoop` interface "hosted" 
-within a Qt event loop, so that Python libraries written for asyncio can be 
-used with a Python for Qt application.
+`asyncslot` embeds a logical asyncio event loop (`AsyncSlotEventLoop`) 
+within a physical Qt event loop (`QEventLoop`), so that Python libraries 
+written for asyncio can be used by a Python for Qt application.
 
 ### Running Modes
 
-A coroutine may be launched in an `AsyncSlotEventLoop` in one of two modes: 
-_non-blocking mode_ or _blocking mode_.
+An `AsyncSlotEventLoop` may be run in _attached mode_ or _nested mode_.
 
-Call `AsyncSlotEventLoop.run_task` to start a coroutine in _non-blocking 
-mode_.  `run_task` executes the coroutine until the first suspension 
-point and schedules the remainder in the running Qt event loop for later.  
-An `asyncio.Task` object representing the scheduled task is returned to
-the caller.  This is the primary workflow for `asyncslot` as it
-integrates asyncio-based coroutines seamlessly into an existing Qt app.
+Use `AsyncSlotEventLoop` as a context manager to run it in attached mode.  
+This mode only installs the logical asyncio event loop; the physical Qt 
+event loop must still be run as usual, e.g. by `app.exec()`.  This is the 
+preferred workflow as it integrates seamlessly with an existing Qt app.
 
-Call `asyncio.run` (or `AsyncSlotEventLoop.run_until_complete`) to run a 
-coroutine in _blocking mode_.  This starts a (possibly nested) `QEventLoop` 
-and blocks until it exits (when the coroutine completes).  This is the 
-standard asyncio workflow and is convenient for unit testing, but it's not 
-suitable for integration with an existing Qt app because nested event loops
-are not recommended by Qt.
+Call `AsyncSlotEventLoop.run_forever` to run it in nested mode.  This starts 
+a (possibly nested) Qt event loop using `QEventLoop.exec()` and waits until 
+it exits.  This is the standard asyncio workflow and is convenient for 
+unit testing, but it is not recommended for integration with an existing Qt 
+app as nested event loops are advised against by Qt.
 
 For either mode, a (global) `QCoreApplication` (or `QApplication` /
-`QGuiApplication`) instance must exist before running the coroutine, as 
-required by Qt.
+`QGuiApplication`) instance must exist before running any coroutine,
+as is required by Qt.
 
-### The `AsyncSlot` Decorator
+### Clean-up
 
-`asyncslot.AsyncSlot` decorates a coroutine function (a function starting 
-with `async def`) to make it usable as a Qt slot.  The decorator basically 
-calls `AsyncSlotEventLoop.run_task` to execute the coroutine.
+To properly release the resources of the event loop after it stops, you 
+should call `shutdown_asyncgens` and `shutdown_default_executor`, followed
+by `close`.  The first two methods are actually coroutines and therefore
+must be run from within the event loop.
 
-A coroutine function, whether decorated with `QtCore.Slot` or not, cannot be 
-used in Qt's signal-slot mechanism because calling it returns a coroutine 
-object instead of performing real work.  In addition, an asyncio-compatible 
-event loop needs to be running to execute an asyncio-based coroutine.
+For attached mode, use the `asyncslot.AsyncSlotRunner` context manager, 
+which handles clean-up automatically.  Note, however, that it actually runs 
+the first two coroutines in nested mode, i.e. a Qt event loop is started.  
+Your code should be prepared for this.
 
-The `asyncslot.AsyncSlot` decorator fills this gap by creating an 
-`AsyncSlotEventLoop` on the fly (if one is not already running) and calls 
-its `run_task` method with the coroutine object.  The body of the coroutine 
-before the first suspension point is executed immediately and the remainder 
-scheduled for later execution.
+For nested mode, `asyncio.run()` handles clean-up automatically.
 
-This works nicely with a common scenario where some work is expected to be 
-performed immediately in response to a signal.  For example, consider an app 
-where a user clicks a button to send a purchase order.  To prevent an 
-eager user from sending duplicate orders by repeatedly clicking the 
-button, the `clicked` handler disablss the button on entry.  For this to 
-work correctly the code before the first suspension point must be executed 
-synchronously.
 
-A coroutine function decorated with `AsyncSlot` can be awaited from another 
-coroutine as if it were not decorated, because `AsyncSlot()()` returns a 
-future.  Awaiting a decorated coroutine is expected to behave the same way 
-as awaiting a plain coroutine; please report an issue if it does not.
+### The `asyncSlot` Adaptor
+
+`asyncslot.asyncSlot` wraps a coroutine function (one defined by `async def`)
+to make it usable as a Qt slot.  Without wrapping, a coroutine function
+(whether decorated with `QtCore.Slot`/`PyQt6.pyqtSlot` or not)
+generally cannot be used as a slot because calling it merely returns a 
+coroutine object instead of performing real work.
+
+Under the hood, `asyncslot.asyncSlot` calls `AsyncSlotEventLoop.run_task`,
+a custom method which creates a Task wrapping the coroutine and executes
+it immediately until the first suspension point.
+
+This is designed to work with a common pattern where some work has to be
+performed immediately in response to a signal.  For example, the `clicked`
+handler of a "Send Order" button normally disables the button on entry
+before actually sending the order over network, to avoid sending duplicate
+orders.  For this to work correctly, the code until the first suspension 
+point must be executed synchronously.
+
+An `AsyncSlotEventLoop` must be running when a coroutine wrapped by 
+`asyncSlot` is called, or a `RuntimeError` will be raised.
+
+It is not recommended to decorate a coroutine function with `asyncSlot`
+as that would make an `async def` function into a normal function, which
+is confusing.
 
 
 ### Cancellation
 
-To cancel the running coroutine from within itself, raise 
+To cancel a running coroutine from within itself, raise 
 `asyncio.CancelledError`.
 
-To retrieve the task object from within the running coroutine so that it may 
-be stored somewhere and cancelled externally later, call
-`asyncio.current_task()` from within the running coroutine.
-
-To retrieve the task object from outside the coroutine, use the return value 
-of `run_task` (or `AsyncSlot`).
+To retrieve the `Task` object from within the running coroutine and store
+it somewhere to be used later, call `asyncio.current_task()` from within
+the running coroutine.
 
 
 ## Implementation Notes
@@ -129,7 +135,7 @@ that all calls (other than `call_soon_threadsafe`) are still made from the
 same thread.  This frees us from multi-threading complexities.
 
 What has changed, however, is that in a standalone asyncio event loop, no 
-code can be run when the schedular (specifically, `_run_once`) is blocked in 
+code can run when the scheduler (specifically, `_run_once`) is blocked in 
 `select()`, while in an embedded asyncio event loop, a `select()` call 
 that would otherwise block yields, allowing any code to run while the loop 
 is "logically" blocked in `select`.
@@ -143,37 +149,37 @@ changes if `select` yields and `stop` is called -- the event loop wait not
 wake up until some IO is available.
 
 We refer to code that runs (from the Qt event loop) after `select` yields 
-and before `_run_once` is called again as _foreign code_.  We must examine 
-and handle the implications of such foreign code.
+and before `_run_once` is called again as _injected code_.  We must 
+examine and handle the implications of such code.
 
-We do this by fitting foreign code execution into the standalone asyncio
-event loop model.  Specifically, we treat foreign code as if they were 
+We do this by fitting injected code execution into the standalone asyncio
+event loop model.  Specifically, we treat injected code as if they were 
 scheduled with `call_soon_threadsafe`, which wakes up the selector and
 executes the code.  _With_ some loss of generality, we assume no IO event
 nor timed callback is ready at the exact same time, so that the scheduler 
 will be put back into blocking `select` immediately after the code finishes 
 running (unless the code calls `stop`).  This simplification is acceptable
-because the precise timing of multiple IO or timer events should never be 
+because the precise timing of multiple IO or timer events should not be 
 relied upon.
 
 In practice, we cannot actually wake up the asyncio scheduler every time 
-foreign code is executed, firstly because there's no way to hook to every Qt 
-callback and secondly because doing so would be highly inefficient. 
-Instead, we _assume_ that foreign code that does not access the event loop
+injected code is executed, firstly because there's no way to detect their
+execution and secondly because doing so would be highly inefficient.
+Instead, we _assume_ that injected code which does not access the event loop
 object or its selector is benign enough to be treated as _independent_
 from the asyncio event loop ecosystem and may be safely ignored.
 
-This leaves us to just consider foreign code that accesses the event loop 
+This leaves us to just consider injected code that accesses the event loop 
 object or its selector and examine its impact on scheduling.  The scheduler
 depends on three things:  the `_ready` queue for "soon" callbacks, the 
 `_scheduled` queue for timer callbacks, and `_selector` for IO events.
-If the foreign code modifies any of these things, it needs to be handled.
+If the injected code touches any of these things, it needs to be handled.
 
 While the public interface of `AbstractEventLoop` has numerous methods, the 
 methods that modify those three things boil down to `call_soon`, `call_at`, 
 `call_later`, (arguably) `stop`, and anything that modifies the selector 
 (proactor).  When any of these happens, we physically or logically wake up 
-the selector.
+the selector to simulate a `call_soon_threadsafe` call.
 
 
 ## History
