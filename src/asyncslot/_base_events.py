@@ -6,7 +6,7 @@ import selectors
 import sys
 import threading
 from asyncio import events
-from typing import List, Optional, Protocol, Tuple
+from typing import List, Optional, Tuple
 from ._shim import QtCore
 
 
@@ -26,7 +26,7 @@ class AsyncSlotNotifier(QtCore.QObject):
         self.notified.emit()
 
 
-class AsyncSlotSelectable(Protocol):
+class AsyncSlotSelectable:  # protocol
     # A Selectable must support being called from interleaving code.
 
     def select(self, timeout: Optional[float] = None) \
@@ -38,10 +38,10 @@ class AsyncSlotSelectable(Protocol):
         completes (either due to IO availability or timeout), call notify()
         on the notifier object set by a previous call to set_notifier().
         """
-        pass
+        raise NotImplementedError
 
     def set_notifier(self, notifier: Optional[AsyncSlotNotifier]) -> None:
-        pass
+        raise NotImplementedError
 
 
 class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
