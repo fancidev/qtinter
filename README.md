@@ -1,5 +1,7 @@
 # asyncslot
 
+[![Tests](https://github.com/fancidev/asyncslot/actions/workflows/ci-tests.yml/badge.svg)](https://github.com/fancidev/asyncslot/actions/workflows/ci-tests.yml)
+
 `asyncslot` is a Python module that allows you to use asyncio-based 
 libraries in Python for Qt.
 
