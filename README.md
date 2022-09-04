@@ -37,8 +37,12 @@ with AsyncSlotRunner():  # <-- wrap in Runner
 
 ## Requirements
 
-`asyncslot` runs with Python 3.9 and PySide6 under MacOS.  Additional Python 
-version, Qt binding and OS may be supported in the future.
+`asyncslot` supports the following:
+
+- Python version: 3.8 or later
+- Qt binding: PyQt5, PyQt6, PySide2, PySide6
+- Operating system: Linux, MacOS (Windows support is still under development)
+
 
 ## Installation
 
@@ -49,8 +53,16 @@ pip install asyncslot
 The above does _not_ install the Qt bindings.  To install Qt bindings, you may
 
 ```commandline
-pip install PySide6
+pip install PyQt6
 ```
+
+Alternatively, you may install `asyncslot` together with your Qt binding of 
+choice, for example
+
+```commandline
+pip install asyncslot[PyQt6]
+```
+
 
 ## Details
 
