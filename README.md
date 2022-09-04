@@ -39,7 +39,7 @@ with AsyncSlotRunner():  # <-- wrap in Runner
 
 `asyncslot` supports the following:
 
-- Python version: 3.8 or later
+- Python version: 3.8, 3.9, 3.10
 - Qt binding: PyQt5, PyQt6, PySide2, PySide6
 - Operating system: Linux, MacOS (Windows support is still under development)
 
