@@ -84,7 +84,10 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
     def run_task(self, coro, *, name=None):
         try:
             self.__call_soon_eagerly = True
-            return self.create_task(coro, name=name)
+            if name is None:
+                return self.create_task(coro)
+            else:
+                return self.create_task(coro, name=name)
         finally:
             # This flag is normally reset by _call_soon, but also reset here
             # in case _call_soon is not called due to exception.
