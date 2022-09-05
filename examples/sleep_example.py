@@ -1,11 +1,22 @@
-""" testwindow.py - simple GUI to test async slot """
+""" sleep_example.py - simple GUI to test async slot """
 
 import asyncio
 import sys
 import time
-from PySide6 import QtCore, QtWidgets
+from PyQt6 import QtWidgets
 from bouncingwidget import BouncingWidget
-from asyncslot import AsyncSlot, AsyncSlotSelectorEventLoop
+from asyncslot import asyncSlot, AsyncSlotRunner
+import traceback
+
+
+def wrap(fn):
+    def call(*args, **kwargs):
+        try:
+            fn(*args, **kwargs)
+        except BaseException as exc:
+            print(traceback.format_exc(), file=sys.stderr)
+            raise
+    return call
 
 
 class MyWidget(QtWidgets.QWidget):
@@ -25,15 +36,13 @@ class MyWidget(QtWidgets.QWidget):
         self._layout.addLayout(self._button_group)
 
         self._sync_button.clicked.connect(self.sync_sleep)
-        self._async_button.clicked.connect(self.async_sleep)
+        self._async_button.clicked.connect(asyncSlot(self.async_sleep))
 
-    @QtCore.Slot()
     def sync_sleep(self):
         time.sleep(3)
         QtWidgets.QMessageBox.information(self, 'Test', 'Done')
 
-    @AsyncSlot()
-    async def async_sleep(self):
+    async def async_sleep(self, checked):
         self._async_button.setEnabled(False)
         await asyncio.sleep(3)
         QtWidgets.QMessageBox.information(self, 'Test', 'Done')
@@ -47,10 +56,8 @@ def main():
     widget.resize(400, 300)
     widget.show()
 
-    # sys.exit(app.exec())
-    loop = AsyncSlotSelectorEventLoop()
-    loop.run_forever()
-    loop.close()
+    with AsyncSlotRunner():
+        sys.exit(app.exec())
 
 
 if __name__ == "__main__":

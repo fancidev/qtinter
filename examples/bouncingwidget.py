@@ -1,14 +1,12 @@
 """ bouncingwidget.py - Qt widget that displays a bouncing ball """
 
-from PySide6.QtCore import Qt, QTimerEvent
-from PySide6.QtGui import QPaintEvent, QPainter, QBrush
-from PySide6.QtWidgets import QWidget
+from PyQt6 import QtCore, QtWidgets, QtGui
 
 
 __all__ = ("BouncingWidget", )
 
 
-class BouncingWidget(QWidget):
+class BouncingWidget(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
         self._x = 0
@@ -19,7 +17,7 @@ class BouncingWidget(QWidget):
         self.setMinimumSize(self._d * 2, self._d * 2)
         self.startTimer(50)
 
-    def timerEvent(self, event: QTimerEvent) -> None:
+    def timerEvent(self, event: QtCore.QTimerEvent) -> None:
         w = self.width()
         h = self.height()
         self._x += self._vx
@@ -38,10 +36,10 @@ class BouncingWidget(QWidget):
             self._vy = -self._vy
         self.update()
 
-    def paintEvent(self, event: QPaintEvent) -> None:
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
+    def paintEvent(self, event: QtGui.QPaintEvent) -> None:
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
         painter.drawRect(0, 0, self.width(), self.height())
-        brush = QBrush(Qt.black)
+        brush = QtGui.QBrush(QtCore.Qt.GlobalColor.black)
         painter.setBrush(brush)
         painter.drawEllipse(self._x, self._y, self._d, self._d)
