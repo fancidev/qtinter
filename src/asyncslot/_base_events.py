@@ -5,6 +5,7 @@ import functools
 import selectors
 import sys
 import threading
+import traceback
 from asyncio import events
 from typing import List, Optional, Tuple
 from ._shim import QtCore
@@ -196,9 +197,17 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
                 else:
                     exit_code = self.__qt_event_loop.exec_()
                 if exit_code != 0:
-                    # propagate exception from _process_asyncio_events
-                    assert self.__run_once_error is not None
-                    raise self.__run_once_error  # TODO: test this
+                    # Propagate exception from _process_asyncio_events if
+                    # one is set.  The exception is not set if the Qt loop
+                    # is terminated by e.g. QCoreApplication.exit().
+                    if self.__run_once_error is not None:
+                        raise self.__run_once_error  # TODO: test this
+                    else:
+                        raise RuntimeError(
+                            f"Qt event loop exited with code '{exit_code}'")
+            except BaseException:
+                print(traceback.format_exc(), file=sys.stderr)
+                raise
             finally:
                 self.__run_once_error = None
                 self.__qt_event_loop = None
