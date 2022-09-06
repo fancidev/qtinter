@@ -41,8 +41,11 @@ class AsyncSlotRunner:
         loop = self._loop
         try:
             asyncio.runners._cancel_all_tasks(loop)
-            loop.run_until_complete(loop.shutdown_asyncgens())
-            loop.run_until_complete(loop.shutdown_default_executor())
+            # TODO: run the following two steps in native asyncio event loop
+            # TODO: because a Qt event loop can no longer be started after
+            # TODO: QCoreApplication.exit() is called.
+            # loop.run_until_complete(loop.shutdown_asyncgens())
+            # loop.run_until_complete(loop.shutdown_default_executor())
         finally:
             asyncio.events.set_event_loop(None)
             loop.close()
