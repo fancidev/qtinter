@@ -23,4 +23,7 @@ if __name__ == '__main__':
     timer.start()
 
     with AsyncSlotRunner():
-        app.exec()
+        if hasattr(app, 'exec'):
+            app.exec()
+        else:
+            app.exec_()
