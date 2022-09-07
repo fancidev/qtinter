@@ -3,6 +3,7 @@
 import asyncio
 import selectors
 import concurrent.futures
+import threading
 import weakref
 from typing import List, Optional, Tuple
 from ._base_events import *
@@ -19,16 +20,15 @@ class AsyncSlotSelector(selectors.BaseSelector):
         self._write_to_self = write_to_self
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
         self._select_future: Optional[concurrent.futures.Future] = None
+        self._select_done = threading.Event()
         self._notifier: Optional[AsyncSlotNotifier] = None
 
     def set_notifier(self, notifier: Optional[AsyncSlotNotifier]) -> None:
         self._unblock_if_blocked()
-        # # TODO: should it be + or self._select_future.done() ?
-        # assert self._select_future is None, 'unexpected set_notifier'
         self._notifier = notifier
 
     def _unblock_if_blocked(self):
-        if self._select_future is not None and not self._select_future.done():
+        if self._select_future is not None and not self._select_done.is_set():
             write_to_self = self._write_to_self()
             assert write_to_self is not None, (
                 'AsyncSlotEventLoop is supposed to close AsyncSlotSelector '
@@ -58,10 +58,11 @@ class AsyncSlotSelector(selectors.BaseSelector):
             # execute.  That this method is called again means _run_once is
             # run again, which can only happen if we asked it to by emitting
             # the notified signal of __notifier.
-            assert self._select_future.done(), 'unexpected select'
+            assert self._select_done.is_set(), 'unexpected select'
             try:
                 return self._select_future.result()
             finally:
+                self._select_done.clear()
                 self._select_future = None
 
         # Try select with zero timeout.  If any IO is ready or if the caller
@@ -82,6 +83,7 @@ class AsyncSlotSelector(selectors.BaseSelector):
         try:
             return self._selector.select(timeout)
         finally:
+            self._select_done.set()
             self._notifier.notify()
 
     def close(self) -> None:
