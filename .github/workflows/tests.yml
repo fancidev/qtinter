@@ -14,6 +14,7 @@ jobs:
         exclude:
           - qt-binding: PySide6
             python-version: '3.11.0-rc.1'
+    timeout-minutes: 5
 
     steps:
       - name: Checkout
