@@ -34,8 +34,8 @@ jobs:
         env:
           TEST_QT_MODULE: ${{ matrix.qt-binding }}
           PYTHONPATH: src
-#      - name: Run Integration Tests
-#        run: python tests/test_clicked.py
-#        env:
-#          TEST_QT_MODULE: ${{ matrix.qt-binding }}
-#          PYTHONPATH: src
+      - name: Run GUI Tests
+        run: python tests/gui_test_clicked.py
+        env:
+          TEST_QT_MODULE: ${{ matrix.qt-binding }}
+          PYTHONPATH: src

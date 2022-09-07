@@ -1,4 +1,4 @@
-""" test_clicked.py - test asyncSlot with QAbstractButton """
+""" gui_test_clicked.py - test asyncSlot with QAbstractButton """
 
 import asyncio
 from shim import QtCore, QtWidgets
