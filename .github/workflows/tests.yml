@@ -26,7 +26,7 @@ jobs:
           architecture: x64
       - name: Install Qt Dependencies
         if: ${{ matrix.platform == 'ubuntu-latest' }}
-        run: sudo apt-get install libgl1-mesa-dev
+        run: sudo apt-get install libx11-xcb-dev libglu1-mesa-dev
       - name: Install Qt Binding
         run: pip install ${{ matrix.qt-binding }}
       - name: Run Unit Tests
@@ -35,7 +35,7 @@ jobs:
           TEST_QT_MODULE: ${{ matrix.qt-binding }}
           PYTHONPATH: src
       - name: Run GUI Tests
-        if: ${{ matrix.platform != 'ubuntu-latest' }}
+        # if: ${{ matrix.platform != 'ubuntu-latest' }}
         run: python tests/gui_test_clicked.py
         env:
           TEST_QT_MODULE: ${{ matrix.qt-binding }}
