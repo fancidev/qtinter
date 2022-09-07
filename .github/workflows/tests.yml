@@ -35,6 +35,7 @@ jobs:
           TEST_QT_MODULE: ${{ matrix.qt-binding }}
           PYTHONPATH: src
       - name: Run GUI Tests
+        if: ${{ matrix.platform != 'ubuntu-latest' }}
         run: python tests/gui_test_clicked.py
         env:
           TEST_QT_MODULE: ${{ matrix.qt-binding }}
