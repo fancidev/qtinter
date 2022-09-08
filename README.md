@@ -1,5 +1,6 @@
 # asyncslot
 
+[![codecov](https://codecov.io/gh/fancidev/asyncslot/branch/master/graph/badge.svg?token=JZ5ON6CHKA)](https://codecov.io/gh/fancidev/asyncslot)
 [![tests](https://github.com/fancidev/asyncslot/actions/workflows/tests.yml/badge.svg)](https://github.com/fancidev/asyncslot/actions/workflows/tests.yml)
 
 `asyncslot` is a Python module that allows you to use asyncio-based 
