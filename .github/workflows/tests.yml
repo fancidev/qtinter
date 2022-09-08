@@ -24,21 +24,31 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           architecture: x64
-      - name: Install Qt Dependencies
+      - name: Install Qt dependencies
         if: ${{ matrix.platform == 'ubuntu-latest' }}
         run: sudo apt-get install libgl1-mesa-dev
         # run: sudo apt-get install libx11-xcb-dev libglu1-mesa-dev
         # run: sudo apt-get install '^libxcb.*-dev' libx11-xcb-dev libglu1-mesa-dev libxrender-dev libxi-dev libxkbcommon-dev libxkbcommon-x11-dev
-      - name: Install Qt Binding
+      - name: Install Qt binding
         run: pip install ${{ matrix.qt-binding }}
-      - name: Run Unit Tests
-        run: python -m unittest discover -s tests
+      - name: Install Python packages
+        run: pip install coverage
+      - name: Run unit tests
+        run: coverage run --source=src -m unittest discover -s tests
         env:
           TEST_QT_MODULE: ${{ matrix.qt-binding }}
           PYTHONPATH: src
-      - name: Run GUI Tests
+      - name: Run GUI tests
         if: ${{ matrix.platform != 'ubuntu-latest' }}
-        run: python tests/gui_test_clicked.py
+        run: coverage run --source=src tests/gui_test_clicked.py
         env:
           TEST_QT_MODULE: ${{ matrix.qt-binding }}
           PYTHONPATH: src
+      - name: Generate coverage report
+        run: coverage lcov
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage.lcov
+          fail_ci_if_error: true
+          verbose: true
