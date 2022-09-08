@@ -60,9 +60,8 @@ def asyncSlot(fn: CoroutineFunction):  # noqa
 
     @functools.wraps(fn)
     def asyncSlotWrapper(*args):
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
+        loop = asyncio.events._get_running_loop()
+        if loop is None:
             raise RuntimeError('cannot call asyncSlot without a running loop')
 
         if not isinstance(loop, AsyncSlotBaseEventLoop):
