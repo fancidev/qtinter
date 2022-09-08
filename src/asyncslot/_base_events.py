@@ -175,6 +175,28 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
             self.__notifier.notify()
 
     # =========================================================================
+    # Compatibility with older Python
+    # =========================================================================
+
+    if sys.version_info < (3, 6):
+        raise RuntimeError('asyncslot requires Python 3.6 or higher')
+
+    elif sys.version_info < (3, 7):
+        _set_coroutine_origin_tracking = \
+            asyncio.BaseEventLoop._set_coroutine_wrapper
+
+        def _check_running(self):
+            if self.is_running():
+                raise RuntimeError('This event loop is already running')
+            if events._get_running_loop() is not None:
+                raise RuntimeError(
+                    'Cannot run the event loop while another loop is running')
+
+    elif sys.version_info < (3, 8):
+        _check_running = asyncio.BaseEventLoop._check_runnung
+
+
+    # =========================================================================
     # Methods defined in asyncio.AbstractEventLoop
     # =========================================================================
 
