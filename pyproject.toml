@@ -6,12 +6,12 @@ build-backend = "setuptools.build_meta"
 name = "asyncslot"
 authors = [ { name="fancidev", email="fancidev@gmail.com" } ]
 description = "Use asyncio-based library from Python for Qt."
-version = "0.0.1"
+version = "0.1.0"
 readme = "README.md"
 requires-python = ">=3.7"
 keywords = ["asyncio", "coroutine", "qt", "signal", "slot"]
 classifiers = [
-    "Development Status :: 1 - Planning",
+    "Development Status :: 2 - Pre-Alpha",
     "Environment :: X11 Applications :: Qt",
     "Framework :: AsyncIO",
     "Intended Audience :: Developers",
