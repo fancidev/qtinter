@@ -53,7 +53,11 @@ class AsyncSlotRunner:
 
 
 if sys.platform == 'win32':
-    raise NotImplementedError
+    from ._proactor_events import *
+    __all__ += ('AsyncSlotProactorEventLoop',
+                'AsyncSlotProactorEventLoopPolicy')
+    AsyncSlotDefaultEventLoop = AsyncSlotProactorEventLoop
+    AsyncSlotDefaultEventLoopPolicy = AsyncSlotProactorEventLoopPolicy
 else:
     AsyncSlotDefaultEventLoop = AsyncSlotSelectorEventLoop
     AsyncSlotDefaultEventLoopPolicy = AsyncSlotSelectorEventLoopPolicy
