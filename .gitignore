@@ -1,5 +1,6 @@
 .*
 *.egg-info/
 __pycache__/
-dist/
-extras/
+/coverage.*
+/dist/
+/extras/
