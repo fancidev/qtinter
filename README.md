@@ -42,7 +42,7 @@ with AsyncSlotRunner():  # <-- wrap in Runner
 
 - Python version: 3.7 or higher
 - Qt binding: PyQt5, PyQt6, PySide2, PySide6
-- Operating system: Linux, MacOS (Windows support is still under development)
+- Operating system: Linux, MacOS, Windows
 
 
 ## Installation
