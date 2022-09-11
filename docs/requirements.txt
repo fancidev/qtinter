@@ -1,0 +1,2 @@
+# The following packages are required to build the documentation.
+sphinx
