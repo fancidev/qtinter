@@ -118,7 +118,7 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         self.__notifier = AsyncSlotNotifier()
         self.__notifier.notified.connect(functools.partial(
             self.__process_asyncio_events, notifier=self.__notifier),
-            QtCore.Qt.QueuedConnection)
+            QtCore.Qt.ConnectionType.QueuedConnection)
         self.__notifier.notify()  # schedule initial _run_once
 
         self._selector.set_notifier(self.__notifier)  # noqa

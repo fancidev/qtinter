@@ -9,12 +9,10 @@ __all__ = 'QtCore',
 if 'PyQt5' in sys.modules:
     from PyQt5 import QtCore
     QtCore.Signal = QtCore.pyqtSignal
-    QtCore.Qt.QueuedConnection = QtCore.Qt.ConnectionType.QueuedConnection
 
 elif 'PyQt6' in sys.modules:
     from PyQt6 import QtCore
     QtCore.Signal = QtCore.pyqtSignal
-    QtCore.Qt.QueuedConnection = QtCore.Qt.ConnectionType.QueuedConnection
 
 elif 'PySide2' in sys.modules:
     from PySide2 import QtCore
