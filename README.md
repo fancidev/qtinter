@@ -1,7 +1,8 @@
 # asyncslot
 
-[![codecov](https://codecov.io/gh/fancidev/asyncslot/branch/master/graph/badge.svg?token=JZ5ON6CHKA)](https://codecov.io/gh/fancidev/asyncslot)
+[![build](https://github.com/fancidev/asyncslot/actions/workflows/build.yml/badge.svg)](https://github.com/fancidev/asyncslot/actions/workflows/build.yml)
 [![tests](https://github.com/fancidev/asyncslot/actions/workflows/tests.yml/badge.svg)](https://github.com/fancidev/asyncslot/actions/workflows/tests.yml)
+[![codecov](https://codecov.io/gh/fancidev/asyncslot/branch/master/graph/badge.svg?token=JZ5ON6CHKA)](https://codecov.io/gh/fancidev/asyncslot)
 
 `asyncslot` is a Python module that allows you to use asyncio-based 
 libraries in Python for Qt.
