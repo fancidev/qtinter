@@ -1,12 +1,11 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61.0", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "asyncslot"
 authors = [ { name="fancidev", email="fancidev@gmail.com" } ]
 description = "Use asyncio-based library from Python for Qt."
-version = "0.1.0"
 readme = "README.md"
 requires-python = ">=3.7"
 keywords = ["asyncio", "coroutine", "qt", "signal", "slot"]
@@ -19,6 +18,7 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
 ]
+dynamic = ["version"]
 
 [project.optional-dependencies]
 PyQt5 = ["PyQt5"]
@@ -29,3 +29,5 @@ PySide6 = ["PySide6"]
 [project.urls]
 "Homepage" = "https://github.com/fancidev/asyncslot"
 "Bug Tracker" = "https://github.com/fancidev/asyncslot/issues"
+
+[tool.setuptools_scm]

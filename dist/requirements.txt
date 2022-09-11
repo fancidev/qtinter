@@ -1,0 +1,4 @@
+# The following packages are needed for packaging asyncslot.
+build
+setuptools
+setuptools-scm
