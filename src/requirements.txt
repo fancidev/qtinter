@@ -1,0 +1,7 @@
+# The following Qt bindings are recommended to be installed for developing
+# asyncslot itself, so that you can test the module with each of them.
+# For using asyncslot, installing (any) one of the bindings is enough.
+PyQt5
+PyQt6
+PySide2
+PySide6

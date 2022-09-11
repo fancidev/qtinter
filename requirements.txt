@@ -1,9 +1,0 @@
-# This file lists the required packages for developing asyncslot itself.
-# You don't need any of these packages if you simply use asyncslot.
-#
-# Qt bindings (PyQt5, PyQt6, PySide2 or PySide6) are required but not
-# listed below because the build workflow installs each binding separately
-# for each test target.
-
-# used for coverage testing
-coverage

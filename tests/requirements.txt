@@ -1,0 +1,2 @@
+# The following packages are needed for running tests.
+coverage
