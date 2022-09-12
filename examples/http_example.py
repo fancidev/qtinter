@@ -44,7 +44,7 @@ def create_http_server():
             content = f"You requested {self.path}".encode("utf-8")
             self.wfile.write(content)
 
-    server = http.server.ThreadingHTTPServer(("127.0.0.1", 12345),
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0),
                                              MyRequestHandler)
     thread = threading.Thread(target=server.serve_forever)
     thread.start()
@@ -55,16 +55,14 @@ class MyWidget(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Http Example")
+        self.setWindowTitle("asyncslot - Http Example")
 
         # Show a bouncing ball to visualize whether the Qt event loop is
         # blocked -- the ball freezes if the Qt event loop is blocked.
         self._bouncer = BouncingWidget()
 
-        # URl input.  By default we GET from the locally-run http server,
-        # which sleeps for 3 seconds before sending back the response.
+        # URl input.
         self._url = QtWidgets.QLineEdit(self)
-        self._url.setText("http://127.0.0.1:12345/dummy")
 
         # The 'Sync GET' button downloads the web page synchronously,
         # which blocks the Qt event loop.  The bouncing ball freezes
@@ -110,6 +108,11 @@ class MyWidget(QtWidgets.QWidget):
         # Start a local HTTP server to simulate slow response.  The server
         # runs in a separate thread.
         self._server = create_http_server()
+
+        # Set default URL to the locally-run http server, which sleeps for
+        # 3 seconds before sending back a response.
+        self._url.setText("http://{}:{}/dummy"
+                          .format(*self._server.server_address))
 
     def closeEvent(self, event):
         # Handle the closeEvent to shut down the local HTTP server so that
