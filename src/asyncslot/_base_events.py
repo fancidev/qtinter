@@ -46,7 +46,7 @@ class AsyncSlotSelectable:  # protocol
 
 
 class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
-    def __init__(self, selector: AsyncSlotSelectable):
+    def __init__(self, *args, **kwargs):
 
         # If self is running in blocking mode (using a nested QEventLoop),
         # __qt_event_loop is set to that QEventLoop.  If self is not running
@@ -80,7 +80,7 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         # Need to invoke base constructor after initializing member variables
         # for compatibility with Python 3.7's BaseProactorEventLoop (Windows),
         # which calls self.call_soon() indirectly from its constructor.
-        super().__init__(selector)  # noqa
+        super().__init__(*args, **kwargs)  # noqa
 
     # =========================================================================
     # Custom method for AsyncSlot
