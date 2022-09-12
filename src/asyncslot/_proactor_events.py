@@ -43,6 +43,7 @@ class AsyncSlotProactor(asyncio.IocpProactor):
             assert self.__dequeue_done.is_set(), 'unexpected select'
             real_iocp = self._iocp
             try:
+                self._iocp = self.__poll_iocp
                 return super().select(0)
             finally:
                 self._iocp = real_iocp
@@ -107,8 +108,8 @@ class AsyncSlotProactor(asyncio.IocpProactor):
                 try:
                     self.__dequeue_future.result()  # waits
                 except Exception as exc:
-                    # TODO: check exception type
-                    print(repr(exc))
+                    # TODO: check and eliminate exception condition
+                    print(f"__dequeue_future error: {exc!r}")
                     pass
             self.__dequeue_done = None
             self.__dequeue_future = None
