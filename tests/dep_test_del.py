@@ -1,15 +1,27 @@
-""" test_del.py - demo a strange bug with PySide6.QtCore """
+""" dep_test_del.py - demo a strange bug with PyQt6, PySide2 and PySide6
+
+With certain code (unrelated to asyncslot), these bindings raise an
+exception in asyncio's event loop's __del__ method, complaining about
+invalid file handle when attempting to unregister a self-read socket.
+It appears that a reference cycle is created if a QtCore.QCoreApplication
+instance is created.
+"""
 
 import asyncio
 import concurrent.futures
+import importlib
 import selectors
-from PySide6 import QtCore
+import os
+
+qt_binding_name = os.getenv("TEST_QT_BINDING", "")
+if not qt_binding_name:
+    raise RuntimeError("TEST_QT_BINDING must be specified")
+
+QtCore = importlib.import_module(f"{qt_binding_name}.QtCore")
 
 
 async def noop():
-    print('Hi')
-    await asyncio.sleep(1)
-    print('Bye')
+    pass
 
 
 class CustomSelector:
@@ -41,18 +53,16 @@ class CustomSelector:
         return self._selector.get_map()
 
 
-class NoopSelector(selectors.DefaultSelector):
-    pass
-
-
 class CustomEventLoop(asyncio.SelectorEventLoop):
     def __init__(self):
         whatever = CustomSelector()
-        selector = NoopSelector()
+        whatever = None
+        selector = selectors.DefaultSelector()
         super().__init__(selector)
 
 
 def main():
+    app = QtCore.QCoreApplication([])
     loop = CustomEventLoop()
     loop.run_until_complete(noop())
 
