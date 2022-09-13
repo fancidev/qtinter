@@ -155,11 +155,6 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
 
         self.__blocked_in_select = False
 
-        if self._stopping:
-            if self.__qt_event_loop is not None:  # called from run_forever
-                self.__qt_event_loop.exit(0)
-            return
-
         # Process ready callbacks, ready IO, and scheduled callbacks that
         # have passed the schedule time.  Run only once to avoid starving
         # the Qt event loop.
@@ -173,8 +168,18 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
             if self.__qt_event_loop is not None:  # called from run_forever
                 self.__qt_event_loop.exit(1)
             else:
-                raise  # TODO: check what to do if called from run_task
+                raise  # TODO: check what to do if running in attached mode
         else:
+            # To be consistent with asyncio behavior, check the _stopping
+            # flag only after running a full iteration of _run_once.
+            if self._stopping:
+                if self.__qt_event_loop is not None:
+                    # Terminate Qt event loop if running in nested mode
+                    self.__qt_event_loop.exit(0)
+                    return
+                else:
+                    # Ignore stopping request if running in attached mode
+                    pass  # fallthrough
             # Schedule next iteration if this iteration did not block
             self.__notifier.notify()
 
@@ -229,12 +234,30 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
     # run_until_complete = BaseEventLoop.run_until_complete
 
     def stop(self) -> None:
-        # A standalone asyncio event loop can never be stopped while it's
-        # blocked in select(), because stop() must be called from the
-        # event loop's thread.  But when embedded in a Qt event loop,
-        # stop() may be called from a Qt slot when the asyncio loop is
-        # blocked in select().  We treat this as if stop() was called
-        # from call_soon_threadsafe().
+        """ Request the loop to stop.
+
+        The exact semantics are as follows:
+
+        1. If called before the loop starts running or after the loop has
+           stopped running, and if the next loop run is in nested mode,
+           that loop will run exactly one full iteration and then stop.
+
+        2. If called from a coroutine or a callback of a loop running in
+           nested mode, the loop will stop after completing the current
+           iteration.
+
+        The above points retain the behavior of asyncio.BaseEventLoop.
+        The following additions are specific to AsyncSlotEventLoop:
+
+        3. If called from interrupting code (from a Qt slot) while the
+           loop is running in nested mode, necessarily logically blocked
+           in select, treat as if called via call_soon_threadsafe and wake
+           up the loop which will stop after completing a full iteration.
+
+        4. If the loop is running in attached mode, or if there is no loop
+           running but the next loop runs in attached mode, the call has
+           no effect.
+        """
         if self.__blocked_in_select:
             self._write_to_self()
         super().stop()
@@ -254,7 +277,8 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
     def call_soon(self, *args, **kwargs):
         if self.__blocked_in_select:
             self._write_to_self()
-        # TODO: implement eager execution if called from run_task().
+
+        # Eager execution if called from run_task().
         handle = super().call_soon(*args, **kwargs)
         if self.__call_soon_eagerly:
             self.__call_soon_eagerly = False
