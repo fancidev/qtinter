@@ -20,12 +20,15 @@ class TestRunTask(unittest.TestCase):
     # run_task should execute the task immediately until the first yield.
 
     def setUp(self) -> None:
-        if QtCore.QCoreApplication.instance() is None:
+        if QtCore.QCoreApplication.instance() is not None:
+            self.app = QtCore.QCoreApplication.instance()
+        else:
             self.app = QtCore.QCoreApplication([])
         self.loop = asyncslot.AsyncSlotDefaultEventLoop()
 
     def tearDown(self) -> None:
         self.loop.close()
+        self.app = None
 
     def test_no_yield_benchmark(self):
         # create_task with coroutine with no yield is not executed eagerly

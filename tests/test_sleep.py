@@ -8,10 +8,10 @@ import asyncslot
 class TestSleep(unittest.TestCase):
 
     def setUp(self) -> None:
-        if QtCore.QCoreApplication.instance() is None:
-            self.app = QtCore.QCoreApplication([])
-        else:
+        if QtCore.QCoreApplication.instance() is not None:
             self.app = QtCore.QCoreApplication.instance()
+        else:
+            self.app = QtCore.QCoreApplication([])
         self.loop = asyncslot.AsyncSlotDefaultEventLoop()
 
     def tearDown(self) -> None:

@@ -14,13 +14,13 @@ class MyBaseEventLoopTests(BaseEventLoopTests):
         self.loop._selector.select.return_value = ()
         self.set_event_loop(self.loop)
         if QtCore.QCoreApplication.instance() is not None:
-            app = QtCore.QCoreApplication.instance()
+            self.app = QtCore.QCoreApplication.instance()
         else:
-            app = QtCore.QCoreApplication([])
+            self.app = QtCore.QCoreApplication([])
 
-    # def tearDown(self):
-    #     app = None
-    #     super().tearDown()
+    def tearDown(self):
+        self.app = None
+        super().tearDown()
 
 
 if __name__ == "__main__":

@@ -206,8 +206,9 @@ qc = QtCore.Qt.ConnectionType.QueuedConnection
 class TestSlot(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.app = QtCore.QCoreApplication.instance()
-        if self.app is None:
+        if QtCore.QCoreApplication.instance() is not None:
+            self.app = QtCore.QCoreApplication.instance()
+        else:
             self.app = QtCore.QCoreApplication([])
 
         self.qt_loop = QtCore.QEventLoop()
