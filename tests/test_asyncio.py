@@ -8,19 +8,19 @@ import unittest
 class MyBaseEventLoopTests(BaseEventLoopTests):
 
     def setUp(self):
+        if QtCore.QCoreApplication.instance() is not None:
+            self.app = QtCore.QCoreApplication.instance()
+        else:
+            self.app = QtCore.QCoreApplication([])
         super().setUp()
         self.loop = AsyncSlotBaseEventLoop()
         self.loop._selector = mock.Mock()
         self.loop._selector.select.return_value = ()
         self.set_event_loop(self.loop)
-        if QtCore.QCoreApplication.instance() is not None:
-            self.app = QtCore.QCoreApplication.instance()
-        else:
-            self.app = QtCore.QCoreApplication([])
 
     def tearDown(self):
-        self.app = None
         super().tearDown()
+        self.app = None
 
 
 if __name__ == "__main__":
