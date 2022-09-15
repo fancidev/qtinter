@@ -68,4 +68,22 @@ like a normal slot.  A coroutine function normally cannot be connected
 to a signal because calling it merely returns a coroutine object instead
 of doing real work.
 
-To use ``asyncslot``, you must import it _after_ importing the Qt binding.
+
+Qt Binding Lookup
+-----------------
+
+``asyncslot`` checks for the Qt binding used by the application the
+first time an ``AsyncSlotEventLoop`` is run.  It remembers this binding
+afterwards.
+
+If exactly one of PyQt5, PyQt6, PySide2 or PySide6 is imported in
+``sys.modules`` at the time of binding lookup, it is chosen.  This is
+the default scenario that works with most workflow.
+
+If none of the above modules are imported at the time of lookup,
+the environment variable ``ASYNCSLOT_QTBINDING`` is checked.  If it is
+set to one of PyQt5, PyQt6, PySide2 or PySide6, that binding is used.
+Otherwise, an ``ImportError`` is raised.
+
+If more than one supported binding modules are imported at the time of
+lookup, an ``ImportError`` is raised.

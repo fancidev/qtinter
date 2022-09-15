@@ -18,7 +18,7 @@ Step 0. Install package:
 
    (.venv) $ pip install asyncslot
 
-Step 1. Import ``asyncslot`` *after* importing your Qt binding of choice:
+Step 1. Import ``asyncslot``:
 
 .. code-block:: python
 
