@@ -1,9 +1,8 @@
 """ _selector_events.py - AsyncSlot based on SelectorEventLoop """
 
 import asyncio
-import selectors
 import concurrent.futures
-import threading
+import selectors
 import weakref
 from typing import List, Optional, Tuple
 from ._base_events import *
@@ -20,21 +19,24 @@ class AsyncSlotSelector(selectors.BaseSelector):
         self._write_to_self = write_to_self
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
         self._select_future: Optional[concurrent.futures.Future] = None
-        self._select_done = threading.Event()
         self._notifier: Optional[AsyncSlotNotifier] = None
+        self._closed = False
 
     def set_notifier(self, notifier: Optional[AsyncSlotNotifier]) -> None:
         self._unblock_if_blocked()
         self._notifier = notifier
 
     def _unblock_if_blocked(self):
-        if self._select_future is not None and not self._select_done.is_set():
+        if self._select_future is not None and not self._select_future.done():
             write_to_self = self._write_to_self()
             assert write_to_self is not None, (
                 'AsyncSlotEventLoop is supposed to close AsyncSlotSelector '
                 'before being deleted')
             write_to_self()
-            self._select_future.result()  # waits
+            try:
+                self._select_future.result()  # waits
+            except BaseException:
+                pass
 
     def register(self, fileobj, events, data=None):
         self._unblock_if_blocked()
@@ -58,12 +60,15 @@ class AsyncSlotSelector(selectors.BaseSelector):
             # execute.  That this method is called again means _run_once is
             # run again, which can only happen if we asked it to by emitting
             # the notified signal of __notifier.
-            assert self._select_done.is_set(), 'unexpected select'
+            assert self._select_future.done(), 'unexpected select'
             try:
                 return self._select_future.result()
             finally:
-                self._select_done.clear()
                 self._select_future = None
+
+        # Perform normal select if no notifier is set.
+        if self._notifier is None:
+            return self._selector.select(timeout)
 
         # Try select with zero timeout.  If any IO is ready or if the caller
         # does not require IO to be ready, return that.
@@ -73,27 +78,22 @@ class AsyncSlotSelector(selectors.BaseSelector):
 
         # No IO is ready and caller wants to wait.  select() in a separate
         # thread and tell the caller to yield.
-        assert self._notifier is not None, 'missing set_notifier'
-        self._select_future = self._executor.submit(self._select, timeout)
+        self._select_future = self._executor.submit(self._selector.select,
+                                                    timeout)
+        notify = self._notifier.notify
+        self._select_future.add_done_callback(lambda _: notify())
         raise AsyncSlotYield
 
-    def _select(self, timeout):
-        # Any exception raised by self._selector.select() is stored in the
-        # future and propagated to the next _run_once() call.
-        try:
-            return self._selector.select(timeout)
-        finally:
-            self._select_done.set()
-            self._notifier.notify()
-
     def close(self) -> None:
-        self._unblock_if_blocked()
-        self._executor.shutdown()
-        self._selector.close()
-        # If close() is called before consuming the result of select(), the
-        # result is dropped.
-        self._select_future = None
-        self._notifier = None
+        if not self._closed:
+            self._unblock_if_blocked()
+            self._executor.shutdown()
+            self._selector.close()
+            # If close() is called before consuming the result of select(),
+            # the result is dropped.
+            self._select_future = None
+            self._notifier = None
+            self._closed = True
 
     def get_key(self, fileobj):
         self._unblock_if_blocked()
