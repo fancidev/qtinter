@@ -1,13 +1,12 @@
 """ _base_events.py - event loop implementation using Qt """
 
 import asyncio
-import functools
 import selectors
 import sys
 import threading
 import traceback
 from asyncio import events
-from typing import List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 from ._shim import QtCore
 
 
@@ -20,11 +19,43 @@ class AsyncSlotYield(Exception):
     pass
 
 
-class AsyncSlotNotifier(QtCore.QObject):
-    notified = QtCore.Signal()
+class AsyncSlotNotifier:
+    def notify(self) -> None:
+        raise NotImplementedError
+
+    def close(self) -> None:
+        raise NotImplementedError
+
+
+class AsyncSlotNotifierObject(QtCore.QObject):
+    if hasattr(QtCore, "pyqtSignal"):
+        _notified = QtCore.pyqtSignal()
+    else:
+        _notified = QtCore.Signal()
+
+    def __init__(self, callback: Callable[[], None]):
+        super().__init__()
+        assert callback is not None, 'callback must not be None'
+        self._callback: Optional[Callable[[], None]] = callback
+        # Make queued connection to avoid calling the handler immediately
+        self._notified.connect(self._on_notified,
+                               QtCore.Qt.ConnectionType.QueuedConnection)
+
+    def _on_notified(self):
+        if self._callback is not None:
+            self._callback()
+        else:
+            # TODO: print a warning that notification is received after the
+            # TODO: notifier is closed.
+            pass
 
     def notify(self):
-        self.notified.emit()
+        self._notified.emit()
+
+    def close(self):
+        if self._callback is not None:
+            self._notified.disconnect()
+            self._callback = None
 
 
 class AsyncSlotSelectable:  # protocol
@@ -115,10 +146,7 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         self.__old_agen_hooks = old_agen_hooks
 
         # Must make queued connection to avoid calling the handler immediately
-        self.__notifier = AsyncSlotNotifier()
-        self.__notifier.notified.connect(functools.partial(
-            self.__process_asyncio_events, notifier=self.__notifier),
-            QtCore.Qt.ConnectionType.QueuedConnection)
+        self.__notifier = AsyncSlotNotifierObject(self.__process_asyncio_events)
         self.__notifier.notify()  # schedule initial _run_once
 
         self._selector.set_notifier(self.__notifier)  # noqa
@@ -131,7 +159,7 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         self.__old_agen_hooks = None
         if self.__notifier is not None:
             self._selector.set_notifier(None)  # noqa
-            self.__notifier.notified.disconnect()
+            self.__notifier.close()
             self.__notifier = None
         # ---- BEGIN COPIED FROM BaseEventLoop.run_forever
         self._stopping = False
@@ -141,15 +169,10 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         sys.set_asyncgen_hooks(*old_agen_hooks)
         # ---- END COPIED FROM BaseEventLoop.run_forever
 
-    def __process_asyncio_events(self, *, notifier: AsyncSlotNotifier):
+    def __process_asyncio_events(self):
         """ This slot is connected to the notified signal of self.__notifier,
         which is emitted whenever asyncio events are possibly available
         and need to be processed."""
-        if self.__notifier is not notifier:
-            # Called from a queued signal handler for a stopped loop run
-            # TODO: print a warning
-            return
-
         assert not self.is_closed(), 'loop unexpectedly closed'
         assert self.is_running(), 'loop unexpectedly stopped'
 
