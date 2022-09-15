@@ -7,7 +7,7 @@ import threading
 import traceback
 from asyncio import events
 from typing import Callable, List, Optional, Tuple
-from ._shim import QtCore
+from .bindings import QtCore
 
 
 __all__ = ('AsyncSlotYield', 'AsyncSlotNotifier', 'AsyncSlotBaseEventLoop')
