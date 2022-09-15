@@ -20,12 +20,12 @@ and is not specific to asyncslot.
 """
 
 import asyncio
+import asyncslot
 import sys
 import time
 from PyQt6 import QtWidgets
 from bouncingwidget import BouncingWidget
 from typing import Optional
-import asyncslot
 import requests
 import http.server
 import threading

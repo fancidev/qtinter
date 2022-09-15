@@ -7,7 +7,6 @@ import threading
 import traceback
 from asyncio import events
 from typing import Callable, List, Optional, Tuple
-from .bindings import QtCore
 
 
 __all__ = ('AsyncSlotYield', 'AsyncSlotNotifier', 'AsyncSlotBaseEventLoop')
@@ -27,35 +26,48 @@ class AsyncSlotNotifier:
         raise NotImplementedError
 
 
-class AsyncSlotNotifierObject(QtCore.QObject):
-    if hasattr(QtCore, "pyqtSignal"):
-        _notified = QtCore.pyqtSignal()
-    else:
-        _notified = QtCore.Signal()
+AsyncSlotNotifierObject = None
 
-    def __init__(self, callback: Callable[[], None]):
-        super().__init__()
-        assert callback is not None, 'callback must not be None'
-        self._callback: Optional[Callable[[], None]] = callback
-        # Make queued connection to avoid calling the handler immediately
-        self._notified.connect(self._on_notified,
-                               QtCore.Qt.ConnectionType.QueuedConnection)
 
-    def _on_notified(self):
-        if self._callback is not None:
-            self._callback()
+def create_notifier(callback: Callable[[], None]):
+    global AsyncSlotNotifierObject
+    if AsyncSlotNotifierObject is not None:
+        return AsyncSlotNotifierObject(callback)
+
+    from .bindings import QtCore
+
+    class _AsyncSlotNotifierObject(QtCore.QObject):
+        if hasattr(QtCore, "pyqtSignal"):
+            _notified = QtCore.pyqtSignal()
         else:
-            # TODO: print a warning that notification is received after the
-            # TODO: notifier is closed.
-            pass
+            _notified = QtCore.Signal()
 
-    def notify(self):
-        self._notified.emit()
+        def __init__(self, callback: Callable[[], None]):
+            super().__init__()
+            assert callback is not None, 'callback must not be None'
+            self._callback: Optional[Callable[[], None]] = callback
+            # Make queued connection to avoid calling the handler immediately
+            self._notified.connect(self._on_notified,
+                                   QtCore.Qt.ConnectionType.QueuedConnection)
 
-    def close(self):
-        if self._callback is not None:
-            self._notified.disconnect()
-            self._callback = None
+        def _on_notified(self):
+            if self._callback is not None:
+                self._callback()
+            else:
+                # TODO: print a warning that notification is received after
+                # TODO: the notifier is closed.
+                pass
+
+        def notify(self):
+            self._notified.emit()
+
+        def close(self):
+            if self._callback is not None:
+                self._notified.disconnect()
+                self._callback = None
+
+    AsyncSlotNotifierObject = _AsyncSlotNotifierObject
+    return AsyncSlotNotifierObject(callback)
 
 
 class AsyncSlotSelectable:  # protocol
@@ -82,7 +94,7 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         # If self is running in blocking mode (using a nested QEventLoop),
         # __qt_event_loop is set to that QEventLoop.  If self is not running
         # or running in non-blocking mode, __qt_event_loop is set to None.
-        self.__qt_event_loop: Optional[QtCore.QEventLoop] = None
+        self.__qt_event_loop = None
 
         # When self is running, __notifier is attached to the selector to
         # receive notifications when IO is available or timeout occurs.
@@ -146,7 +158,7 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         self.__old_agen_hooks = old_agen_hooks
 
         # Must make queued connection to avoid calling the handler immediately
-        self.__notifier = AsyncSlotNotifierObject(self.__process_asyncio_events)
+        self.__notifier = create_notifier(self.__process_asyncio_events)
         self.__notifier.notify()  # schedule initial _run_once
 
         self._selector.set_notifier(self.__notifier)  # noqa
@@ -226,6 +238,7 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
 
     def run_forever(self) -> None:
         """ Run the event loop until stop() is called. """
+        from .bindings import QtCore
         if QtCore.QCoreApplication.instance() is None:
             raise RuntimeError('An instance of QCoreApplication or its '
                                'derived class must be create before running '
