@@ -33,9 +33,13 @@ class AsyncSlotProactor(asyncio.IocpProactor):
 
         self.__notifier: Optional[AsyncSlotNotifier] = None
 
-    def set_notifier(self, notifier: Optional[AsyncSlotNotifier]) -> None:
+    def set_notifier(self, notifier: AsyncSlotNotifier) -> None:
         # self._unblock_if_blocked()
         self.__notifier = notifier
+
+    def reset_notifier(self) -> None:
+        # self._unblock_if_blocked()
+        self.__notifier = None
 
     def select(self, timeout=None):
 
