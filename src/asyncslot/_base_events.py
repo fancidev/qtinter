@@ -70,46 +70,49 @@ def create_notifier(callback: Callable[[], None]):
     return AsyncSlotNotifierObject(callback)
 
 
-class AsyncSlotSelectable:  # protocol
-    # A Selectable must support being called from interleaving code.
+class AsyncSlotSelectable:
+    """Protocol for a 'selector' that supports non-blocking select and
+    notification.
 
-    def set_notifier(self, notifier: AsyncSlotNotifier) -> None:
+    A selector may be in one of the following states:
+      - IDLE   : the selector is not in BUSY or CLOSED state
+      - BUSY   : the last call to select() raised AsyncSlotYield, and
+                 a thread worker is waiting for IO or timeout
+      - CLOSED : close() has been called
+
+    State machine:
+      - [start] --- __init__ --> IDLE
+      - IDLE --- close() --> CLOSED
+        IDLE --- select
+                 - (IO ready, timeout == 0, or notifier is None) --> IDLE
+                 - (IO not ready, timeout != 0, and notifier not None) --> BUSY
+        IDLE --- set_notifier --> IDLE
+      - BUSY --- (IO ready or timeout reached) --> IDLE
+        BUSY --- set_notifier --> (wakes up selector) --> IDLE
+      - CLOSED --- [end]
+    """
+
+    def set_notifier(self, notifier: Optional[AsyncSlotNotifier]) -> None:
         """Set the notifier.
 
-        This method cannot be called when the selector is in 'blocked'
-        state.  An AssertionError is raised in this case.
+        If the selector is in BUSY state, wake it up and wait for it
+        to become IDLE before returning.  In this case, the previous
+        installed notifier (if any) is still signaled.
         """
         raise NotImplementedError
-
-    def reset_notifier(self) -> None:
-        """Reset the notifier.
-
-        If the selector is in 'blocked' state, it is woken up.  The
-        select result is not dropped -- it will be returned the next
-        time select is called.
-        """
 
     def select(self, timeout: Optional[float] = None) \
             -> List[Tuple[selectors.SelectorKey, int]]:
         """
-        If there is any result from the last non-blocking select,
-        return that.
+        If timeout is zero or some IO is readily available, return the
+        available IO immediately.
 
-        Otherwise, if no notifier is set, perform normal (blocking)
-        select, which blocks the calling thread until IO is available
-        or timeout occurs.
+        If timeout is not zero, IO is not ready and notifier is not None,
+        raise AsyncSlotYield and perform the real select() in a different
+        thread.  When that select() completes, signal the notifier object.
 
-        If notifier is set, perform normal select if IO is available
-        or timeout is zero, or raise AsyncSlotYield.  In the latter
-        case, a separate thread is launched to perform the real select();
-        when that select() finishes, the notifier object is signaled.
-
-        The selector is said to be in 'blocked' state from the moment
-        AsyncSlotYield is raised until the moment the notifier object
-        is about to be signaled.
-
-        This method cannot be called when the selector is in 'blocked'
-        state; an AssertionError is raised in this case.
+        If timeout is not zero, IO is not ready and notifier is None,
+        perform normal (blocking) select.
         """
         raise NotImplementedError
 
@@ -196,7 +199,7 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         old_agen_hooks = self.__old_agen_hooks
         self.__old_agen_hooks = None
         if self.__notifier is not None:
-            self._selector.reset_notifier()  # noqa
+            self._selector.set_notifier(None)  # noqa
             self.__notifier.close()
             self.__notifier = None
         # ---- BEGIN COPIED FROM BaseEventLoop.run_forever

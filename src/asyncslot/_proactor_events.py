@@ -33,13 +33,9 @@ class AsyncSlotProactor(asyncio.IocpProactor):
 
         self.__notifier: Optional[AsyncSlotNotifier] = None
 
-    def set_notifier(self, notifier: AsyncSlotNotifier) -> None:
+    def set_notifier(self, notifier: Optional[AsyncSlotNotifier]) -> None:
         # self._unblock_if_blocked()
         self.__notifier = notifier
-
-    def reset_notifier(self) -> None:
-        # self._unblock_if_blocked()
-        self.__notifier = None
 
     def select(self, timeout=None):
 
@@ -119,6 +115,7 @@ class AsyncSlotProactor(asyncio.IocpProactor):
             self.__dequeue_future = None
             _winapi.CloseHandle(self.__poll_iocp)
             self.__poll_iocp = None
+        # Note that super().close() calls self._poll() to exhaust the events.
         super().close()
 
 

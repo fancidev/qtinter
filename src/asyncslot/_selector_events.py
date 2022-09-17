@@ -3,6 +3,7 @@
 import asyncio
 import concurrent.futures
 import selectors
+import threading
 import weakref
 from typing import List, Optional, Tuple
 from ._base_events import *
@@ -12,7 +13,6 @@ __all__ = 'AsyncSlotSelectorEventLoop', 'AsyncSlotSelectorEventLoopPolicy',
 
 
 class AsyncSlotSelector(selectors.BaseSelector):
-    # The selector has four states: IDLE, BLOCKED, UNBLOCKED, CLOSED.
 
     def __init__(self, selector: selectors.BaseSelector,
                  write_to_self: weakref.WeakMethod):
@@ -21,34 +21,24 @@ class AsyncSlotSelector(selectors.BaseSelector):
         self._write_to_self = write_to_self
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
         self._select_future: Optional[concurrent.futures.Future] = None
+        self._idle = threading.Event()
+        self._idle.set()
         self._notifier: Optional[AsyncSlotNotifier] = None
         self._closed = False
 
-    def set_notifier(self, notifier: AsyncSlotNotifier) -> None:
-        # set_notifier() is called before the loop starts.  At this time
-        # the selector cannot be in blocked state.
-        assert not self._blocked(), 'unexpected set_notifier'
+    def set_notifier(self, notifier: Optional[AsyncSlotNotifier]) -> None:
+        self._unblock_if_blocked()
         self._notifier = notifier
 
-    def reset_notifier(self) -> None:
-        self._unblock_if_blocked()
-        self._notifier = None
-
-    def _blocked(self) -> bool:
-        return (self._select_future is not None
-                and not self._select_future.done())
-
     def _unblock_if_blocked(self):
-        if self._blocked():
+        assert not self._closed, 'selector already closed'
+        if not self._idle.is_set():
             write_to_self = self._write_to_self()
             assert write_to_self is not None, (
                 'AsyncSlotEventLoop is supposed to close AsyncSlotSelector '
                 'before being deleted')
             write_to_self()
-            try:
-                self._select_future.exception()  # waits
-            except concurrent.futures.CancelledError:
-                pass
+            self._idle.wait()
 
     def register(self, fileobj, events, data=None):
         self._unblock_if_blocked()
@@ -64,48 +54,64 @@ class AsyncSlotSelector(selectors.BaseSelector):
 
     def select(self, timeout: Optional[float] = None) \
             -> List[Tuple[selectors.SelectorKey, int]]:
+        assert not self._closed, 'selector already closed'
 
+        # If the last call to select() raised AsyncSlotYield, the caller
+        # (from _run_once) should only call us again after receiving a
+        # notification from us, and we only send the notification after
+        # entering IDLE state.
+        assert self._idle.is_set(), 'unexpected select'
+
+        # Return previous select() result (or exception) if there is one.
         if self._select_future is not None:
-            # A prior select() call was submitted to the executor.  We only
-            # submit a select() call if _run_once() calls us with a positive
-            # timeout, which can only happen if there are no ready tasks to
-            # execute.  That this method is called again means _run_once is
-            # run again, which can only happen if we asked it to by emitting
-            # the notified signal of __notifier.
-            assert self._select_future.done(), 'unexpected select'
             try:
                 return self._select_future.result()
             finally:
                 self._select_future = None
 
-        # Perform normal select if no notifier is set.
+        # Perform normal (blocking) select if no notifier is set.
         if self._notifier is None:
             return self._selector.select(timeout)
 
-        # Try select with zero timeout.  If any IO is ready or if the caller
-        # does not require IO to be ready, return that.
+        # Perform normal select if timeout is zero.
+        if timeout == 0:
+            return self._selector.select(timeout)
+
+        # Try select with zero timeout, and return if any IO is ready.
         event_list = self._selector.select(0)
-        if event_list or (timeout is not None and timeout <= 0):
+        if event_list:
             return event_list
 
         # No IO is ready and caller wants to wait.  select() in a separate
         # thread and tell the caller to yield.
-        self._select_future = self._executor.submit(self._selector.select,
-                                                    timeout)
-        # Make a copy of notify because by the time the callback is invoked,
-        # self._notifier may have already been reset.
-        notify = self._notifier.notify
-        self._select_future.add_done_callback(lambda _: notify())
-        raise AsyncSlotYield
+        self._idle.clear()
+        try:
+            self._select_future = self._executor.submit(self._select, timeout)
+        except BaseException:
+            # Should submit() raise, we assume no task is spawned.
+            self._idle.set()
+            raise
+        else:
+            raise AsyncSlotYield
+
+    def _select(self, timeout):
+        # Make a copy of self._notifier because it may be altered by
+        # set_notifier immediately after self._idle is set.
+        notifier = self._notifier
+        try:
+            return self._selector.select(timeout)
+        finally:
+            self._idle.set()
+            notifier.notify()
 
     def close(self) -> None:
         # close() is called when the loop is being closed, and the loop
         # can only be closed when it is in STOPPED state.  In this state
-        # the selector cannot be blocked.  In addition, the self pipe is
+        # the selector must be idle.  In addition, the self pipe is
         # closed before closing the selector, so write_to_self cannot be
         # used at this point.
-        assert not self._blocked(), 'unexpected close'
         if not self._closed:
+            assert self._idle.is_set(), 'unexpected close'
             self._executor.shutdown()
             self._selector.close()
             self._select_future = None
