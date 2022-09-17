@@ -12,6 +12,7 @@ import asyncio
 import concurrent.futures
 import math
 import threading
+import weakref
 from typing import Optional
 from ._base_events import *
 
@@ -20,12 +21,16 @@ __all__ = 'AsyncSlotProactorEventLoop', 'AsyncSlotProactorEventLoopPolicy',
 
 
 class AsyncSlotProactor(asyncio.IocpProactor):
-    def __init__(self, concurrency = 0xffffffff):
+    def __init__(
+        self, write_to_self: weakref.WeakMethod, concurrency=0xffffffff,
+    ):
         super().__init__(concurrency)
 
+        self.__write_to_self = write_to_self
         self.__executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
         self.__dequeue_future: Optional[concurrent.futures.Future] = None
-        self.__dequeue_done = threading.Event()
+        self.__idle = threading.Event()
+        self.__idle.set()
 
         # Completion messages are posted to __poll_iocp
         self.__poll_iocp = _overlapped.CreateIoCompletionPort(
@@ -33,26 +38,57 @@ class AsyncSlotProactor(asyncio.IocpProactor):
 
         self.__notifier: Optional[AsyncSlotNotifier] = None
 
+    def __wake_up(self):
+        self._check_closed()
+        if not self.__idle.is_set():
+            write_to_self = self.__write_to_self()
+            assert write_to_self is not None, (
+                'AsyncSlotEventLoop is supposed to close AsyncSlotProactor '
+                'before being deleted')
+            write_to_self()
+            self.__idle.wait()
+
     def set_notifier(self, notifier: Optional[AsyncSlotNotifier]) -> None:
-        # self._unblock_if_blocked()
+        self.__wake_up()
         self.__notifier = notifier
 
-    def select(self, timeout=None):
+    def _poll(self, timeout=None):
+        self._check_closed()
 
+        # _poll is called by super().select() and super().close().
+        #
+        # If the last call to select() raised AsyncSlotYield, the caller
+        # (from _run_once) should only call select() again after receiving
+        # a notification from us, and we only send a notification after
+        # entering IDLE state.
+        #
+        # If called from close(), we also require the proactor to have
+        # been woken up (by a call to set_notifier) before closing.
+        assert self.__idle.is_set(), 'unexpected _poll'
+
+        # If any (zero or more) IO events have been copied from _iocp to
+        # __poll_iocp, perform _poll from __poll_iocp.
         if self.__dequeue_future is not None:
-            assert self.__dequeue_done.is_set(), 'unexpected select'
             real_iocp = self._iocp
             try:
                 self._iocp = self.__poll_iocp
-                return super().select(0)
+                # TODO: we assume super()._poll() exhaust the events in
+                # TODO: __poll_iocp.  If not, this is a logic error.
+                return super()._poll(0)
             finally:
                 self._iocp = real_iocp
-                self.__dequeue_done.clear()
                 self.__dequeue_future = None
 
-        if timeout is not None and timeout <= 0:
-            return super().select(timeout)
+        # Perform normal (blocking) polling if no notifier is set.
+        # In particular, this is the case when called by close().
+        if self.__notifier is None:
+            return super()._poll(timeout)
 
+        # Perform normal polling if timeout is zero.
+        if timeout is not None and timeout <= 0:
+            return super()._poll(timeout)
+
+        # Convert timeout to milliseconds (same as super()._poll()).
         if timeout is None:
             ms = 0xffffffff
         else:
@@ -60,8 +96,15 @@ class AsyncSlotProactor(asyncio.IocpProactor):
             if ms >= 0xffffffff:
                 raise ValueError("timeout too big")
 
-        assert self.__notifier is not None, 'missing set_notifier'
-        self.__dequeue_future = self.__executor.submit(self.__dequeue, ms)
+        # Launch a thread worker to wait for IO on self._iocp and copy it
+        # to self.__poll_iocp.
+        self.__idle.clear()
+        try:
+            self.__dequeue_future = self.__executor.submit(self.__dequeue, ms)
+        except BaseException:
+            # Should submit() raise, we assume no task is spawned.
+            self.__idle.set()
+            raise
         raise AsyncSlotYield
 
     def __dequeue(self, ms: int):
@@ -77,52 +120,47 @@ class AsyncSlotProactor(asyncio.IocpProactor):
         # https://github.com/python/cpython/blob/f07adf82f338ebb7e69475537be050e63c2009fa/Modules/clinic/overlapped.c.h#L108
         # https://github.com/python/cpython/blob/858c9a58bf56cefc792bf0eb1ba22984b7b2d150/Modules/overlapped.c#L296
 
-        while True:
-            # TODO: handle exception raised by GetQueuedCompletionStatus
+        notifier = self.__notifier
+        try:
+            # Note: any exception raised is propagated to the main thread
+            # the next time select() is called, and will bring down the
+            # AsyncSlotEventLoop.
+            while True:
+                # --- BEGIN COPIED FROM IocpProactor._poll
+                status = _overlapped.GetQueuedCompletionStatus(self._iocp, ms)
+                if status is None:
+                    break
+                ms = 0
+                # --- END COPIED FROM IocpProactor._poll
 
-            # --- BEGIN COPIED FROM IocpProactor._poll
-            status = _overlapped.GetQueuedCompletionStatus(self._iocp, ms)
-            if status is None:
-                break
-            ms = 0
-            # --- END COPIED FROM IocpProactor._poll
-
-            err, transferred, key, address = status  # err is not used
-            if address == 1:  # magic number used to wake up the worker
-                return
-            _overlapped.PostQueuedCompletionStatus(
-                self.__poll_iocp, transferred, key, address)
-
-        self.__dequeue_done.set()
-        self.__notifier.notify()
+                err, transferred, key, address = status  # err is not used
+                _overlapped.PostQueuedCompletionStatus(
+                    self.__poll_iocp, transferred, key, address)
+        finally:
+            self.__idle.set()
+            notifier.notify()
 
     def close(self):
+        assert self.__idle.is_set(), 'unexpected close'
+        assert self.__notifier is None, 'notifier must have been reset'
+
+        # Note: super().close() calls self._poll() repeatedly to exhaust
+        # IO events.  The first call might be served by __poll_iocp; the
+        # remaining calls are guaranteed to block because __notifier is
+        # None.
+        super().close()
+
         if self.__poll_iocp is not None:
-            if (self.__dequeue_future is not None and
-                    not self.__dequeue_done.set()):
-                # Post a special message with Overlapped = 1 to unblock the
-                # worker.  _overlapped.GetQueuedCompletionStatus raises an
-                # exception if it gets Overlapped == 0.
-                # TODO: handle error from PostQueuedCompletionStatus
-                _overlapped.PostQueuedCompletionStatus(self._iocp, 0, 0, 1)
-                try:
-                    self.__dequeue_future.result()  # waits
-                except Exception as exc:
-                    # TODO: check and eliminate exception condition
-                    print(f"__dequeue_future error: {exc!r}")
-                    pass
-            self.__dequeue_done = None
             self.__dequeue_future = None
+            self.__executor.shutdown()
             _winapi.CloseHandle(self.__poll_iocp)
             self.__poll_iocp = None
-        # Note that super().close() calls self._poll() to exhaust the events.
-        super().close()
 
 
 class AsyncSlotProactorEventLoop(AsyncSlotBaseEventLoop,
                                  asyncio.ProactorEventLoop):
     def __init__(self):
-        proactor = AsyncSlotProactor()
+        proactor = AsyncSlotProactor(weakref.WeakMethod(self._write_to_self))
         super().__init__(proactor)
 
     def __enter__(self):
