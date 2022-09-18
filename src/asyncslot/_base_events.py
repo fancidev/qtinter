@@ -46,7 +46,7 @@ def create_notifier(callback: Callable[[], None]):
             super().__init__()
             assert callback is not None, 'callback must not be None'
             self._callback: Optional[Callable[[], None]] = callback
-            # Make queued connection to avoid calling the handler immediately
+            # Must make queued connection to avoid re-entrance.
             self._notified.connect(self._on_notified,
                                    QtCore.Qt.ConnectionType.QueuedConnection)
 
@@ -118,22 +118,96 @@ class AsyncSlotSelectable:
 
 
 class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
-    def __init__(self, *args, **kwargs):
+    """Implements the scheduling logic of asyncslot event loop.
 
-        # If self is running in blocking mode (using a nested QEventLoop),
-        # __qt_event_loop is set to that QEventLoop.  If self is not running
-        # or running in non-blocking mode, __qt_event_loop is set to None.
+    An asyncio event loop can be in one of the following 'states':
+      - STOPPED: loop is not polling for IO or processing events
+      - RUNNING: loop is polling for IO or processing events
+      - CLOSED: loop is closed and cannot be used in any way
+
+    The _closed and _thread_id attributes determine the current state:
+
+                 _closed    _thread_id
+      RUNNING    False      not None
+      STOPPED    False      None
+      CLOSED     True       None
+
+    A RUNNING AsyncSlotEventLoop can run in one of the following 'modes':
+      - STANDALONE: run_forever creates a QEventLoop and calls exec()
+      - INTEGRATED: user is responsible for creating a Qt event loop
+      - EXCLUSIVE:  run_forever creates a true asyncio event loop
+
+    The __qt_event_loop and __notifier attributes determine the current
+    running mode (provided the loop is RUNNING):
+
+                    __qt_event_loop    __notifier
+      STANDALONE    not None           not None
+      INTEGRATED    None               not None
+      EXCLUSIVE     None               None
+
+    A RUNNING AsyncSlotEventLoop in STANDALONE or INTEGRATED mode can
+    further be in one of two sub-states: PROCESSING or SELECTING.
+
+      - PROCESSING: __process_asyncio_events() is being executed
+      - SELECTING: __process_asyncio_events() is waiting to be scheduled
+
+    A RUNNING AsyncSlotEventLoop in EXCLUSIVE mode is always PROCESSING.
+
+    The __processing attribute determines the current sub-state (provided
+    the loop is RUNNING).
+
+    STANDALONE Mode
+    ---------------
+
+    A loop created with standalone == True launches a QEventLoop and calls
+    exec() on it when run_forever is called.  If no QObjects are accessed,
+    such a loop provides 100% API and semantics compatibility with asyncio.
+    This mode is mainly used for testing the conformance of asyncslot's
+    loop implementation.
+
+    INTEGRATED Mode & EXCLUSIVE Mode
+    --------------------------------
+
+    A loop created with standalone == False never launches a Qt event loop
+    itself.  The normal workflow is for the user to call start() first and
+    then launch a Qt event loop, e.g. by calling one of QEventLoop.exec(),
+    QCoreApplication.exec(), QThread.exec(), etc.  After the Qt event loop
+    exits, the user should call stop().  Such a loop run is said to be in
+    INTEGRATED mode.
+
+    Note that start() and stop() only change the (logical) state of an
+    AsyncSlotEventLoop; they have no effect on the (physical) Qt event
+    loop and is in fact independent of the lifetime of the latter.
+
+    If run_forever() is called on a loop created with standalone == False,
+    a 'true' asyncio event loop is run, which blocks the calling thread
+    until stop() is called.  This is known as EXCLUSIVE mode, and is
+    designed for running clean-up code after the Qt event loop has exited.
+    Such clean-up code should finish as soon as possible, and should not
+    access any Qt object as no Qt loop is running.
+    """
+    def __init__(self, *args, standalone=True):
+        # If True, run_forever will launch the loop in STANDALONE mode.
+        # If False, run_forever will launch the loop in EXCLUSIVE mode;
+        # use start() to launch the loop in INTEGRATED mode.
+        self.__standalone = standalone
+
+        # If self is created in STANDALONE mode and is running,
+        # __qt_event_loop is set to the QEventLoop that is being run.
+        # In any other case, __qt_event_loop is set to None.
         self.__qt_event_loop = None
 
-        # When self is running, __notifier is attached to the selector to
-        # receive notifications when IO is available or timeout occurs.
-        # We connect to its notified signal to process asyncio events.
+        # If self is running in STANDALONE or INTEGRATED mode, __notifier
+        # is set to a notifier object and is attached to the selector to
+        # notify us when IO is available or timeout occurs.  In any other
+        # case, __notifier is set to None.
         self.__notifier: Optional[AsyncSlotNotifier] = None
 
-        # True if the last call to _run_once raised AsyncSlotYield, which
-        # means the embedded asyncio event loop is "logically" blocked in
-        # select() waiting for IO or timeout.
-        self.__blocked_in_select = False
+        # __processing is set to True in __process_asyncio_events to
+        # indicate that a 'normal' asyncio event processing iteration
+        # (i.e. _run_once) is running.  It is also set to True when the
+        # loop is running in EXCLUSIVE mode.
+        self.__processing = False
 
         # Any exception raised by self._process_asyncio_events is stored
         # in __run_once_error to be propagated later to the caller of
@@ -142,7 +216,10 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         # propagated except for SystemExit and KeyboardInterrupt.
         self.__run_once_error: Optional[BaseException] = None
 
-        self.__old_agen_hooks = None
+        # When the loop is running in INTEGRATED or STANDALONE mode,
+        # __old_agen_hook is set to the asyncgen hooks before the loop is
+        # started, so that they can be restored after the loop is stopped.
+        self.__old_agen_hooks: Optional[tuple] = None
 
         # If __call_soon_eagerly is True, _call_soon does not schedule the
         # callback but instead invoke it immediately.  This flag is used by
@@ -152,7 +229,7 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         # Need to invoke base constructor after initializing member variables
         # for compatibility with Python 3.7's BaseProactorEventLoop (Windows),
         # which calls self.call_soon() indirectly from its constructor.
-        super().__init__(*args, **kwargs)  # noqa
+        super().__init__(*args)  # noqa
 
     # =========================================================================
     # Custom method for AsyncSlot
@@ -170,7 +247,13 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
             # in case _call_soon is not called due to exception.
             self.__call_soon_eagerly = False
 
-    def __enter__(self) -> None:
+    def start(self) -> None:
+        if self.__standalone:
+            raise RuntimeError('AsyncSlotEventLoop.start() cannot be called '
+                               'for a loop created with standalone=True')
+        self._asyncslot_loop_startup()
+
+    def _asyncslot_loop_startup(self) -> None:
         """ Start the logical asyncio event loop. """
 
         # ---- BEGIN COPIED FROM BaseEventLoop.run_forever
@@ -186,7 +269,6 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
 
         self.__old_agen_hooks = old_agen_hooks
 
-        # Must make queued connection to avoid calling the handler immediately
         self.__notifier = create_notifier(self.__process_asyncio_events)
         self.__notifier.notify()  # schedule initial _run_once
 
@@ -194,10 +276,13 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
 
         events._set_running_loop(self)  # TODO: what does this do?
 
-    def __exit__(self, *args) -> None:
+    def _asyncslot_loop_cleanup(self) -> None:
         """ Stop the logical asyncio event loop. """
-        old_agen_hooks = self.__old_agen_hooks
-        self.__old_agen_hooks = None
+        if self.__old_agen_hooks is not None:
+            old_agen_hooks = self.__old_agen_hooks
+            self.__old_agen_hooks = None
+        else:
+            old_agen_hooks = sys.get_asyncgen_hooks()
         if self.__notifier is not None:
             self._selector.set_notifier(None)  # noqa
             self.__notifier.close()
@@ -217,35 +302,49 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         assert not self.is_closed(), 'loop unexpectedly closed'
         assert self.is_running(), 'loop unexpectedly stopped'
 
-        self.__blocked_in_select = False
-
         # Process ready callbacks, ready IO, and scheduled callbacks that
         # have passed the schedule time.  Run only once to avoid starving
         # the Qt event loop.
         try:
+            self.__processing = True
             self._run_once()  # defined in asyncio.BaseEventLoop
         except AsyncSlotYield:
-            self.__blocked_in_select = True
+            # Ignore _stopping flag until select() returns.  This follows
+            # asyncio behavior.
+            pass
         except BaseException as exc:
-            # TODO: call the exception handler if running in attached mode
-            self.__run_once_error = exc
-            if self.__qt_event_loop is not None:  # called from run_forever
+            if self.__qt_event_loop is not None:
+                # In STANDALONE mode, propagate the exception to the caller
+                # of run_forever.
+                self.__run_once_error = exc
                 self.__qt_event_loop.exit(1)
             else:
-                raise  # TODO: check what to do if running in attached mode
+                # In INTEGRATED mode, stop the loop immediately and raise
+                # the error into the Qt event loop.  For PyQt this will
+                # terminate the process; for PySide this will log an error
+                # and then ignored.
+                self._asyncslot_loop_cleanup()
+                raise
+                # TODO: implement consistent behavior under both bindings.
+                # TODO: maybe call some exception handler and let it decide
+                # TODO: what to do?
         else:
             # To be consistent with asyncio behavior, check the _stopping
             # flag only after running a full iteration of _run_once.
             if self._stopping:
                 if self.__qt_event_loop is not None:
-                    # Terminate Qt event loop if running in nested mode
+                    # In STANDALONE mode, quit the loop and let run_forever
+                    # perform clean up.
                     self.__qt_event_loop.exit(0)
-                    return
                 else:
-                    # Ignore stopping request if running in attached mode
-                    pass  # fallthrough
-            # Schedule next iteration if this iteration did not block
-            self.__notifier.notify()
+                    # In INTEGRATED mode, stop immediately because there is
+                    # no 'caller' to perform the cleanup for us.
+                    self._asyncslot_loop_cleanup()
+            else:
+                # Schedule next iteration if this iteration did not block
+                self.__notifier.notify()
+        finally:
+            self.__processing = False
 
     # =========================================================================
     # Compatibility with Python 3.7
@@ -267,65 +366,107 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
 
     def run_forever(self) -> None:
         """ Run the event loop until stop() is called. """
+
+        # If run_forever is called in INTEGRATED mode, start an 'authentic'
+        # asyncio event loop (by leaving __notifier to None).
+        if not self.__standalone:
+            try:
+                self.__processing = True
+                return super().run_forever()
+            finally:
+                self.__processing = False
+
         from .bindings import QtCore
         if QtCore.QCoreApplication.instance() is None:
+            # TODO: do we need the same check in start()?
             raise RuntimeError('An instance of QCoreApplication or its '
                                'derived class must be create before running '
                                'AsyncSlotEventLoop')
 
-        with self:
-            try:
-                self.__qt_event_loop = QtCore.QEventLoop()
-                if hasattr(QtCore.QEventLoop, 'exec'):
-                    exit_code = self.__qt_event_loop.exec()
+        try:
+            self._asyncslot_loop_startup()
+            self.__qt_event_loop = QtCore.QEventLoop()
+            if hasattr(QtCore.QEventLoop, 'exec'):
+                exit_code = self.__qt_event_loop.exec()
+            else:
+                exit_code = self.__qt_event_loop.exec_()
+            if exit_code != 0:
+                # Propagate exception from _process_asyncio_events if
+                # one is set.  The exception is not set if the Qt loop
+                # is terminated by e.g. QCoreApplication.exit().  Note
+                # also that if QCoreApplication.exit() has been called
+                # before calling run_forever, QEventLoop.exec() would
+                # return immediately.
+                if self.__run_once_error is not None:
+                    raise self.__run_once_error  # TODO: test this
                 else:
-                    exit_code = self.__qt_event_loop.exec_()
-                if exit_code != 0:
-                    # Propagate exception from _process_asyncio_events if
-                    # one is set.  The exception is not set if the Qt loop
-                    # is terminated by e.g. QCoreApplication.exit().
-                    if self.__run_once_error is not None:
-                        raise self.__run_once_error  # TODO: test this
-                    else:
-                        raise RuntimeError(
-                            f"Qt event loop exited with code '{exit_code}'")
-            except BaseException:
-                print(traceback.format_exc(), file=sys.stderr)
-                raise
-            finally:
-                self.__run_once_error = None
-                self.__qt_event_loop = None
+                    raise RuntimeError(
+                        f"Qt event loop exited with code '{exit_code}'")
+        except BaseException:
+            # TODO: improve diagnosis
+            print(traceback.format_exc(), file=sys.stderr)
+            raise
+        finally:
+            self.__run_once_error = None
+            self.__qt_event_loop = None
+            self._asyncslot_loop_cleanup()
 
     # run_until_complete = BaseEventLoop.run_until_complete
 
     def stop(self) -> None:
         """ Request the loop to stop.
 
-        The exact semantics are as follows:
+        The precise semantics are as follows:
 
-        1. If called before the loop starts running or after the loop has
-           stopped running, and if the next loop run is in nested mode,
-           that loop will run exactly one full iteration and then stop.
+        If the loop is created with standalone == True:
 
-        2. If called from a coroutine or a callback of a loop running in
-           nested mode, the loop will stop after completing the current
-           iteration.
+          - If stop() is called when the loop is STOPPED, the next time the
+            loop is RUNNING it will run exactly one iteration and then stop.
 
-        The above points retain the behavior of asyncio.BaseEventLoop.
-        The following additions are specific to AsyncSlotEventLoop:
+          - If stop() is called from a callback of a RUNNING loop, the loop
+            will stop after completing the current iteration.
 
-        3. If called from interrupting code (from a Qt slot) while the
-           loop is running in nested mode, necessarily logically blocked
-           in select, treat as if called via call_soon_threadsafe and wake
-           up the loop which will stop after completing a full iteration.
+          - If stop() is called from interleaving code (a Qt slot) when the
+            loop is RUNNING, treat as if called via call_soon_threadsafe():
+            wake up the selector, which will run one iteration and stop.
 
-        4. If the loop is running in attached mode, or if there is no loop
-           running but the next loop runs in attached mode, the call has
-           no effect.
+        If the loop is created with standalone == False:
+
+          - If stop() is called when the loop is STOPPED, raise an error.
+            (The pre-stop idiom is not supported.)
+
+          - If stop() is called from a callback of a RUNNING loop, either
+            in INTEGRATED or EXCLUSIVE mode, the loop will stop after
+            completing the current iteration.
+
+          - If stop() is called from interleaving code (a Qt slot) when
+            the loop is RUNNING in INTEGRATED mode, wake up the selector
+            and stop the loop immediately, since there might not be a Qt
+            loop to execute the next iteration.
+
+        In any case, if KeyboardInterrupt or SystemExit is raised when
+        processing an iteration, that iteration is interrupted, the loop
+        is stopped immediately, and the exception is propagated to the
+        caller of run_forever if running in STANDALONE or EXCLUSIVE mode
+        or thrown into the Qt loop if running in STANDALONE mode.
         """
-        if self.__blocked_in_select:
+        if self.__standalone:
+            if self.is_running() and not self.__processing:
+                self._write_to_self()
+            super().stop()
+
+        elif not self.is_running():
+            raise RuntimeError('AsyncSlotEventLoop: stop can only be called '
+                               'when a loop created in integrated mode is '
+                               'running')
+
+        elif self.__processing:
+            super().stop()
+
+        else:
             self._write_to_self()
-        super().stop()
+            super().stop()  # this only sets the flat
+            self._asyncslot_loop_cleanup()
 
     # is_running = BaseEventLoop.is_running
     # is_closed = BaseEventLoop.is_closed
@@ -340,7 +481,9 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
     # _timer_handle_cancelled: see BaseEventLoop
 
     def call_soon(self, *args, **kwargs):
-        if self.__blocked_in_select:
+        # If called from interleaving code when the loop is SELECTING,
+        # treat as if called by call_soon_threadsafe().
+        if self.is_running() and not self.__processing:
             self._write_to_self()
 
         # Eager execution if called from run_task().
@@ -365,12 +508,12 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         return handle
 
     def call_later(self, *args, **kwargs):
-        if self.__blocked_in_select:
+        if self.is_running() and not self.__processing:
             self._write_to_self()
         return super().call_later(*args, **kwargs)
 
     def call_at(self, *args, **kwargs):
-        if self.__blocked_in_select:
+        if self.is_running() and not self.__processing:
             self._write_to_self()
         return super().call_at(*args, **kwargs)
 

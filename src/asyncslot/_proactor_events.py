@@ -159,19 +159,19 @@ class AsyncSlotProactor(asyncio.IocpProactor):
 
 class AsyncSlotProactorEventLoop(AsyncSlotBaseEventLoop,
                                  asyncio.ProactorEventLoop):
-    def __init__(self):
+    def __init__(self, *, standalone=True):
         proactor = AsyncSlotProactor(weakref.WeakMethod(self._write_to_self))
-        super().__init__(proactor)
+        super().__init__(proactor, standalone=standalone)
 
-    def __enter__(self):
+    def _asyncslot_loop_startup(self):
         # ---- BEGIN COPIED FROM ProactorEventLoop.run_forever
         assert self._self_reading_future is None
         self.call_soon(self._loop_self_reading)
         # ---- END COPIED FROM ProactorEventLoop.run_forever
-        super().__enter__()
+        super()._asyncslot_loop_startup()
 
-    def __exit__(self, *args):
-        super().__exit__(*args)
+    def _asyncslot_loop_cleanup(self):
+        super()._asyncslot_loop_cleanup()
         # ---- BEGIN COPIED FROM ProactorEventLoop.run_forever
         if self._self_reading_future is not None:
             ov = self._self_reading_future._ov

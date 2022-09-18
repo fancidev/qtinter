@@ -130,10 +130,10 @@ class AsyncSlotSelector(selectors.BaseSelector):
 class AsyncSlotSelectorEventLoop(AsyncSlotBaseEventLoop,
                                  asyncio.SelectorEventLoop):
 
-    def __init__(self):
+    def __init__(self, *, standalone=True):
         selector = AsyncSlotSelector(selectors.DefaultSelector(),
                                      weakref.WeakMethod(self._write_to_self))
-        super().__init__(selector)
+        super().__init__(selector, standalone=standalone)
 
 
 class AsyncSlotSelectorEventLoopPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
