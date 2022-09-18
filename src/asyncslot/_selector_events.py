@@ -1,6 +1,7 @@
 """ _selector_events.py - AsyncSlot based on SelectorEventLoop """
 
 import asyncio
+import asyncio.selector_events
 import concurrent.futures
 import selectors
 import threading
@@ -9,7 +10,11 @@ from typing import List, Optional, Tuple
 from ._base_events import *
 
 
-__all__ = 'AsyncSlotSelectorEventLoop', 'AsyncSlotSelectorEventLoopPolicy',
+__all__ = (
+    'AsyncSlotBaseSelectorEventLoop',
+    'AsyncSlotSelectorEventLoop',
+    'AsyncSlotSelectorEventLoopPolicy',
+)
 
 
 class AsyncSlotSelector(selectors.BaseSelector):
@@ -127,13 +132,23 @@ class AsyncSlotSelector(selectors.BaseSelector):
         return self._selector.get_map()
 
 
-class AsyncSlotSelectorEventLoop(AsyncSlotBaseEventLoop,
-                                 asyncio.SelectorEventLoop):
+class AsyncSlotBaseSelectorEventLoop(
+    AsyncSlotBaseEventLoop,
+    asyncio.selector_events.BaseSelectorEventLoop
+):
+    def __init__(self, selector=None, *, standalone=True):
+        if selector is None:
+            selector = selectors.DefaultSelector()
+        asyncslot_selector = AsyncSlotSelector(
+            selector, weakref.WeakMethod(self._write_to_self))
+        super().__init__(asyncslot_selector, standalone=standalone)
 
-    def __init__(self, *, standalone=True):
-        selector = AsyncSlotSelector(selectors.DefaultSelector(),
-                                     weakref.WeakMethod(self._write_to_self))
-        super().__init__(selector, standalone=standalone)
+
+class AsyncSlotSelectorEventLoop(
+    AsyncSlotBaseSelectorEventLoop,
+    asyncio.SelectorEventLoop
+):
+    pass
 
 
 class AsyncSlotSelectorEventLoopPolicy(asyncio.events.BaseDefaultEventLoopPolicy):

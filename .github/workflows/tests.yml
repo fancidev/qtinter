@@ -47,6 +47,11 @@ jobs:
         env:
           TEST_QT_MODULE: ${{ matrix.qt-binding }}
           PYTHONPATH: src
+      - name: Run asyncio test suite
+        run: python tests/asyncio_tests.py
+        env:
+          TEST_QT_MODULE: ${{ matrix.qt-binding }}
+          PYTHONPATH: src
       - name: Generate coverage report
         run: coverage lcov
       - name: Upload coverage report
