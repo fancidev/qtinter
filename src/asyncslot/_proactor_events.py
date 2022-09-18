@@ -11,6 +11,7 @@ import _winapi
 import asyncio
 import concurrent.futures
 import math
+import sys
 import threading
 import weakref
 from typing import Optional
@@ -167,29 +168,32 @@ class AsyncSlotProactorEventLoop(AsyncSlotBaseEventLoop,
         proactor = AsyncSlotProactor(weakref.WeakMethod(self._write_to_self))
         super().__init__(proactor, standalone=standalone)
 
-    def _asyncslot_loop_startup(self):
-        # ---- BEGIN COPIED FROM ProactorEventLoop.run_forever
-        assert self._self_reading_future is None
-        self.call_soon(self._loop_self_reading)
-        # ---- END COPIED FROM ProactorEventLoop.run_forever
-        super()._asyncslot_loop_startup()
+    if sys.version_info >= (3, 8):
+        # run_forever is overridden in Python 3.8 and above
 
-    def _asyncslot_loop_cleanup(self):
-        super()._asyncslot_loop_cleanup()
-        # ---- BEGIN COPIED FROM ProactorEventLoop.run_forever
-        if self._self_reading_future is not None:
-            ov = self._self_reading_future._ov
-            self._self_reading_future.cancel()
-            # self_reading_future was just cancelled so if it hasn't been
-            # finished yet, it never will be (it's possible that it has
-            # already finished and its callback is waiting in the queue,
-            # where it could still happen if the event loop is restarted).
-            # Unregister it otherwise IocpProactor.close will wait for it
-            # forever
-            if ov is not None:
-                self._proactor._unregister(ov)
-            self._self_reading_future = None
-        # ---- END COPIED FROM ProactorEventLoop.run_forever
+        def _asyncslot_loop_startup(self):
+            # ---- BEGIN COPIED FROM ProactorEventLoop.run_forever
+            assert self._self_reading_future is None
+            self.call_soon(self._loop_self_reading)
+            # ---- END COPIED FROM ProactorEventLoop.run_forever
+            super()._asyncslot_loop_startup()
+
+        def _asyncslot_loop_cleanup(self):
+            super()._asyncslot_loop_cleanup()
+            # ---- BEGIN COPIED FROM ProactorEventLoop.run_forever
+            if self._self_reading_future is not None:
+                ov = self._self_reading_future._ov
+                self._self_reading_future.cancel()
+                # self_reading_future was just cancelled so if it hasn't been
+                # finished yet, it never will be (it's possible that it has
+                # already finished and its callback is waiting in the queue,
+                # where it could still happen if the event loop is restarted).
+                # Unregister it otherwise IocpProactor.close will wait for it
+                # forever
+                if ov is not None:
+                    self._proactor._unregister(ov)
+                self._self_reading_future = None
+            # ---- END COPIED FROM ProactorEventLoop.run_forever
 
 
 class AsyncSlotProactorEventLoopPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
