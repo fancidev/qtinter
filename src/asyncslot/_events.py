@@ -57,9 +57,9 @@ class AsyncSlotRunner:
 
 
 if sys.platform == 'win32':
+    from. import _proactor_events
     from ._proactor_events import *
-    __all__ += ('AsyncSlotProactorEventLoop',
-                'AsyncSlotProactorEventLoopPolicy')
+    __all__ += _proactor_events.__all__
     AsyncSlotDefaultEventLoop = AsyncSlotProactorEventLoop
     AsyncSlotDefaultEventLoopPolicy = AsyncSlotProactorEventLoopPolicy
 else:

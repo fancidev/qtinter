@@ -17,7 +17,11 @@ from typing import Optional
 from ._base_events import *
 
 
-__all__ = 'AsyncSlotProactorEventLoop', 'AsyncSlotProactorEventLoopPolicy',
+__all__ = (
+    'AsyncSlotProactor',
+    'AsyncSlotProactorEventLoop',
+    'AsyncSlotProactorEventLoopPolicy',
+)
 
 
 class AsyncSlotProactor(asyncio.IocpProactor):
