@@ -11,7 +11,7 @@ else:
 import asyncslot
 import unittest
 
-from shim import QtCore
+from asyncslot.bindings import QtCore
 app = QtCore.QCoreApplication([])
 
 # We now need to monkey-patch asyncio ...
@@ -25,12 +25,12 @@ if sys.platform == 'win32':
     asyncio.SelectorEventLoop = asyncio.windows_events.SelectorEventLoop = asyncslot.AsyncSlotSelectorEventLoop
     asyncio.ProactorEventLoop = asyncio.windows_events.ProactorEventLoop = asyncslot.AsyncSlotProactorEventLoop
     asyncio.IocpProactor = asyncio.windows_events.IocpProactor = asyncslot.AsyncSlotProactor
-    asyncio.DefaultEventLoopPolicy = asyncio.windows_events.DefaultEventLoopPolicy = asyncslot.AsyncSlotProactorEventLoopPolicy
+    asyncio.DefaultEventLoopPolicy = asyncio.windows_events.DefaultEventLoopPolicy = asyncslot.AsyncSlotDefaultEventLoopPolicy
     asyncio.WindowsSelectorEventLoopPolicy = asyncio.windows_events.WindowsSelectorEventLoopPolicy = asyncslot.AsyncSlotSelectorEventLoopPolicy
     asyncio.WindowsProactorEventLoopPolicy = asyncio.windows_events.WindowsProactorEventLoopPolicy = asyncslot.AsyncSlotProactorEventLoopPolicy
 else:
     asyncio.SelectorEventLoop = asyncio.unix_events.SelectorEventLoop = asyncslot.AsyncSlotSelectorEventLoop
-    asyncio.DefaultEventLoopPolicy = asyncio.unix_events.DefaultEventLoopPolicy = asyncslot.AsyncSlotSelectorEventLoopPolicy
+    asyncio.DefaultEventLoopPolicy = asyncio.unix_events.DefaultEventLoopPolicy = asyncslot.AsyncSlotDefaultEventLoopPolicy
 
 # Now import the tests into __main__
 from test.test_asyncio.test_base_events import *

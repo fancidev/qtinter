@@ -50,7 +50,7 @@ jobs:
       - name: Run asyncio test suite
         run: python tests/asyncio_tests.py
         env:
-          TEST_QT_MODULE: ${{ matrix.qt-binding }}
+          ASYNCSLOT_QTBINDING: ${{ matrix.qt-binding }}
           PYTHONPATH: src
       - name: Generate coverage report
         run: coverage lcov

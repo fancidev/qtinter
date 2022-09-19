@@ -60,8 +60,12 @@ if sys.platform == 'win32':
     from. import _proactor_events
     from ._proactor_events import *
     __all__ += _proactor_events.__all__
-    AsyncSlotDefaultEventLoop = AsyncSlotProactorEventLoop
-    AsyncSlotDefaultEventLoopPolicy = AsyncSlotProactorEventLoopPolicy
+    if sys.version_info < (3, 8):
+        AsyncSlotDefaultEventLoop = AsyncSlotSelectorEventLoop
+        AsyncSlotDefaultEventLoopPolicy = AsyncSlotSelectorEventLoopPolicy
+    else:
+        AsyncSlotDefaultEventLoop = AsyncSlotProactorEventLoop
+        AsyncSlotDefaultEventLoopPolicy = AsyncSlotProactorEventLoopPolicy
 else:
     AsyncSlotDefaultEventLoop = AsyncSlotSelectorEventLoop
     AsyncSlotDefaultEventLoopPolicy = AsyncSlotSelectorEventLoopPolicy
