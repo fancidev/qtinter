@@ -1,3 +1,42 @@
+"""asyncio_tests.py - run Python bundled asyncio test suite
+
+The test suite is located in Lib/test/test_asyncio.  Available test modules
+under different Python versions are as follows:
+
+Module                      3.7    3.8    3.9    3.10    3.11
+-------------------------------------------------------------
+test_base_events.py         ✓      ✓      ✓      ✓       ✓
+test_buffered_proto.py      ✓      ✓      ✓      ✓       ✓
+test_context.py             ✓      ✓      ✓      ✓       ✓
+test_events.py              ✓      ✓      ✓      ✓       ✓
+test_futures.py             ✓      ✓      ✓      ✓       ✓
+test_locks.py               ✓      ✓      ✓      ✓       ✓
+test_pep492.py              ✓      ✓      ✓      ✓       ✓
+test_proactor_events.py     ✓      ✓      ✓      ✓       ✓
+test_queues.py              ✓      ✓      ✓      ✓       ✓
+test_runners.py             ✓      ✓      ✓      ✓       ✓
+test_selector_events.py     ✓      ✓      ✓      ✓       ✓
+test_server.py              ✓      ✓      ✓      ✓       ✓
+test_sslproto.py            ✓      ✓      ✓      ✓       ✓
+test_streams.py             ✓      ✓      ✓      ✓       ✓
+test_subprocess.py          ✓      ✓      ✓      ✓       ✓
+test_tasks.py               ✓      ✓      ✓      ✓       ✓
+test_transports.py          ✓      ✓      ✓      ✓       ✓
+test_unix_events.py         ✓      ✓      ✓      ✓       ✓
+test_windows_events.py      ✓      ✓      ✓      ✓       ✓
+test_windows_utils.py       ✓      ✓      ✓      ✓       ✓
+test_asyncio_waitfor.py            ✓
+test_futures2.py                   ✓      ✓      ✓       ✓
+test_protocols.py                  ✓      ✓      ✓       ✓
+test_sendfile.py                   ✓      ✓      ✓       ✓
+test_sock_lowlevel.py              ✓      ✓      ✓       ✓
+test_threads.py                           ✓      ✓       ✓
+test_waitfor.py                           ✓      ✓       ✓
+test_ssl.py                                              ✓
+test_taskgroups.py                                       ✓
+test_timeouts.py                                         ✓
+
+"""
 import sys
 
 import asyncio
@@ -35,18 +74,13 @@ else:
     asyncio.DefaultEventLoopPolicy = asyncio.unix_events.DefaultEventLoopPolicy = asyncslot.AsyncSlotDefaultEventLoopPolicy
 
 # Now import the tests into __main__
-from test.test_asyncio.test_base_events import *
-from test.test_asyncio.test_events import *
-from test.test_asyncio.test_selector_events import *
-
-# from test.test_asyncio.test_proactor_events import *
-# from test.test_asyncio.test_unix_events import *
-# from test.test_asyncio.test_windows_events import *
+from test.test_asyncio import load_tests
 
 # The following tests are expected to fail, so skip them.
+from test.test_asyncio.test_events import HandleTests
 HandleTests.test_handle_source_traceback = None
 
 # TODO: why do we display warnings to stderr, but not asyncio?
 
 if __name__ == "__main__":
-    unittest.main(verbosity=1)
+    unittest.main(verbosity=0)
