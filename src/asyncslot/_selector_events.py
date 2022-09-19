@@ -5,6 +5,7 @@ import asyncio.selector_events
 import concurrent.futures
 import selectors
 import threading
+import unittest.mock
 import weakref
 from typing import List, Optional, Tuple
 from ._base_events import *
@@ -139,8 +140,12 @@ class AsyncSlotBaseSelectorEventLoop(
     def __init__(self, selector=None, *, standalone=True):
         if selector is None:
             selector = selectors.DefaultSelector()
-        asyncslot_selector = AsyncSlotSelector(
-            selector, weakref.WeakMethod(self._write_to_self))
+        if isinstance(selector, unittest.mock.Mock):
+            # Pass through mock object for testing
+            asyncslot_selector = selector
+        else:
+            asyncslot_selector = AsyncSlotSelector(
+                selector, weakref.WeakMethod(self._write_to_self))
         super().__init__(asyncslot_selector, standalone=standalone)
 
 

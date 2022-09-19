@@ -37,7 +37,8 @@ else:
 # Now import the tests into __main__
 from test.test_asyncio.test_base_events import *
 from test.test_asyncio.test_events import *
-# from test.test_asyncio.test_selector_events import *
+from test.test_asyncio.test_selector_events import *
+
 # from test.test_asyncio.test_proactor_events import *
 # from test.test_asyncio.test_unix_events import *
 # from test.test_asyncio.test_windows_events import *

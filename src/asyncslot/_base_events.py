@@ -272,7 +272,9 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         self.__notifier = create_notifier(self.__process_asyncio_events)
         self.__notifier.notify()  # schedule initial _run_once
 
-        self._selector.set_notifier(self.__notifier)  # noqa
+        # Do not set notifier if a TestSelector is used (during testing).
+        if hasattr(self._selector, 'set_notifier'):
+            self._selector.set_notifier(self.__notifier)  # noqa
 
         events._set_running_loop(self)  # TODO: what does this do?
 
@@ -284,7 +286,9 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         else:
             old_agen_hooks = sys.get_asyncgen_hooks()
         if self.__notifier is not None:
-            self._selector.set_notifier(None)  # noqa
+            # Do not set notifier if a TestSelector is used (during testing).
+            if hasattr(self._selector, 'set_notifier'):
+                self._selector.set_notifier(None)  # noqa
             self.__notifier.close()
             self.__notifier = None
         # ---- BEGIN COPIED FROM BaseEventLoop.run_forever
