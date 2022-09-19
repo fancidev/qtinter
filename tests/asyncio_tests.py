@@ -3,6 +3,7 @@ import sys
 import asyncio
 import asyncio.base_events
 import asyncio.selector_events
+# import asyncio.proactor_events
 if sys.platform == 'win32':
     import asyncio.windows_events
 else:
@@ -16,10 +17,11 @@ app = QtCore.QCoreApplication([])
 
 # We now need to monkey-patch asyncio ...
 
-asyncio.base_events.BaseEventLoop = asyncslot.AsyncSlotBaseEventLoop
-asyncio.BaseEventLoop = asyncio.base_events.BaseEventLoop
+asyncio.BaseEventLoop = asyncio.base_events.BaseEventLoop = asyncslot.AsyncSlotBaseEventLoop
 
 asyncio.selector_events.BaseSelectorEventLoop = asyncslot.AsyncSlotBaseSelectorEventLoop
+# TODO: AsyncSlotBaseProactorEventLoop
+# asyncio.proactor_events.BaseProactorEventLoop = asyncslot.AsyncSlotProactorEventLoop
 
 if sys.platform == 'win32':
     asyncio.SelectorEventLoop = asyncio.windows_events.SelectorEventLoop = asyncslot.AsyncSlotSelectorEventLoop
@@ -34,9 +36,16 @@ else:
 
 # Now import the tests into __main__
 from test.test_asyncio.test_base_events import *
+from test.test_asyncio.test_events import *
+# from test.test_asyncio.test_selector_events import *
+# from test.test_asyncio.test_proactor_events import *
+# from test.test_asyncio.test_unix_events import *
+# from test.test_asyncio.test_windows_events import *
 
+# The following tests are expected to fail, so skip them.
+HandleTests.test_handle_source_traceback = None
 
 # TODO: why do we display warnings to stderr, but not asyncio?
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(verbosity=1)

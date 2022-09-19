@@ -151,5 +151,5 @@ class AsyncSlotSelectorEventLoop(
     pass
 
 
-class AsyncSlotSelectorEventLoopPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
+class AsyncSlotSelectorEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
     _loop_factory = AsyncSlotSelectorEventLoop
