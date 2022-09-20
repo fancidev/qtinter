@@ -76,9 +76,12 @@ else:
 # Now import the tests into __main__
 from test.test_asyncio import load_tests
 
-# The following tests are expected to fail, so skip them.
+# The following test is expected to fail because the call stack is
+# changed under asyncslot.  If the test succeeds, it means the monkey
+# patching didn't work!
 from test.test_asyncio.test_events import HandleTests
-HandleTests.test_handle_source_traceback = None
+HandleTests.test_handle_source_traceback = unittest.expectedFailure(
+    HandleTests.test_handle_source_traceback)
 
 # TODO: why do we display warnings to stderr, but not asyncio?
 
