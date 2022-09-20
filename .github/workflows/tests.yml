@@ -48,6 +48,7 @@ jobs:
           TEST_QT_MODULE: ${{ matrix.qt-binding }}
           PYTHONPATH: src
       - name: Run asyncio test suite
+        if: ${{ matrix.platform != 'windows-latest' }}
         run: python tests/asyncio_tests.py
         env:
           ASYNCSLOT_QTBINDING: ${{ matrix.qt-binding }}
