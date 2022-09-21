@@ -1,23 +1,22 @@
-""" _events.py - entry point for asyncslot implementation """
+""" _runners.py - run asyncslot event loop in INTEGRATED mode """
 
-import asyncio
+import asyncio.runners
 import sys
 from typing import Callable, Optional
+from ._base_events import AsyncSlotBaseEventLoop
 
-from ._base_events import *
-from ._selector_events import *
+if sys.platform == 'win32':
+    from ._windows_events import AsyncSlotDefaultEventLoop
+else:
+    from ._unix_events import AsyncSlotDefaultEventLoop
 
 
-__all__ = (
-    'AsyncSlotDefaultEventLoop',
-    'AsyncSlotDefaultEventLoopPolicy',
-    'AsyncSlotRunner',
-)
+__all__ = 'AsyncSlotRunner',
 
 
 # Adapted from asyncio.runners
 class AsyncSlotRunner:
-    """Context manager that runs an AsyncSlotDefaultEventLoop in attached
+    """Context manager that runs an AsyncSlotDefaultEventLoop in INTEGRATE
     mode."""
 
     def __init__(self, *, debug: Optional[bool] = None, loop_factory:
@@ -54,18 +53,3 @@ class AsyncSlotRunner:
             asyncio.events.set_event_loop(None)
             loop.close()
             self._loop = None
-
-
-if sys.platform == 'win32':
-    from. import _proactor_events
-    from ._proactor_events import *
-    __all__ += _proactor_events.__all__
-    if sys.version_info < (3, 8):
-        AsyncSlotDefaultEventLoop = AsyncSlotSelectorEventLoop
-        AsyncSlotDefaultEventLoopPolicy = AsyncSlotSelectorEventLoopPolicy
-    else:
-        AsyncSlotDefaultEventLoop = AsyncSlotProactorEventLoop
-        AsyncSlotDefaultEventLoopPolicy = AsyncSlotProactorEventLoopPolicy
-else:
-    AsyncSlotDefaultEventLoop = AsyncSlotSelectorEventLoop
-    AsyncSlotDefaultEventLoopPolicy = AsyncSlotSelectorEventLoopPolicy

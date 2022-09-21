@@ -1,6 +1,5 @@
 """ _selector_events.py - AsyncSlot based on SelectorEventLoop """
 
-import asyncio
 import asyncio.selector_events
 import concurrent.futures
 import selectors
@@ -11,11 +10,7 @@ from typing import List, Optional, Tuple
 from ._base_events import *
 
 
-__all__ = (
-    'AsyncSlotBaseSelectorEventLoop',
-    'AsyncSlotSelectorEventLoop',
-    'AsyncSlotSelectorEventLoopPolicy',
-)
+__all__ = 'AsyncSlotBaseSelectorEventLoop',
 
 
 class AsyncSlotSelector(selectors.BaseSelector):
@@ -147,14 +142,3 @@ class AsyncSlotBaseSelectorEventLoop(
             asyncslot_selector = AsyncSlotSelector(
                 selector, weakref.WeakMethod(self._write_to_self))
         super().__init__(asyncslot_selector, standalone=standalone)
-
-
-class AsyncSlotSelectorEventLoop(
-    AsyncSlotBaseSelectorEventLoop,
-    asyncio.SelectorEventLoop
-):
-    pass
-
-
-class AsyncSlotSelectorEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
-    _loop_factory = AsyncSlotSelectorEventLoop
