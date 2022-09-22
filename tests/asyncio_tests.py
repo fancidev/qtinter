@@ -84,7 +84,7 @@ HandleTests.test_handle_source_traceback = unittest.expectedFailure(
 
 # Supress the Ctrl+C test under Windows temporarily until we handle
 # Ctrl+C propagation properly later.
-if sys.platform == "win32":
+if sys.platform == "win32" and sys.version_info >= (3, 8):
     from test.test_asyncio.test_windows_events import ProactorLoopCtrlC
     ProactorLoopCtrlC.test_ctrl_c = \
         unittest.skip('supress')(ProactorLoopCtrlC.test_ctrl_c)
