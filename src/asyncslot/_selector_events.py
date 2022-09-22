@@ -8,6 +8,7 @@ import unittest.mock
 import weakref
 from typing import List, Optional, Tuple
 from ._base_events import *
+from ._selectable import _AsyncSlotNotifier
 
 
 __all__ = 'AsyncSlotBaseSelectorEventLoop',
@@ -24,10 +25,10 @@ class AsyncSlotSelector(selectors.BaseSelector):
         self._select_future: Optional[concurrent.futures.Future] = None
         self._idle = threading.Event()
         self._idle.set()
-        self._notifier: Optional[AsyncSlotNotifier] = None
+        self._notifier: Optional[_AsyncSlotNotifier] = None
         self._closed = False
 
-    def set_notifier(self, notifier: Optional[AsyncSlotNotifier]) -> None:
+    def set_notifier(self, notifier: Optional[_AsyncSlotNotifier]) -> None:
         self._unblock_if_blocked()
         self._notifier = notifier
 
@@ -93,15 +94,15 @@ class AsyncSlotSelector(selectors.BaseSelector):
             self._idle.set()
             raise
         else:
-            raise AsyncSlotYield
+            return self._notifier.no_result()  # raises _AsyncSlotYield
 
     def _select(self, timeout):
-        # Make a copy of self._notifier because it may be altered by
-        # set_notifier immediately after self._idle is set.
-        notifier = self._notifier
         try:
             return self._selector.select(timeout)
         finally:
+            # Make a copy of self._notifier because it may be altered by
+            # set_notifier immediately after self._idle is set.
+            notifier = self._notifier
             self._idle.set()
             notifier.notify()
 

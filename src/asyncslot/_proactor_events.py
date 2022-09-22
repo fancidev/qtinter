@@ -12,6 +12,3 @@ class AsyncSlotBaseProactorEventLoop(
     asyncio.proactor_events.BaseProactorEventLoop
 ):
     pass
-
-    # def __init__(self, proactor, standalone=True):
-    #     super().__init__(proactor, standalone=standalone)

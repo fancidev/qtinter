@@ -1,38 +1,30 @@
 """ _base_events.py - event loop implementation using Qt """
 
 import asyncio
-import selectors
 import sys
 import threading
 import traceback
 from asyncio import events
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, Optional
+from ._selectable import *
 
 
-__all__ = ('AsyncSlotYield', 'AsyncSlotNotifier', 'AsyncSlotBaseEventLoop')
+__all__ = 'AsyncSlotBaseEventLoop',
 
 
-class AsyncSlotYield(Exception):
+class _AsyncSlotYield(Exception):
     """ Raised by an AsyncSlotSelectable to indicate that no IO is readily
     available and that _run_once should yield to the Qt event loop. """
     pass
 
 
-class AsyncSlotNotifier:
-    def notify(self) -> None:
-        raise NotImplementedError
-
-    def close(self) -> None:
-        raise NotImplementedError
+_AsyncSlotNotifierObject = None
 
 
-AsyncSlotNotifierObject = None
-
-
-def create_notifier(callback: Callable[[], None]):
-    global AsyncSlotNotifierObject
-    if AsyncSlotNotifierObject is not None:
-        return AsyncSlotNotifierObject(callback)
+def _create_notifier(callback: Callable[[], None]):
+    global _AsyncSlotNotifierObject
+    if _AsyncSlotNotifierObject is not None:
+        return _AsyncSlotNotifierObject(callback)
 
     from .bindings import QtCore
 
@@ -58,63 +50,22 @@ def create_notifier(callback: Callable[[], None]):
                 # TODO: the notifier is closed.
                 pass
 
+        def no_result(self):
+            raise _AsyncSlotYield
+
         def notify(self):
             self._notified.emit()
+
+        # def wakeup(self):
+        #     pass
 
         def close(self):
             if self._callback is not None:
                 self._notified.disconnect()
                 self._callback = None
 
-    AsyncSlotNotifierObject = _AsyncSlotNotifierObject
-    return AsyncSlotNotifierObject(callback)
-
-
-class AsyncSlotSelectable:
-    """Protocol for a 'selector' that supports non-blocking select and
-    notification.
-
-    A selector may be in one of the following states:
-      - IDLE   : the selector is not in BUSY or CLOSED state
-      - BUSY   : the last call to select() raised AsyncSlotYield, and
-                 a thread worker is waiting for IO or timeout
-      - CLOSED : close() has been called
-
-    State machine:
-      - [start] --- __init__ --> IDLE
-      - IDLE --- close() --> CLOSED
-        IDLE --- select
-                 - (IO ready, timeout == 0, or notifier is None) --> IDLE
-                 - (IO not ready, timeout != 0, and notifier not None) --> BUSY
-        IDLE --- set_notifier --> IDLE
-      - BUSY --- (IO ready or timeout reached) --> IDLE
-        BUSY --- set_notifier --> (wakes up selector) --> IDLE
-      - CLOSED --- [end]
-    """
-
-    def set_notifier(self, notifier: Optional[AsyncSlotNotifier]) -> None:
-        """Set the notifier.
-
-        If the selector is in BUSY state, wake it up and wait for it
-        to become IDLE before returning.  In this case, the previous
-        installed notifier (if any) is still signaled.
-        """
-        raise NotImplementedError
-
-    def select(self, timeout: Optional[float] = None) \
-            -> List[Tuple[selectors.SelectorKey, int]]:
-        """
-        If timeout is zero or some IO is readily available, return the
-        available IO immediately.
-
-        If timeout is not zero, IO is not ready and notifier is not None,
-        raise AsyncSlotYield and perform the real select() in a different
-        thread.  When that select() completes, signal the notifier object.
-
-        If timeout is not zero, IO is not ready and notifier is None,
-        perform normal (blocking) select.
-        """
-        raise NotImplementedError
+    # _AsyncSlotNotifierObject = _AsyncSlotNotifierObjectImpl
+    return _AsyncSlotNotifierObject(callback)
 
 
 class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
@@ -201,7 +152,7 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         # is set to a notifier object and is attached to the selector to
         # notify us when IO is available or timeout occurs.  In any other
         # case, __notifier is set to None.
-        self.__notifier: Optional[AsyncSlotNotifier] = None
+        self.__notifier: Optional[_AsyncSlotNotifier] = None
 
         # __processing is set to True in __process_asyncio_events to
         # indicate that a 'normal' asyncio event processing iteration
@@ -269,7 +220,7 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
 
         self.__old_agen_hooks = old_agen_hooks
 
-        self.__notifier = create_notifier(self.__process_asyncio_events)
+        self.__notifier = _create_notifier(self.__process_asyncio_events)
         self.__notifier.notify()  # schedule initial _run_once
 
         # Do not set notifier if a TestSelector is used (during testing).
@@ -312,7 +263,7 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         try:
             self.__processing = True
             self._run_once()  # defined in asyncio.BaseEventLoop
-        except AsyncSlotYield:
+        except _AsyncSlotYield:
             # Ignore _stopping flag until select() returns.  This follows
             # asyncio behavior.
             pass

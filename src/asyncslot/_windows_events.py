@@ -14,7 +14,7 @@ import sys
 import threading
 import weakref
 from typing import Optional
-from ._base_events import AsyncSlotNotifier, AsyncSlotYield
+from ._selectable import _AsyncSlotNotifier
 from . import _proactor_events
 from . import _selector_events
 
@@ -44,7 +44,7 @@ class AsyncSlotProactor(asyncio.IocpProactor):
         self.__dequeue_future: Optional[concurrent.futures.Future] = None
         self.__idle = threading.Event()
         self.__idle.set()
-        self.__notifier: Optional[AsyncSlotNotifier] = None
+        self.__notifier: Optional[_AsyncSlotNotifier] = None
 
     def __wake_up(self):
         self._check_closed()
@@ -56,7 +56,7 @@ class AsyncSlotProactor(asyncio.IocpProactor):
             write_to_self()
             self.__idle.wait()
 
-    def set_notifier(self, notifier: Optional[AsyncSlotNotifier]) -> None:
+    def set_notifier(self, notifier: Optional[_AsyncSlotNotifier]) -> None:
         self.__wake_up()
         self.__notifier = notifier
 
@@ -167,7 +167,8 @@ class AsyncSlotProactor(asyncio.IocpProactor):
             # Should submit() raise, we assume no task is spawned.
             self.__idle.set()
             raise
-        raise AsyncSlotYield
+        else:
+            return self.__notifier.no_result()  # raises _AsyncSlotYield
 
     def __dequeue(self, ms: int):
         try:
