@@ -71,6 +71,7 @@ else:
     asyncio.SelectorEventLoop = asyncio.unix_events.SelectorEventLoop = asyncio.unix_events._UnixSelectorEventLoop = asyncslot.AsyncSlotSelectorEventLoop
     asyncio.DefaultEventLoopPolicy = asyncio.unix_events.DefaultEventLoopPolicy = asyncio.unix_events._UnixDefaultEventLoopPolicy = asyncslot.AsyncSlotDefaultEventLoopPolicy
 
+
 # Now import the tests into __main__
 from test.test_asyncio import load_tests
 
@@ -80,6 +81,17 @@ from test.test_asyncio import load_tests
 from test.test_asyncio.test_events import HandleTests
 HandleTests.test_handle_source_traceback = unittest.expectedFailure(
     HandleTests.test_handle_source_traceback)
+
+# Supress the Ctrl+C test under Windows temporarily until we handle
+# Ctrl+C propagation properly later.
+if sys.platform == "win32":
+    from test.test_asyncio.test_windows_events import ProactorLoopCtrlC
+    ProactorLoopCtrlC.test_ctrl_c = \
+        unittest.skip('supress')(ProactorLoopCtrlC.test_ctrl_c)
+
+# To run a particular test, import that test class, and specify
+# TestClassName.test_name on the command line. For example:
+# python asyncio_tests.py ProactorLoopCtrlC.test_ctrl_c
 
 # TODO: why do we display warnings to stderr, but not asyncio?
 
