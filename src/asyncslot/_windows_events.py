@@ -21,7 +21,6 @@ from . import _selector_events
 __all__ = (
     'AsyncSlotDefaultEventLoop',
     'AsyncSlotDefaultEventLoopPolicy',
-    'AsyncSlotProactor',
     'AsyncSlotProactorEventLoop',
     'AsyncSlotProactorEventLoopPolicy',
     'AsyncSlotSelectorEventLoop',
@@ -32,7 +31,7 @@ __all__ = (
 INFINITE = 0xffffffff
 
 
-class AsyncSlotProactor(asyncio.IocpProactor):
+class _AsyncSlotProactor(asyncio.IocpProactor):
     def __init__(self, concurrency=0xffffffff):
         super().__init__(concurrency)
 
@@ -197,7 +196,7 @@ class AsyncSlotProactorEventLoop(
 ):
     def __init__(self, *, standalone=True):
         # TODO: take proactor argument
-        proactor = AsyncSlotProactor()
+        proactor = _AsyncSlotProactor()
         super().__init__(proactor, standalone=standalone)
 
     if sys.version_info >= (3, 8):

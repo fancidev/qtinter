@@ -63,7 +63,7 @@ asyncio.proactor_events.BaseProactorEventLoop = asyncslot.AsyncSlotBaseProactorE
 if sys.platform == 'win32':
     asyncio.SelectorEventLoop = asyncio.windows_events.SelectorEventLoop = asyncio.windows_events._WindowsSelectorEventLoop = asyncslot.AsyncSlotSelectorEventLoop
     asyncio.ProactorEventLoop = asyncio.windows_events.ProactorEventLoop = asyncslot.AsyncSlotProactorEventLoop
-    asyncio.IocpProactor = asyncio.windows_events.IocpProactor = asyncslot.AsyncSlotProactor
+    asyncio.IocpProactor = asyncio.windows_events.IocpProactor = asyncslot._windows_events._AsyncSlotProactor
     asyncio.WindowsSelectorEventLoopPolicy = asyncio.windows_events.WindowsSelectorEventLoopPolicy = asyncslot.AsyncSlotSelectorEventLoopPolicy
     asyncio.WindowsProactorEventLoopPolicy = asyncio.windows_events.WindowsProactorEventLoopPolicy = asyncslot.AsyncSlotProactorEventLoopPolicy
     asyncio.DefaultEventLoopPolicy = asyncio.windows_events.DefaultEventLoopPolicy = asyncslot.AsyncSlotDefaultEventLoopPolicy
