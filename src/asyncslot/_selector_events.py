@@ -127,7 +127,7 @@ class AsyncSlotBaseSelectorEventLoop(
     AsyncSlotBaseEventLoop,
     asyncio.selector_events.BaseSelectorEventLoop
 ):
-    def __init__(self, selector=None, *, standalone=True):
+    def __init__(self, selector=None):
         if selector is None:
             selector = selectors.DefaultSelector()
         if isinstance(selector, unittest.mock.Mock):
@@ -135,4 +135,4 @@ class AsyncSlotBaseSelectorEventLoop(
             asyncslot_selector = selector
         else:
             asyncslot_selector = _AsyncSlotSelector(selector)
-        super().__init__(asyncslot_selector, standalone=standalone)
+        super().__init__(asyncslot_selector)

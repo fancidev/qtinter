@@ -137,11 +137,11 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
     Such clean-up code should finish as soon as possible, and should not
     access any Qt object as no Qt loop is running.
     """
-    def __init__(self, *args, standalone=True):
+    def __init__(self, *args, **kwargs):
         # If True, run_forever will launch the loop in STANDALONE mode.
         # If False, run_forever will launch the loop in EXCLUSIVE mode;
         # use start() to launch the loop in INTEGRATED mode.
-        self.__standalone = standalone
+        self.__standalone = True
 
         # If self is created in STANDALONE mode and is running,
         # __qt_event_loop is set to the QEventLoop that is being run.
@@ -154,7 +154,7 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         # case, __notifier is set to None.
         self.__notifier: Optional[_AsyncSlotNotifier] = None
 
-        # __processing is set to True in __process_asyncio_events to
+        # __processing is set to True in _asyncslot_loop_iteration to
         # indicate that a 'normal' asyncio event processing iteration
         # (i.e. _run_once) is running.  It is also set to True when the
         # loop is running in EXCLUSIVE mode.
@@ -180,11 +180,16 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         # Need to invoke base constructor after initializing member variables
         # for compatibility with Python 3.7's BaseProactorEventLoop (Windows),
         # which calls self.call_soon() indirectly from its constructor.
-        super().__init__(*args)  # noqa
+        super().__init__(*args, **kwargs)  # noqa
 
     # =========================================================================
     # Custom method for AsyncSlot
     # =========================================================================
+
+    def set_guest(self, guest: bool) -> None:
+        self._check_closed()
+        self._check_running()
+        self.__standalone = not guest
 
     def run_task(self, coro, *, name=None):
         try:
@@ -200,8 +205,8 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
 
     def start(self) -> None:
         if self.__standalone:
-            raise RuntimeError('AsyncSlotEventLoop.start() cannot be called '
-                               'for a loop created with standalone=True')
+            raise RuntimeError('AsyncSlotBaseEventLoop.start() can only be '
+                               'called for a loop operating in guest mode')
         self._asyncslot_loop_startup()
 
     def _asyncslot_loop_startup(self) -> None:

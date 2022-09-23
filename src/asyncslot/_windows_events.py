@@ -194,10 +194,9 @@ class AsyncSlotProactorEventLoop(
     _proactor_events.AsyncSlotBaseProactorEventLoop,
     asyncio.windows_events.ProactorEventLoop
 ):
-    def __init__(self, *, standalone=True):
-        # TODO: take proactor argument
+    def __init__(self):
         proactor = _AsyncSlotProactor()
-        super().__init__(proactor, standalone=standalone)
+        super().__init__(proactor)
 
     if sys.version_info >= (3, 8):
         # run_forever is overridden in Python 3.8 and above

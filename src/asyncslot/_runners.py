@@ -27,9 +27,10 @@ class AsyncSlotRunner:
 
     def __enter__(self):
         if self._loop_factory is None:
-            self._loop = AsyncSlotDefaultEventLoop(standalone=False)
+            self._loop = AsyncSlotDefaultEventLoop()
         else:
-            self._loop = self._loop_factory(standalone=False)
+            self._loop = self._loop_factory()
+        self._loop.set_guest(True)
         asyncio.events.set_event_loop(self._loop)  # ???
         if self._debug is not None:
             self._loop.set_debug(self._debug)
