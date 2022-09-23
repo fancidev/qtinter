@@ -5,7 +5,7 @@ import sys
 import threading
 import traceback
 from asyncio import events
-from typing import Callable, Optional
+from typing import Optional
 from ._selectable import *
 
 
@@ -21,10 +21,10 @@ class _AsyncSlotYield(Exception):
 _AsyncSlotNotifierObject = None
 
 
-def _create_notifier(callback: Callable[[], None]):
+def _create_notifier(loop: "AsyncSlotBaseEventLoop"):
     global _AsyncSlotNotifierObject
     if _AsyncSlotNotifierObject is not None:
-        return _AsyncSlotNotifierObject(callback)
+        return _AsyncSlotNotifierObject(loop)
 
     from .bindings import QtCore
 
@@ -34,17 +34,18 @@ def _create_notifier(callback: Callable[[], None]):
         else:
             _notified = QtCore.Signal()
 
-        def __init__(self, callback: Callable[[], None]):
+        def __init__(self, loop: "AsyncSlotBaseEventLoop"):
             super().__init__()
-            assert callback is not None, 'callback must not be None'
-            self._callback: Optional[Callable[[], None]] = callback
+            # The following creates a reference cycle.  Call close() to
+            # break the cycle.
+            self._loop = loop
             # Must make queued connection to avoid re-entrance.
             self._notified.connect(self._on_notified,
                                    QtCore.Qt.ConnectionType.QueuedConnection)
 
         def _on_notified(self):
-            if self._callback is not None:
-                self._callback()
+            if self._loop is not None:
+                self._loop._asyncslot_loop_iteration()
             else:
                 # TODO: print a warning that notification is received after
                 # TODO: the notifier is closed.
@@ -56,16 +57,15 @@ def _create_notifier(callback: Callable[[], None]):
         def notify(self):
             self._notified.emit()
 
-        # def wakeup(self):
-        #     pass
+        def wakeup(self):
+            self._loop._write_to_self()
 
         def close(self):
-            if self._callback is not None:
+            if self._loop is not None:
                 self._notified.disconnect()
-                self._callback = None
+                self._loop = None
 
-    # _AsyncSlotNotifierObject = _AsyncSlotNotifierObjectImpl
-    return _AsyncSlotNotifierObject(callback)
+    return _AsyncSlotNotifierObject(loop)
 
 
 class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
@@ -220,7 +220,7 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
 
         self.__old_agen_hooks = old_agen_hooks
 
-        self.__notifier = _create_notifier(self.__process_asyncio_events)
+        self.__notifier = _create_notifier(self)
         self.__notifier.notify()  # schedule initial _run_once
 
         # Do not set notifier if a TestSelector is used (during testing).
@@ -250,7 +250,7 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         sys.set_asyncgen_hooks(*old_agen_hooks)
         # ---- END COPIED FROM BaseEventLoop.run_forever
 
-    def __process_asyncio_events(self):
+    def _asyncslot_loop_iteration(self):
         """ This slot is connected to the notified signal of self.__notifier,
         which is emitted whenever asyncio events are possibly available
         and need to be processed."""

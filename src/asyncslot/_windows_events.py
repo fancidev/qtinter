@@ -12,7 +12,6 @@ import concurrent.futures
 import math
 import sys
 import threading
-import weakref
 from typing import Optional
 from ._selectable import _AsyncSlotNotifier
 from . import _proactor_events
@@ -34,30 +33,24 @@ INFINITE = 0xffffffff
 
 
 class AsyncSlotProactor(asyncio.IocpProactor):
-    def __init__(
-        self, write_to_self: weakref.WeakMethod, concurrency=0xffffffff,
-    ):
+    def __init__(self, concurrency=0xffffffff):
         super().__init__(concurrency)
 
-        self.__write_to_self = write_to_self
         self.__executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
         self.__dequeue_future: Optional[concurrent.futures.Future] = None
         self.__idle = threading.Event()
         self.__idle.set()
         self.__notifier: Optional[_AsyncSlotNotifier] = None
 
-    def __wake_up(self):
+    def __wakeup(self):
         self._check_closed()
         if not self.__idle.is_set():
-            write_to_self = self.__write_to_self()
-            assert write_to_self is not None, (
-                'AsyncSlotEventLoop is supposed to close AsyncSlotProactor '
-                'before being deleted')
-            write_to_self()
+            assert self.__notifier is not None, 'notifier expected'
+            self.__notifier.wakeup()
             self.__idle.wait()
 
     def set_notifier(self, notifier: Optional[_AsyncSlotNotifier]) -> None:
-        self.__wake_up()
+        self.__wakeup()
         self.__notifier = notifier
 
     def _poll(self, timeout=None):
@@ -203,7 +196,8 @@ class AsyncSlotProactorEventLoop(
     asyncio.windows_events.ProactorEventLoop
 ):
     def __init__(self, *, standalone=True):
-        proactor = AsyncSlotProactor(weakref.WeakMethod(self._write_to_self))
+        # TODO: take proactor argument
+        proactor = AsyncSlotProactor()
         super().__init__(proactor, standalone=standalone)
 
     if sys.version_info >= (3, 8):

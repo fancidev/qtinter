@@ -5,7 +5,6 @@ import concurrent.futures
 import selectors
 import threading
 import unittest.mock
-import weakref
 from typing import List, Optional, Tuple
 from ._base_events import *
 from ._selectable import _AsyncSlotNotifier
@@ -14,13 +13,11 @@ from ._selectable import _AsyncSlotNotifier
 __all__ = 'AsyncSlotBaseSelectorEventLoop',
 
 
-class AsyncSlotSelector(selectors.BaseSelector):
+class _AsyncSlotSelector(selectors.BaseSelector):
 
-    def __init__(self, selector: selectors.BaseSelector,
-                 write_to_self: weakref.WeakMethod):
+    def __init__(self, selector: selectors.BaseSelector):
         super().__init__()
         self._selector = selector
-        self._write_to_self = write_to_self
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
         self._select_future: Optional[concurrent.futures.Future] = None
         self._idle = threading.Event()
@@ -35,11 +32,8 @@ class AsyncSlotSelector(selectors.BaseSelector):
     def _unblock_if_blocked(self):
         assert not self._closed, 'selector already closed'
         if not self._idle.is_set():
-            write_to_self = self._write_to_self()
-            assert write_to_self is not None, (
-                'AsyncSlotEventLoop is supposed to close AsyncSlotSelector '
-                'before being deleted')
-            write_to_self()
+            assert self._notifier is not None, 'notifier expected'
+            self._notifier.wakeup()
             self._idle.wait()
 
     def register(self, fileobj, events, data=None):
@@ -140,6 +134,5 @@ class AsyncSlotBaseSelectorEventLoop(
             # Pass through mock object for testing
             asyncslot_selector = selector
         else:
-            asyncslot_selector = AsyncSlotSelector(
-                selector, weakref.WeakMethod(self._write_to_self))
+            asyncslot_selector = _AsyncSlotSelector(selector)
         super().__init__(asyncslot_selector, standalone=standalone)

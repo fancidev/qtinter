@@ -21,10 +21,10 @@ class _AsyncSlotNotifier:
         notify that result is available from the last select() call."""
         raise NotImplementedError
 
-    # def wakeup(self) -> None:
-    #     """Called by the selectable object wake up an in-progress select()
-    #     in the worker thread."""
-    #     raise NotImplementedError
+    def wakeup(self) -> None:
+        """Called by the selectable object wake up an in-progress select()
+        in the worker thread."""
+        raise NotImplementedError
 
     def close(self) -> None:
         """Called by the event loop to close the notifier object.  After
