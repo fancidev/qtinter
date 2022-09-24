@@ -7,8 +7,8 @@ import unittest
 from shim import QtCore
 
 
-def _noop():
-    pass
+def _raise_ki():
+    return signal.default_int_handler(signal.SIGINT, None)
 
 
 class TestCtrlC(unittest.TestCase):
@@ -51,23 +51,23 @@ class TestUnixCtrlC(TestCtrlC):
 
     def test_unix_loop_with_SIGCHLD_1(self):
         loop = asyncslot.AsyncSlotDefaultEventLoop()
-        loop.add_signal_handler(signal.SIGCHLD, _noop)
+        loop.add_signal_handler(signal.SIGCHLD, _raise_ki)
         self._test_ctrl_c(loop)
 
     def test_unix_loop_with_SIGCHLD_2(self):
         loop = asyncslot.AsyncSlotDefaultEventLoop()
-        loop.add_signal_handler(signal.SIGCHLD, _noop)
+        loop.add_signal_handler(signal.SIGCHLD, _raise_ki)
         loop.remove_signal_handler(signal.SIGCHLD)
         self._test_ctrl_c(loop)
 
     def test_unix_loop_with_SIGINT_1(self):
         loop = asyncslot.AsyncSlotDefaultEventLoop()
-        loop.add_signal_handler(signal.SIGINT, signal.default_int_handler)
+        loop.add_signal_handler(signal.SIGINT, _raise_ki)
         self._test_ctrl_c(loop)
 
     def test_unix_loop_with_SIGINT_2(self):
         loop = asyncslot.AsyncSlotDefaultEventLoop()
-        loop.add_signal_handler(signal.SIGINT, signal.default_int_handler)
+        loop.add_signal_handler(signal.SIGINT, _raise_ki)
         loop.remove_signal_handler(signal.SIGINT)
         self._test_ctrl_c(loop)
 
