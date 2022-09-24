@@ -44,12 +44,25 @@ def _create_notifier(loop: "AsyncSlotBaseEventLoop"):
                                    QtCore.Qt.ConnectionType.QueuedConnection)
 
         def _on_notified(self):
-            if self._loop is not None:
-                self._loop._asyncslot_loop_iteration()
-            else:
-                # TODO: print a warning that notification is received after
-                # TODO: the notifier is closed.
-                pass
+            # If Ctrl+C is pressed while the loop is in a 'non-blocking'
+            # select(), the select() will be woken up (due to set_wakeup_fd)
+            # and the _notified signal emitted.  KeyboardInterrupt will be
+            # raised at the first point where Python byte code is run, i.e.
+            # this method.  We wrap the body in try-except to handle this.
+            try:
+                if self._loop is not None:
+                    self._loop._asyncslot_loop_iteration()
+                else:
+                    # TODO: print a warning that notification is received after
+                    # TODO: the notifier is closed.
+                    pass
+            except KeyboardInterrupt as exc:
+                # We catch Ctrl+C only once.  If Ctrl+C is pressed again
+                # immediately, the program will crash.
+                if self._loop is not None:
+                    self._loop._asyncslot_loop_interrupt(exc)
+                else:
+                    pass  # ignore Ctrl+C for once
 
         def no_result(self):
             raise _AsyncSlotYield
@@ -273,21 +286,7 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
             # asyncio behavior.
             pass
         except BaseException as exc:
-            if self.__qt_event_loop is not None:
-                # In STANDALONE mode, propagate the exception to the caller
-                # of run_forever.
-                self.__run_once_error = exc
-                self.__qt_event_loop.exit(1)
-            else:
-                # In INTEGRATED mode, stop the loop immediately and raise
-                # the error into the Qt event loop.  For PyQt this will
-                # terminate the process; for PySide this will log an error
-                # and then ignored.
-                self._asyncslot_loop_cleanup()
-                raise
-                # TODO: implement consistent behavior under both bindings.
-                # TODO: maybe call some exception handler and let it decide
-                # TODO: what to do?
+            self._asyncslot_loop_interrupt(exc)
         else:
             # To be consistent with asyncio behavior, check the _stopping
             # flag only after running a full iteration of _run_once.
@@ -305,6 +304,37 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
                 self.__notifier.notify()
         finally:
             self.__processing = False
+
+    def _asyncslot_loop_interrupt(self, exc: BaseException):
+        """Terminate the loop abnormally with the given exception.
+
+        This method is called by:
+
+          (1) AsyncSlotBaseEventLoop._asyncslot_loop_iteration() if
+              _run_once raised a BaseException, typically SystemExit
+              or KeyboardInterrupt; and
+
+          (2) _AsyncSlotNotifier._on_notified() if KeyboardInterrupt
+              is raised during processing the notification.
+
+        """
+        if self.__qt_event_loop is not None:
+            # In STANDALONE mode, propagate the exception to the caller
+            # of run_forever.
+            self.__run_once_error = exc
+            self.__qt_event_loop.exit(1)
+        else:
+            # In INTEGRATED mode, stop the loop immediately and raise
+            # the error into the Qt event loop.  For PyQt this will
+            # terminate the process; for PySide this will log an error
+            # and then ignored.
+            # TODO: if KeyboardInterrupt is raised, the object may not
+            # TODO: be in a consistent state to perform cleanup.
+            self._asyncslot_loop_cleanup()
+            raise exc
+            # TODO: implement consistent behavior under both bindings.
+            # TODO: maybe call some exception handler and let it decide
+            # TODO: what to do?
 
     # =========================================================================
     # Compatibility with Python 3.7
@@ -378,7 +408,7 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
 
         The precise semantics are as follows:
 
-        If the loop is created with standalone == True:
+        If the loop is operating in 'host' mode:
 
           - If stop() is called when the loop is STOPPED, the next time the
             loop is RUNNING it will run exactly one iteration and then stop.
@@ -390,7 +420,7 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
             loop is RUNNING, treat as if called via call_soon_threadsafe():
             wake up the selector, which will run one iteration and stop.
 
-        If the loop is created with standalone == False:
+        If the loop is operating in 'guest' mode:
 
           - If stop() is called when the loop is STOPPED, raise an error.
             (The pre-stop idiom is not supported.)
@@ -407,8 +437,8 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         In any case, if KeyboardInterrupt or SystemExit is raised when
         processing an iteration, that iteration is interrupted, the loop
         is stopped immediately, and the exception is propagated to the
-        caller of run_forever if running in STANDALONE or EXCLUSIVE mode
-        or thrown into the Qt loop if running in STANDALONE mode.
+        caller of run_forever if operating in 'host' mode or thrown into
+        the Qt loop if operating in 'guest' mode.
         """
         if self.__standalone:
             if self.is_running() and not self.__processing:

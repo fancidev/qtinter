@@ -3,6 +3,7 @@
 import asyncio.selector_events
 import concurrent.futures
 import selectors
+import signal
 import threading
 import unittest.mock
 from typing import List, Optional, Tuple
@@ -136,3 +137,32 @@ class AsyncSlotBaseSelectorEventLoop(
         else:
             asyncslot_selector = _AsyncSlotSelector(selector)
         super().__init__(asyncslot_selector)
+
+        # Similar to asyncio.BaseProactorEventLoop, install wakeup fd
+        # so that select() in a separate thread can be interrupted by
+        # Ctrl+C.  Only the main thread of the main interpreter may
+        # install a wakeup fd, but other threads will never receive a
+        # KeyboardInterrupt, so it's ok if set_wakeup_fd fails.
+        self.__wakeup_fd_installed = False
+        self._asyncslot_install_wakeup_fd()
+
+    def _asyncslot_install_wakeup_fd(self):
+        try:
+            signal.set_wakeup_fd(self._csock.fileno())
+        except Exception:
+            self.__wakeup_fd_installed = False
+        else:
+            self.__wakeup_fd_installed = True
+
+    def close(self):
+        if self.is_running():
+            raise RuntimeError("Cannot close a running event loop")
+        # Uninstall the wakeup fd is one was installed.
+        if self.__wakeup_fd_installed:
+            try:
+                signal.set_wakeup_fd(-1)
+            except (ValueError, OSError):
+                pass
+            finally:
+                self.__wakeup_fd_installed = False
+        super().close()

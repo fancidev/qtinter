@@ -22,7 +22,15 @@ class AsyncSlotSelectorEventLoop(
     _selector_events.AsyncSlotBaseSelectorEventLoop,
     asyncio.unix_events.SelectorEventLoop
 ):
-    pass
+    def remove_signal_handler(self, sig):
+        result = super().remove_signal_handler(sig)
+        if not self._signal_handlers and not self._closed:
+            # AsyncSlotBaseSelectorEventLoop installs a wakeup fd, but
+            # _UnixSelectorEventLoop.remove_signal_handler uninstalls
+            # it if there are no signal handlers.  This is not what we
+            # want.  Re-install the wakeup in this case.
+            self._asyncslot_install_wakeup_fd()
+        return result
 
 
 class AsyncSlotSelectorEventLoopPolicy(
