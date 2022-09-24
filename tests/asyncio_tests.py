@@ -78,16 +78,9 @@ from test.test_asyncio import load_tests
 # The following test is expected to fail because the call stack is
 # changed under asyncslot.  If the test succeeds, it means the monkey
 # patching didn't work!
-from test.test_asyncio.test_events import HandleTests
-HandleTests.test_handle_source_traceback = unittest.expectedFailure(
-    HandleTests.test_handle_source_traceback)
-
-# Supress the Ctrl+C test under Windows temporarily until we handle
-# Ctrl+C propagation properly later.
-if sys.platform == "win32" and sys.version_info >= (3, 8):
-    from test.test_asyncio.test_windows_events import ProactorLoopCtrlC
-    ProactorLoopCtrlC.test_ctrl_c = \
-        unittest.skip('supress')(ProactorLoopCtrlC.test_ctrl_c)
+import test.test_asyncio.test_events
+test.test_asyncio.test_events.HandleTests.test_handle_source_traceback = \
+    unittest.expectedFailure(test.test_asyncio.test_events.HandleTests.test_handle_source_traceback)
 
 # To run a particular test, import that test class, and specify
 # TestClassName.test_name on the command line. For example:
@@ -96,4 +89,4 @@ if sys.platform == "win32" and sys.version_info >= (3, 8):
 # TODO: why do we display warnings to stderr, but not asyncio?
 
 if __name__ == "__main__":
-    unittest.main(verbosity=0)
+    unittest.main()
