@@ -31,7 +31,11 @@ class TestCtrlC(unittest.TestCase):
     def _test_ctrl_c(self, loop):
         def SIGINT_after_delay():
             time.sleep(0.1)
-            signal.raise_signal(signal.SIGINT)
+            if sys.version_info < (3, 8):
+                import os
+                os.kill(os.getpid(), signal.SIGINT)
+            else:
+                signal.raise_signal(signal.SIGINT)
 
         thread = threading.Thread(target=SIGINT_after_delay)
         try:

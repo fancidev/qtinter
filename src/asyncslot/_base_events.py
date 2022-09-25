@@ -1,6 +1,7 @@
 """ _base_events.py - event loop implementation using Qt """
 
 import asyncio
+import signal
 import sys
 import threading
 import traceback
@@ -16,6 +17,34 @@ class _AsyncSlotYield(Exception):
     """ Raised by an AsyncSlotSelectable to indicate that no IO is readily
     available and that _run_once should yield to the Qt event loop. """
     pass
+
+
+class _InterruptEvent:
+    __slots__ = '_flag',
+
+    def __init__(self):
+        self._flag = False
+
+    def set(self) -> None:
+        self._flag = True
+
+    def is_set(self) -> bool:
+        return self._flag
+
+    def clear(self) -> None:
+        self._flag = False
+
+
+def _interrupt_handler(sig, frame):
+    assert sig == signal.SIGINT
+    # if frame is not None:
+    #     print(frame.f_locals)
+    if frame is not None and '_interrupt_event' in frame.f_locals:
+        _interrupt_event = frame.f_locals['_interrupt_event']
+        if isinstance(_interrupt_event, _InterruptEvent):
+            _interrupt_event.set()
+            return
+    return signal.default_int_handler(sig, frame)
 
 
 _AsyncSlotNotifierObject = None
@@ -42,14 +71,25 @@ def _create_notifier(loop: "AsyncSlotBaseEventLoop"):
             # Must make queued connection to avoid re-entrance.
             self._notified.connect(self._on_notified,
                                    QtCore.Qt.ConnectionType.QueuedConnection)
+            # Install a SIGINT handler if no custom handler is installed.
+            self._interrupt_handler_installed = False
+            if signal.getsignal(signal.SIGINT) is signal.default_int_handler:
+                try:
+                    signal.signal(signal.SIGINT, _interrupt_handler)
+                except (ValueError, OSError):
+                    pass
+                else:
+                    self._interrupt_handler_installed = True
 
-        def _on_notified(self):
+        def _on_notified(self, _interrupt_event=_InterruptEvent()):
             # If Ctrl+C is pressed while the loop is in a 'non-blocking'
             # select(), the select() will be woken up (due to set_wakeup_fd)
             # and the _notified signal emitted.  KeyboardInterrupt will be
             # raised at the first point where Python byte code is run, i.e.
             # this method.  We wrap the body in try-except to handle this.
             try:
+                if _interrupt_event.is_set():
+                    raise KeyboardInterrupt
                 if self._loop is not None:
                     self._loop._asyncslot_loop_iteration()
                 else:
@@ -63,6 +103,8 @@ def _create_notifier(loop: "AsyncSlotBaseEventLoop"):
                     self._loop._asyncslot_loop_interrupt(exc)
                 else:
                     pass  # ignore Ctrl+C for once
+            finally:
+                _interrupt_event.clear()
 
         def no_result(self):
             raise _AsyncSlotYield
@@ -77,6 +119,14 @@ def _create_notifier(loop: "AsyncSlotBaseEventLoop"):
             if self._loop is not None:
                 self._notified.disconnect()
                 self._loop = None
+            if self._interrupt_handler_installed:
+                try:
+                    if signal.getsignal(signal.SIGINT) is _interrupt_handler:
+                        signal.signal(signal.SIGINT, signal.default_int_handler)
+                except (ValueError, OSError):
+                    pass
+                finally:
+                    self._interrupt_handler_installed = False
 
     return _AsyncSlotNotifierObject(loop)
 
