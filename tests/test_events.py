@@ -76,7 +76,14 @@ class TestUnixCtrlC(TestCtrlC):
         self._test_ctrl_c(loop)
 
 
+# The Windows Ctrl+C test is not run for Python 3.7, for two reasons:
+# - First, the proactor event loop in Python 3.7 does not support being
+#   interrupted by Ctrl+C; see https://github.com/python/cpython/issues/67246
+# - Second, Python 3.7 does not have the raise_signal function, and
+#   os.kill(SIGINT) does not work under Windows; see
+#   https://stackoverflow.com/questions/35772001/how-to-handle-a-signal-sigint-on-a-windows-os-machine
 @unittest.skipUnless(sys.platform == 'win32', 'windows only')
+@unittest.skipUnless(sys.version_info >= (3, 8), 'requires python >= 3.8')
 class TestWindowsCtrlC(TestCtrlC):
     """Test Ctrl+C under windows."""
 
