@@ -1,8 +1,17 @@
-asyncslot - seamless integration of asyncio and Qt for Python
-=============================================================
+asyncslot --- Seamless integration of asyncio and Qt for Python
+===============================================================
 
 ``asyncslot`` is a Python module that allows you to use asyncio-based
 libraries in Qt for Python code, and vice versa.
+
+``asyncslot`` strives to be **simple** and **reliable** to use:
+
+* *Simple*: You only need to add **a few lines of code** to use asyncio
+  from Qt or the other way around.  **No refactoring** of your existing
+  codebase is necessary.
+
+* *Reliable*: The module passes the **entire asyncio test suite**.
+  Reassured your favorite asyncio-based library **will work**.
 
 
 Installation
@@ -12,11 +21,11 @@ Installation
 
 .. code-block:: console
 
-   pip install asyncslot
+   $ pip install asyncslot
 
 
-Quickstart: using asyncio from Qt
----------------------------------
+Using asyncio from Qt
+---------------------
 
 If you have a Qt for Python codebase and want to use an asyncio-based
 library, follow these steps:
@@ -39,7 +48,7 @@ context manager.
 
 
 Step 3 (optional) - connect coroutine functions to signals by wrapping
-them with ``asyncSlot``:
+them with ``asyncSlot``.
 
 .. code-block:: python
 
@@ -72,8 +81,8 @@ Let's put the above together into a minimal working example
        app.exec()
 
 
-Quickstart: using Qt from asyncio
----------------------------------
+Using Qt from asyncio
+---------------------
 
 If you have an asyncio-based Python codebase and want to use a Qt
 component, follow these steps.
