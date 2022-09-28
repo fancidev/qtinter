@@ -20,7 +20,7 @@ and is not specific to asyncslot.
 """
 
 import asyncio
-import asyncslot
+import qtinter
 import sys
 import time
 from PyQt6 import QtWidgets
@@ -55,7 +55,7 @@ class MyWidget(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("asyncslot - Http Example")
+        self.setWindowTitle("qtinter - Http Example")
 
         # Show a bouncing ball to visualize whether the Qt event loop is
         # blocked -- the ball freezes if the Qt event loop is blocked.
@@ -78,7 +78,7 @@ class MyWidget(QtWidgets.QWidget):
         # To connect an async function to the clicked signal, wrap the async
         # function in asyncslot.asyncSlot.
         self._async_button.clicked.connect(
-            asyncslot.asyncSlot(self.async_download))
+            qtinter.asyncslot(self.async_download))
 
         # ---- FEATURE ----
         # When an async download is in progress, _async_task is set to the
@@ -219,7 +219,7 @@ def main():
     # For asyncslot to work, enclose app.exec inside the context manager
     # AsyncSlotRunner().  The runner is responsible for starting up and
     # shutting down the logical asyncio event loop.
-    with asyncslot.AsyncSlotRunner():
+    with qtinter.QiRunner():
         sys.exit(app.exec())
 
 

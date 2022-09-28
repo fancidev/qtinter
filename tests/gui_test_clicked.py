@@ -2,7 +2,7 @@
 
 import asyncio
 from shim import QtCore, QtWidgets
-from asyncslot import asyncSlot, AsyncSlotRunner
+from qtinter import asyncslot, QiRunner
 
 
 async def quit_later():
@@ -15,14 +15,14 @@ if __name__ == '__main__':
 
     button = QtWidgets.QPushButton()
     button.setText('Quit')
-    button.clicked.connect(asyncSlot(quit_later))
+    button.clicked.connect(asyncslot(quit_later))
     button.show()
 
     timer = QtCore.QTimer()
     timer.timeout.connect(button.click)
     timer.start()
 
-    with AsyncSlotRunner():
+    with QiRunner():
         if hasattr(app, 'exec'):
             app.exec()
         else:

@@ -14,10 +14,10 @@ for binding in ('PyQt5', 'PyQt6', 'PySide2', 'PySide6'):
 
 
 if len(imported) == 0:
-    binding = os.getenv("ASYNCSLOT_QTBINDING", "")
+    binding = os.getenv("QTINTERBINDING", "")
     if not binding:
         raise ImportError(
-            'no Qt binding is imported and ASYNCSLOT_QTBINDING is not set')
+            'no Qt binding is imported and QTINTERBINDING is not set')
 
 elif len(imported) == 1:
     binding = imported[0]
@@ -40,4 +40,4 @@ elif binding == 'PySide6':
     from PySide6 import QtCore
 
 else:
-    raise ImportError(f"unsupported ASYNCSLOT_QTBINDING value '{binding}'")
+    raise ImportError(f"unsupported QTINTERBINDING value '{binding}'")

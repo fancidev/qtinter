@@ -1,4 +1,4 @@
-""" _selector_events.py - AsyncSlot based on SelectorEventLoop """
+""" _selector_events.py - Qi based on SelectorEventLoop """
 
 import asyncio.selector_events
 import concurrent.futures
@@ -8,13 +8,13 @@ import threading
 import unittest.mock
 from typing import List, Optional, Tuple
 from ._base_events import *
-from ._selectable import _AsyncSlotNotifier
+from ._selectable import _QiNotifier
 
 
-__all__ = 'AsyncSlotBaseSelectorEventLoop',
+__all__ = 'QiBaseSelectorEventLoop',
 
 
-class _AsyncSlotSelector(selectors.BaseSelector):
+class _QiSelector(selectors.BaseSelector):
 
     def __init__(self, selector: selectors.BaseSelector):
         super().__init__()
@@ -23,10 +23,10 @@ class _AsyncSlotSelector(selectors.BaseSelector):
         self._select_future: Optional[concurrent.futures.Future] = None
         self._idle = threading.Event()
         self._idle.set()
-        self._notifier: Optional[_AsyncSlotNotifier] = None
+        self._notifier: Optional[_QiNotifier] = None
         self._closed = False
 
-    def set_notifier(self, notifier: Optional[_AsyncSlotNotifier]) -> None:
+    def set_notifier(self, notifier: Optional[_QiNotifier]) -> None:
         self._unblock_if_blocked()
         self._notifier = notifier
 
@@ -53,7 +53,7 @@ class _AsyncSlotSelector(selectors.BaseSelector):
             -> List[Tuple[selectors.SelectorKey, int]]:
         assert not self._closed, 'selector already closed'
 
-        # If the last call to select() raised AsyncSlotYield, the caller
+        # If the last call to select() raised _QiYield, the caller
         # (from _run_once) should only call us again after receiving a
         # notification from us, and we only send the notification after
         # entering IDLE state.
@@ -89,7 +89,7 @@ class _AsyncSlotSelector(selectors.BaseSelector):
             self._idle.set()
             raise
         else:
-            return self._notifier.no_result()  # raises _AsyncSlotYield
+            return self._notifier.no_result()  # raises _QiYield
 
     def _select(self, timeout):
         try:
@@ -124,8 +124,8 @@ class _AsyncSlotSelector(selectors.BaseSelector):
         return self._selector.get_map()
 
 
-class AsyncSlotBaseSelectorEventLoop(
-    AsyncSlotBaseEventLoop,
+class QiBaseSelectorEventLoop(
+    QiBaseEventLoop,
     asyncio.selector_events.BaseSelectorEventLoop
 ):
     def __init__(self, selector=None):
@@ -135,7 +135,7 @@ class AsyncSlotBaseSelectorEventLoop(
             # Pass through mock object for testing
             asyncslot_selector = selector
         else:
-            asyncslot_selector = _AsyncSlotSelector(selector)
+            asyncslot_selector = _QiSelector(selector)
         super().__init__(asyncslot_selector)
 
         # Similar to asyncio.BaseProactorEventLoop, install wakeup fd

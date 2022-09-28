@@ -4,11 +4,11 @@ import asyncio.proactor_events
 from ._base_events import *
 
 
-__all__ = 'AsyncSlotBaseProactorEventLoop',
+__all__ = 'QiBaseProactorEventLoop',
 
 
-class AsyncSlotBaseProactorEventLoop(
-    AsyncSlotBaseEventLoop,
+class QiBaseProactorEventLoop(
+    QiBaseEventLoop,
     asyncio.proactor_events.BaseProactorEventLoop
 ):
     pass

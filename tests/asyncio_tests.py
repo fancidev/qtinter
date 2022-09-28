@@ -48,28 +48,28 @@ if sys.platform == 'win32':
 else:
     import asyncio.unix_events
 
-import asyncslot
+import qtinter
 import unittest
 
-from asyncslot.bindings import QtCore
+from qtinter.bindings import QtCore
 app = QtCore.QCoreApplication([])
 
 # We now need to monkey-patch asyncio ...
 
-asyncio.BaseEventLoop = asyncio.base_events.BaseEventLoop = asyncslot.AsyncSlotBaseEventLoop
-asyncio.selector_events.BaseSelectorEventLoop = asyncslot.AsyncSlotBaseSelectorEventLoop
-asyncio.proactor_events.BaseProactorEventLoop = asyncslot.AsyncSlotBaseProactorEventLoop
+asyncio.BaseEventLoop = asyncio.base_events.BaseEventLoop = qtinter.QiBaseEventLoop
+asyncio.selector_events.BaseSelectorEventLoop = qtinter.QiBaseSelectorEventLoop
+asyncio.proactor_events.BaseProactorEventLoop = qtinter.QiBaseProactorEventLoop
 
 if sys.platform == 'win32':
-    asyncio.SelectorEventLoop = asyncio.windows_events.SelectorEventLoop = asyncio.windows_events._WindowsSelectorEventLoop = asyncslot.AsyncSlotSelectorEventLoop
-    asyncio.ProactorEventLoop = asyncio.windows_events.ProactorEventLoop = asyncslot.AsyncSlotProactorEventLoop
-    asyncio.IocpProactor = asyncio.windows_events.IocpProactor = asyncslot._windows_events._AsyncSlotProactor
-    asyncio.WindowsSelectorEventLoopPolicy = asyncio.windows_events.WindowsSelectorEventLoopPolicy = asyncslot.AsyncSlotSelectorEventLoopPolicy
-    asyncio.WindowsProactorEventLoopPolicy = asyncio.windows_events.WindowsProactorEventLoopPolicy = asyncslot.AsyncSlotProactorEventLoopPolicy
-    asyncio.DefaultEventLoopPolicy = asyncio.windows_events.DefaultEventLoopPolicy = asyncslot.AsyncSlotDefaultEventLoopPolicy
+    asyncio.SelectorEventLoop = asyncio.windows_events.SelectorEventLoop = asyncio.windows_events._WindowsSelectorEventLoop = asyncslot.QiSelectorEventLoop
+    asyncio.ProactorEventLoop = asyncio.windows_events.ProactorEventLoop = qtinter.QiProactorEventLoop
+    asyncio.IocpProactor = asyncio.windows_events.IocpProactor = qtinter._windows_events._QiProactor
+    asyncio.WindowsSelectorEventLoopPolicy = asyncio.windows_events.WindowsSelectorEventLoopPolicy = qtinter.QiSelectorEventLoopPolicy
+    asyncio.WindowsProactorEventLoopPolicy = asyncio.windows_events.WindowsProactorEventLoopPolicy = qtinter.QiProactorEventLoopPolicy
+    asyncio.DefaultEventLoopPolicy = asyncio.windows_events.DefaultEventLoopPolicy = qtinter.QiDefaultEventLoopPolicy
 else:
-    asyncio.SelectorEventLoop = asyncio.unix_events.SelectorEventLoop = asyncio.unix_events._UnixSelectorEventLoop = asyncslot.AsyncSlotSelectorEventLoop
-    asyncio.DefaultEventLoopPolicy = asyncio.unix_events.DefaultEventLoopPolicy = asyncio.unix_events._UnixDefaultEventLoopPolicy = asyncslot.AsyncSlotDefaultEventLoopPolicy
+    asyncio.SelectorEventLoop = asyncio.unix_events.SelectorEventLoop = asyncio.unix_events._UnixSelectorEventLoop = qtinter.QiSelectorEventLoop
+    asyncio.DefaultEventLoopPolicy = asyncio.unix_events.DefaultEventLoopPolicy = asyncio.unix_events._UnixDefaultEventLoopPolicy = qtinter.QiDefaultEventLoopPolicy
 
 
 # Now import the tests into __main__

@@ -1,11 +1,11 @@
 """ sleep_example.py - simple GUI to test async slot """
 
 import asyncio
+import qtinter
 import sys
 import time
 from PyQt6 import QtWidgets
 from bouncingwidget import BouncingWidget
-from asyncslot import asyncSlot, AsyncSlotRunner
 import traceback
 
 
@@ -23,7 +23,7 @@ class MyWidget(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("AsyncSlot Test")
+        self.setWindowTitle("qtinter - sleep example")
 
         self._layout = QtWidgets.QVBoxLayout(self)
         self._bouncer = BouncingWidget()
@@ -36,7 +36,7 @@ class MyWidget(QtWidgets.QWidget):
         self._layout.addLayout(self._button_group)
 
         self._sync_button.clicked.connect(self.sync_sleep)
-        self._async_button.clicked.connect(asyncSlot(self.async_sleep))
+        self._async_button.clicked.connect(qtinter.asyncslot(self.async_sleep))
 
     def sync_sleep(self):
         time.sleep(3)
@@ -56,7 +56,7 @@ def main():
     widget.resize(400, 300)
     widget.show()
 
-    with AsyncSlotRunner():
+    with qtinter.QiRunner():
         sys.exit(app.exec())
 
 

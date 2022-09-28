@@ -1,4 +1,4 @@
-import asyncslot
+import qtinter
 import signal
 import sys
 import threading
@@ -51,26 +51,26 @@ class TestUnixCtrlC(TestCtrlC):
     """Test Ctrl+C under unix."""
 
     def test_unix_loop(self):
-        self._test_ctrl_c(asyncslot.AsyncSlotDefaultEventLoop())
+        self._test_ctrl_c(qtinter.QiDefaultEventLoop())
 
     def test_unix_loop_with_SIGCHLD_1(self):
-        loop = asyncslot.AsyncSlotDefaultEventLoop()
+        loop = qtinter.QiDefaultEventLoop()
         loop.add_signal_handler(signal.SIGCHLD, _raise_ki)
         self._test_ctrl_c(loop)
 
     def test_unix_loop_with_SIGCHLD_2(self):
-        loop = asyncslot.AsyncSlotDefaultEventLoop()
+        loop = qtinter.QiDefaultEventLoop()
         loop.add_signal_handler(signal.SIGCHLD, _raise_ki)
         loop.remove_signal_handler(signal.SIGCHLD)
         self._test_ctrl_c(loop)
 
     def test_unix_loop_with_SIGINT_1(self):
-        loop = asyncslot.AsyncSlotDefaultEventLoop()
+        loop = qtinter.QiDefaultEventLoop()
         loop.add_signal_handler(signal.SIGINT, _raise_ki)
         self._test_ctrl_c(loop)
 
     def test_unix_loop_with_SIGINT_2(self):
-        loop = asyncslot.AsyncSlotDefaultEventLoop()
+        loop = qtinter.QiDefaultEventLoop()
         loop.add_signal_handler(signal.SIGINT, _raise_ki)
         loop.remove_signal_handler(signal.SIGINT)
         self._test_ctrl_c(loop)
@@ -88,10 +88,10 @@ class TestWindowsCtrlC(TestCtrlC):
     """Test Ctrl+C under windows."""
 
     def test_windows_proactor_loop(self):
-        self._test_ctrl_c(asyncslot.AsyncSlotProactorEventLoop())
+        self._test_ctrl_c(qtinter.QiProactorEventLoop())
 
     def test_windows_selector_loop(self):
-        self._test_ctrl_c(asyncslot.AsyncSlotSelectorEventLoop())
+        self._test_ctrl_c(qtinter.QiSelectorEventLoop())
 
 
 if __name__ == '__main__':

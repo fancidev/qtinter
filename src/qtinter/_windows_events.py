@@ -13,25 +13,25 @@ import math
 import sys
 import threading
 from typing import Optional
-from ._selectable import _AsyncSlotNotifier
+from ._selectable import _QiNotifier
 from . import _proactor_events
 from . import _selector_events
 
 
 __all__ = (
-    'AsyncSlotDefaultEventLoop',
-    'AsyncSlotDefaultEventLoopPolicy',
-    'AsyncSlotProactorEventLoop',
-    'AsyncSlotProactorEventLoopPolicy',
-    'AsyncSlotSelectorEventLoop',
-    'AsyncSlotSelectorEventLoopPolicy',
+    'QiDefaultEventLoop',
+    'QiDefaultEventLoopPolicy',
+    'QiProactorEventLoop',
+    'QiProactorEventLoopPolicy',
+    'QiSelectorEventLoop',
+    'QiSelectorEventLoopPolicy',
 )
 
 
 INFINITE = 0xffffffff
 
 
-class _AsyncSlotProactor(asyncio.IocpProactor):
+class _QiProactor(asyncio.IocpProactor):
     def __init__(self, concurrency=0xffffffff):
         super().__init__(concurrency)
 
@@ -39,7 +39,7 @@ class _AsyncSlotProactor(asyncio.IocpProactor):
         self.__dequeue_future: Optional[concurrent.futures.Future] = None
         self.__idle = threading.Event()
         self.__idle.set()
-        self.__notifier: Optional[_AsyncSlotNotifier] = None
+        self.__notifier: Optional[_QiNotifier] = None
 
     def __wakeup(self):
         self._check_closed()
@@ -48,14 +48,14 @@ class _AsyncSlotProactor(asyncio.IocpProactor):
             self.__notifier.wakeup()
             self.__idle.wait()
 
-    def set_notifier(self, notifier: Optional[_AsyncSlotNotifier]) -> None:
+    def set_notifier(self, notifier: Optional[_QiNotifier]) -> None:
         self.__wakeup()
         self.__notifier = notifier
 
     def _poll(self, timeout=None):
         # _poll is called by super().select() and super().close().
         #
-        # If the last call to select() raised AsyncSlotYield, the caller
+        # If the last call to select() raised QiYield, the caller
         # (from _run_once) should only call select() again after receiving
         # a notification from us, and we only send a notification after
         # entering IDLE state.
@@ -160,13 +160,13 @@ class _AsyncSlotProactor(asyncio.IocpProactor):
             self.__idle.set()
             raise
         else:
-            return self.__notifier.no_result()  # raises _AsyncSlotYield
+            return self.__notifier.no_result()  # raises _QiYield
 
     def __dequeue(self, ms: int):
         try:
             # Note: any exception raised is propagated to the main thread
             # the next time select() is called, and will bring down the
-            # AsyncSlotEventLoop.
+            # QiEventLoop.
             return _overlapped.GetQueuedCompletionStatus(self._iocp, ms)
         finally:
             # Make a copy of self.__notifier because it may be altered by
@@ -190,12 +190,12 @@ class _AsyncSlotProactor(asyncio.IocpProactor):
             self.__executor = None
 
 
-class AsyncSlotProactorEventLoop(
-    _proactor_events.AsyncSlotBaseProactorEventLoop,
+class QiProactorEventLoop(
+    _proactor_events.QiBaseProactorEventLoop,
     asyncio.windows_events.ProactorEventLoop
 ):
     def __init__(self):
-        proactor = _AsyncSlotProactor()
+        proactor = _QiProactor()
         super().__init__(proactor)
 
     if sys.version_info >= (3, 8):
@@ -226,28 +226,24 @@ class AsyncSlotProactorEventLoop(
             # ---- END COPIED FROM ProactorEventLoop.run_forever
 
 
-class AsyncSlotProactorEventLoopPolicy(
-    asyncio.events.BaseDefaultEventLoopPolicy
-):
-    _loop_factory = AsyncSlotProactorEventLoop
+class QiProactorEventLoopPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
+    _loop_factory = QiProactorEventLoop
 
 
-class AsyncSlotSelectorEventLoop(
-    _selector_events.AsyncSlotBaseSelectorEventLoop,
+class QiSelectorEventLoop(
+    _selector_events.QiBaseSelectorEventLoop,
     asyncio.windows_events.SelectorEventLoop
 ):
     pass
 
 
-class AsyncSlotSelectorEventLoopPolicy(
-    asyncio.events.BaseDefaultEventLoopPolicy
-):
-    _loop_factory = AsyncSlotSelectorEventLoop
+class QiSelectorEventLoopPolicy(asyncio.events.BaseDefaultEventLoopPolicy):
+    _loop_factory = QiSelectorEventLoop
 
 
 if sys.version_info < (3, 8):
-    AsyncSlotDefaultEventLoop = AsyncSlotSelectorEventLoop
-    AsyncSlotDefaultEventLoopPolicy = AsyncSlotSelectorEventLoopPolicy
+    QiDefaultEventLoop = QiSelectorEventLoop
+    QiDefaultEventLoopPolicy = QiSelectorEventLoopPolicy
 else:
-    AsyncSlotDefaultEventLoop = AsyncSlotProactorEventLoop
-    AsyncSlotDefaultEventLoopPolicy = AsyncSlotProactorEventLoopPolicy
+    QiDefaultEventLoop = QiProactorEventLoop
+    QiDefaultEventLoopPolicy = QiProactorEventLoopPolicy

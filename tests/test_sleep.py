@@ -1,8 +1,8 @@
 from shim import QtCore
 import asyncio
+import qtinter
 import time
 import unittest
-import asyncslot
 
 
 class TestSleep(unittest.TestCase):
@@ -12,7 +12,7 @@ class TestSleep(unittest.TestCase):
             self.app = QtCore.QCoreApplication.instance()
         else:
             self.app = QtCore.QCoreApplication([])
-        self.loop = asyncslot.AsyncSlotDefaultEventLoop()
+        self.loop = qtinter.QiDefaultEventLoop()
 
     def tearDown(self) -> None:
         self.loop.close()

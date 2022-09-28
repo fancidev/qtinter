@@ -10,11 +10,11 @@ from typing import Optional
 from ._selectable import *
 
 
-__all__ = 'AsyncSlotBaseEventLoop',
+__all__ = 'QiBaseEventLoop',
 
 
-class _AsyncSlotYield(Exception):
-    """ Raised by an AsyncSlotSelectable to indicate that no IO is readily
+class _QiYield(Exception):
+    """ Raised by an QiSelectable to indicate that no IO is readily
     available and that _run_once should yield to the Qt event loop. """
     pass
 
@@ -47,23 +47,23 @@ def _interrupt_handler(sig, frame):
     return signal.default_int_handler(sig, frame)
 
 
-_AsyncSlotNotifierObject = None
+_QiNotifierObject = None
 
 
-def _create_notifier(loop: "AsyncSlotBaseEventLoop"):
-    global _AsyncSlotNotifierObject
-    if _AsyncSlotNotifierObject is not None:
-        return _AsyncSlotNotifierObject(loop)
+def _create_notifier(loop: "QiBaseEventLoop"):
+    global _QiNotifierObject
+    if _QiNotifierObject is not None:
+        return _QiNotifierObject(loop)
 
     from .bindings import QtCore
 
-    class _AsyncSlotNotifierObject(QtCore.QObject):
+    class _QiNotifierObject(QtCore.QObject):
         if hasattr(QtCore, "pyqtSignal"):
             _notified = QtCore.pyqtSignal()
         else:
             _notified = QtCore.Signal()
 
-        def __init__(self, loop: "AsyncSlotBaseEventLoop"):
+        def __init__(self, loop: "QiBaseEventLoop"):
             super().__init__()
             # The following creates a reference cycle.  Call close() to
             # break the cycle.
@@ -107,7 +107,7 @@ def _create_notifier(loop: "AsyncSlotBaseEventLoop"):
                 _interrupt_event.clear()
 
         def no_result(self):
-            raise _AsyncSlotYield
+            raise _QiYield
 
         def notify(self):
             self._notified.emit()
@@ -128,10 +128,10 @@ def _create_notifier(loop: "AsyncSlotBaseEventLoop"):
                 finally:
                     self._interrupt_handler_installed = False
 
-    return _AsyncSlotNotifierObject(loop)
+    return _QiNotifierObject(loop)
 
 
-class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
+class QiBaseEventLoop(asyncio.BaseEventLoop):
     """Implements the scheduling logic of asyncslot event loop.
 
     An asyncio event loop can be in one of the following 'states':
@@ -146,7 +146,7 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
       STOPPED    False      None
       CLOSED     True       None
 
-    A RUNNING AsyncSlotEventLoop can run in one of the following 'modes':
+    A RUNNING QiEventLoop can run in one of the following 'modes':
       - STANDALONE: run_forever creates a QEventLoop and calls exec()
       - INTEGRATED: user is responsible for creating a Qt event loop
       - EXCLUSIVE:  run_forever creates a true asyncio event loop
@@ -159,13 +159,13 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
       INTEGRATED    None               not None
       EXCLUSIVE     None               None
 
-    A RUNNING AsyncSlotEventLoop in STANDALONE or INTEGRATED mode can
+    A RUNNING QiEventLoop in STANDALONE or INTEGRATED mode can
     further be in one of two sub-states: PROCESSING or SELECTING.
 
       - PROCESSING: __process_asyncio_events() is being executed
       - SELECTING: __process_asyncio_events() is waiting to be scheduled
 
-    A RUNNING AsyncSlotEventLoop in EXCLUSIVE mode is always PROCESSING.
+    A RUNNING QiEventLoop in EXCLUSIVE mode is always PROCESSING.
 
     The __processing attribute determines the current sub-state (provided
     the loop is RUNNING).
@@ -190,7 +190,7 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
     INTEGRATED mode.
 
     Note that start() and stop() only change the (logical) state of an
-    AsyncSlotEventLoop; they have no effect on the (physical) Qt event
+    QiEventLoop; they have no effect on the (physical) Qt event
     loop and is in fact independent of the lifetime of the latter.
 
     If run_forever() is called on a loop created with standalone == False,
@@ -215,7 +215,7 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         # is set to a notifier object and is attached to the selector to
         # notify us when IO is available or timeout occurs.  In any other
         # case, __notifier is set to None.
-        self.__notifier: Optional[_AsyncSlotNotifier] = None
+        self.__notifier: Optional[_QiNotifier] = None
 
         # __processing is set to True in _asyncslot_loop_iteration to
         # indicate that a 'normal' asyncio event processing iteration
@@ -246,7 +246,7 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         super().__init__(*args, **kwargs)  # noqa
 
     # =========================================================================
-    # Custom method for AsyncSlot
+    # Custom methods
     # =========================================================================
 
     def set_guest(self, guest: bool) -> None:
@@ -268,7 +268,7 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
 
     def start(self) -> None:
         if self.__standalone:
-            raise RuntimeError('AsyncSlotBaseEventLoop.start() can only be '
+            raise RuntimeError('QiBaseEventLoop.start() can only be '
                                'called for a loop operating in guest mode')
         self._asyncslot_loop_startup()
 
@@ -331,7 +331,7 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
         try:
             self.__processing = True
             self._run_once()  # defined in asyncio.BaseEventLoop
-        except _AsyncSlotYield:
+        except _QiYield:
             # Ignore _stopping flag until select() returns.  This follows
             # asyncio behavior.
             pass
@@ -360,11 +360,11 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
 
         This method is called by:
 
-          (1) AsyncSlotBaseEventLoop._asyncslot_loop_iteration() if
+          (1) QiBaseEventLoop._asyncslot_loop_iteration() if
               _run_once raised a BaseException, typically SystemExit
               or KeyboardInterrupt; and
 
-          (2) _AsyncSlotNotifier._on_notified() if KeyboardInterrupt
+          (2) _QiNotifier._on_notified() if KeyboardInterrupt
               is raised during processing the notification.
 
         """
@@ -421,7 +421,7 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
             # TODO: do we need the same check in start()?
             raise RuntimeError('An instance of QCoreApplication or its '
                                'derived class must be create before running '
-                               'AsyncSlotEventLoop')
+                               'QiEventLoop')
 
         try:
             self._asyncslot_loop_startup()
@@ -496,7 +496,7 @@ class AsyncSlotBaseEventLoop(asyncio.BaseEventLoop):
             super().stop()
 
         elif not self.is_running():
-            raise RuntimeError('AsyncSlotEventLoop: stop can only be called '
+            raise RuntimeError('QiEventLoop: stop can only be called '
                                'when a loop created in integrated mode is '
                                'running')
 

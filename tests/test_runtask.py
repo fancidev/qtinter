@@ -1,9 +1,8 @@
 from shim import QtCore
 import asyncio
 import inspect
-import time
+import qtinter
 import unittest
-import asyncslot
 
 
 def print_stack():
@@ -24,7 +23,7 @@ class TestRunTask(unittest.TestCase):
             self.app = QtCore.QCoreApplication.instance()
         else:
             self.app = QtCore.QCoreApplication([])
-        self.loop = asyncslot.AsyncSlotDefaultEventLoop()
+        self.loop = qtinter.QiDefaultEventLoop()
 
     def tearDown(self) -> None:
         self.loop.close()
@@ -143,7 +142,7 @@ class TestRunTaskWithoutRunningLoop(unittest.TestCase):
     def setUp(self) -> None:
         if QtCore.QCoreApplication.instance() is None:
             self.app = QtCore.QCoreApplication([])
-        self.loop = asyncslot.AsyncSlotDefaultEventLoop()
+        self.loop = qtinter.QiDefaultEventLoop()
 
     def tearDown(self) -> None:
         self.loop.close()

@@ -50,7 +50,7 @@ jobs:
       - name: Run asyncio test suite
         run: python tests/asyncio_tests.py
         env:
-          ASYNCSLOT_QTBINDING: ${{ matrix.qt-binding }}
+          QTINTERBINDING: ${{ matrix.qt-binding }}
           PYTHONPATH: src
       - name: Generate coverage report
         run: coverage lcov
@@ -58,5 +58,5 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           files: ./coverage.lcov
-          fail_ci_if_error: true
+          fail_ci_if_error: false
           verbose: true

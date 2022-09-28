@@ -19,21 +19,21 @@ BaseDefaultEventLoopPolicy        events
 [2] under Windows, for Python 3.7
 [3] under Windows, for Python 3.8 and above
 
-For ease of reference and to facilitate testing, asyncslot's source code is
+For ease of reference and to facilitate testing, qtinter's source code is
 arrange in a similar structure:
 
-class                               submodule         alias
+class                        submodule         alias
 ------------------------------------------------------------------------------
-AsyncSlotBaseEventLoop              _base_events
-  AsyncSlotBaseSelectorEventLoop    _selector_events
-    AsyncSlotSelectorEventLoop      _unix_events      AsyncSlotDefaultEventLoop [1]
-    AsyncSlotSelectorEventLoop      _windows_events   AsyncSlotDefaultEventLoop [2]
-  AsyncSlotBaseProactorEventLoop    _proactor_events
-    AsyncSlotProactorEventLoop      _windows_events   AsyncSlotDefaultEventLoop [3]
+QiBaseEventLoop              _base_events
+  QiBaseSelectorEventLoop    _selector_events
+    QiSelectorEventLoop      _unix_events      QiDefaultEventLoop [1]
+    QiSelectorEventLoop      _windows_events   QiDefaultEventLoop [2]
+  QiBaseProactorEventLoop    _proactor_events
+    QiProactorEventLoop      _windows_events   QiDefaultEventLoop [3]
 (asyncio.events.BaseDefaultEventLoopPolicy)
-  AsyncSlotSelectorEventLoopPolicy  _unix_events      AsyncSlotDefaultEventLoopPolicy [1]
-  AsyncSlotSelectorEventLoopPolicy  _windows_events   AsyncSlotDefaultEventLoopPolicy [2]
-  AsyncSlotProactorEventLoopPolicy  _windows_events   AsyncSlotDefaultEventLoopPolicy [3]
+  QiSelectorEventLoopPolicy  _unix_events      QiDefaultEventLoopPolicy [1]
+  QiSelectorEventLoopPolicy  _windows_events   QiDefaultEventLoopPolicy [2]
+  QiProactorEventLoopPolicy  _windows_events   QiDefaultEventLoopPolicy [3]
 
 """
 import sys

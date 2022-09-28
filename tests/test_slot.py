@@ -1,9 +1,9 @@
-""" test_slot.py - test asyncSlot with signal-slot connection """
+""" test_slot.py - test asyncslot with signal-slot connection """
 
 import asyncio
 import unittest
 from shim import QtCore
-from asyncslot import asyncSlot, AsyncSlotRunner
+from qtinter import asyncslot, QiRunner
 
 
 called = []
@@ -59,20 +59,20 @@ class MySlotObject(QtCore.QObject):
         await asyncio.sleep(0)
         visit('slot_amethod.2', self)
 
-    @asyncSlot
+    @asyncslot
     async def decorated_amethod(self):
         visit('decorated_amethod.1', self)
         await asyncio.sleep(0)
         visit('decorated_amethod.2', self)
 
     @QtCore.Slot()
-    @asyncSlot
+    @asyncslot
     async def slot_decorated_amethod(self):
         visit('slot_decorated_amethod.1', self)
         await asyncio.sleep(0)
         visit('slot_decorated_amethod.2', self)
 
-    @asyncSlot
+    @asyncslot
     @QtCore.Slot()
     async def decorated_slot_amethod(self):
         visit('decorated_slot_amethod.1', self)
@@ -94,14 +94,14 @@ class MySlotObject(QtCore.QObject):
         visit('class_amethod.2', cls)
 
     @classmethod
-    @asyncSlot
+    @asyncslot
     async def class_decorated_amethod(cls):
         visit('class_decorated_amethod.1', cls)
         await asyncio.sleep(0)
         visit('class_decorated_amethod.2', cls)
 
     # Not supported
-    # @asyncSlot
+    # @asyncslot
     # @classmethod
     # async def class_decorated_amethod(cls):
     #     visit('class_decorated_amethod.1', cls)
@@ -136,7 +136,7 @@ class MySlotObject(QtCore.QObject):
         visit('static_amethod.2')
 
     @staticmethod
-    @asyncSlot
+    @asyncslot
     async def static_decorated_amethod():
         visit('static_decorated_amethod.1')
         await asyncio.sleep(0)
@@ -170,7 +170,7 @@ async def afunc():
     visit('afunc.2')
 
 
-@asyncSlot
+@asyncslot
 async def decorated_afunc():
     visit('decorated_afunc.1')
     await asyncio.sleep(0)
@@ -185,14 +185,14 @@ async def slot_afunc():
 
 
 @QtCore.Slot()
-@asyncSlot
+@asyncslot
 async def slot_decorated_afunc():
     visit('slot_decorated_afunc.1')
     await asyncio.sleep(0)
     visit('slot_decorated_afunc.2')
 
 
-@asyncSlot
+@asyncslot
 @QtCore.Slot()
 async def decorated_slot_afunc():
     visit('decorated_slot_afunc.1')
@@ -231,7 +231,7 @@ class TestSlot(unittest.TestCase):
         self.signal.emit(True)
 
         called.clear()
-        with AsyncSlotRunner():
+        with QiRunner():
             if hasattr(self.qt_loop, 'exec'):
                 self.qt_loop.exec()
             else:
@@ -251,12 +251,12 @@ class TestSlot(unittest.TestCase):
     def test_wrapped_func(self):
         # Wrapping a func is an error
         with self.assertRaises(TypeError):
-            asyncSlot(func)
+            asyncslot(func)
 
     def test_decorated_func(self):
         # Decorating a func is an error
         with self.assertRaises(TypeError):
-            @asyncSlot
+            @asyncslot
             def fn():
                 pass
 
@@ -273,12 +273,12 @@ class TestSlot(unittest.TestCase):
     def test_wrapped_slot_func(self):
         # Wrapping a func is an error
         with self.assertRaises(TypeError):
-            asyncSlot(slot_func)
+            asyncslot(slot_func)
 
     def test_decorated_slot_func(self):
         # Decorating a func is an error
         with self.assertRaises(TypeError):
-            @asyncSlot
+            @asyncslot
             @QtCore.Slot()
             def fn():
                 pass
@@ -289,7 +289,7 @@ class TestSlot(unittest.TestCase):
 
     def test_wrapped_afunc(self):
         # Test wrapping afunc
-        self.connection = self.signal.connect(asyncSlot(afunc), qc)
+        self.connection = self.signal.connect(asyncslot(afunc), qc)
         result = self._run_once()
         self.assertEqual(result, ['afunc.1', 'afunc.2'])
 
@@ -302,7 +302,7 @@ class TestSlot(unittest.TestCase):
     def test_wrapped_decorated_afunc(self):
         # Wrapping a decorated afunc is an error
         with self.assertRaises(TypeError):
-            asyncSlot(decorated_afunc)
+            asyncslot(decorated_afunc)
 
     # -------------------------------------------------------------------------
     # Test async free function with Qt.Slot decoration
@@ -310,7 +310,7 @@ class TestSlot(unittest.TestCase):
 
     def test_wrapped_slot_afunc(self):
         # Test wrapping slot_afunc
-        self.connection = self.signal.connect(asyncSlot(slot_afunc), qc)
+        self.connection = self.signal.connect(asyncslot(slot_afunc), qc)
         result = self._run_once()
         self.assertEqual(result, ['slot_afunc.1', 'slot_afunc.2'])
 
@@ -339,7 +339,7 @@ class TestSlot(unittest.TestCase):
     def test_wrapped_method(self):
         # Wrapping a method is an error
         with self.assertRaises(TypeError):
-            asyncSlot(self.receiver.method)
+            asyncslot(self.receiver.method)
 
     def test_slot_method(self):
         # Qt sanity check
@@ -350,7 +350,7 @@ class TestSlot(unittest.TestCase):
     def test_wrapped_slot_method(self):
         # Wrapping a method is an error
         with self.assertRaises(TypeError):
-            asyncSlot(self.receiver.slot_method)
+            asyncslot(self.receiver.slot_method)
 
     # -------------------------------------------------------------------------
     # Test async method
@@ -358,7 +358,7 @@ class TestSlot(unittest.TestCase):
 
     def test_wrapped_amethod(self):
         self.connection = self.signal.connect(
-            asyncSlot(self.receiver.amethod), qc)
+            asyncslot(self.receiver.amethod), qc)
         result = self._run_once()
         self.assertEqual(result, ['amethod.1(Self)', 'amethod.2(Self)'])
 
@@ -371,11 +371,11 @@ class TestSlot(unittest.TestCase):
 
     def test_wrapped_decorated_amethod(self):
         with self.assertRaises(TypeError):
-            asyncSlot(self.receiver.decorated_amethod)
+            asyncslot(self.receiver.decorated_amethod)
 
     def test_wrapped_slot_amethod(self):
         self.connection = self.signal.connect(
-            asyncSlot(self.receiver.slot_amethod), qc)
+            asyncslot(self.receiver.slot_amethod), qc)
         result = self._run_once()
         self.assertEqual(result, ['slot_amethod.1(Self)',
                                   'slot_amethod.2(Self)'])
@@ -406,7 +406,7 @@ class TestSlot(unittest.TestCase):
 
     def test_wrapped_class_method(self):
         with self.assertRaises(TypeError):
-            asyncSlot(self.receiver.class_method)
+            asyncslot(self.receiver.class_method)
 
     @unittest.skipUnless(qt_slot_supports_descriptor, 'not supported by PyQt')
     def test_slot_class_method(self):
@@ -430,7 +430,7 @@ class TestSlot(unittest.TestCase):
 
     def test_wrapped_class_amethod(self):
         self.connection = self.signal.connect(
-            asyncSlot(self.receiver.class_amethod), qc)
+            asyncslot(self.receiver.class_amethod), qc)
         result = self._run_once()
         self.assertEqual(result, ['class_amethod.1(Cls)',
                                   'class_amethod.2(Cls)'])
@@ -454,7 +454,7 @@ class TestSlot(unittest.TestCase):
 
     def test_wrapped_static_method(self):
         with self.assertRaises(TypeError):
-            asyncSlot(self.receiver.static_method)
+            asyncslot(self.receiver.static_method)
 
     @unittest.skipUnless(qt_slot_supports_descriptor, 'not supported by PyQt')
     def test_slot_static_method(self):
@@ -478,7 +478,7 @@ class TestSlot(unittest.TestCase):
 
     def test_wrapped_static_amethod(self):
         self.connection = self.signal.connect(
-            asyncSlot(self.receiver.static_amethod), qc)
+            asyncslot(self.receiver.static_amethod), qc)
         result = self._run_once()
         self.assertEqual(result, ['static_amethod.1', 'static_amethod.2'])
 

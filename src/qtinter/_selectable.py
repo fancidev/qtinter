@@ -3,10 +3,10 @@
 from typing import Any, Optional
 
 
-__all__ = '_AsyncSlotNotifier', '_AsyncSlotSelectable',
+__all__ = '_QiNotifier', '_QiSelectable',
 
 
-class _AsyncSlotNotifier:
+class _QiNotifier:
     """An object responsible for the communication between an asyncslot
     event loop and a selectable object."""
 
@@ -32,13 +32,13 @@ class _AsyncSlotNotifier:
         raise NotImplementedError
 
 
-class _AsyncSlotSelectable:
+class _QiSelectable:
     """Protocol for a 'selector' that supports non-blocking select and
     notification.
 
     A selector may be in one of the following states:
       - IDLE   : the selector is not in BUSY or CLOSED state
-      - BUSY   : the last call to select() raised AsyncSlotYield, and
+      - BUSY   : the last call to select() raised QiYield, and
                  a thread worker is waiting for IO or timeout
       - CLOSED : close() has been called
 
@@ -54,7 +54,7 @@ class _AsyncSlotSelectable:
       - CLOSED --- [end]
     """
 
-    def set_notifier(self, notifier: Optional[_AsyncSlotNotifier]) -> None:
+    def set_notifier(self, notifier: Optional[_QiNotifier]) -> None:
         """Set the notifier.
 
         If the selector is in BUSY state, wake it up and wait for it

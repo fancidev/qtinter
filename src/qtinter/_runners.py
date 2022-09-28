@@ -3,31 +3,31 @@
 import asyncio.runners
 import sys
 from typing import Callable, Optional
-from ._base_events import AsyncSlotBaseEventLoop
+from ._base_events import QiBaseEventLoop
 
 if sys.platform == 'win32':
-    from ._windows_events import AsyncSlotDefaultEventLoop
+    from ._windows_events import QiDefaultEventLoop
 else:
-    from ._unix_events import AsyncSlotDefaultEventLoop
+    from ._unix_events import QiDefaultEventLoop
 
 
-__all__ = 'AsyncSlotRunner',
+__all__ = 'QiRunner',
 
 
 # Adapted from asyncio.runners
-class AsyncSlotRunner:
-    """Context manager that runs an AsyncSlotDefaultEventLoop in INTEGRATE
+class QiRunner:
+    """Context manager that runs an QiDefaultEventLoop in INTEGRATE
     mode."""
 
     def __init__(self, *, debug: Optional[bool] = None, loop_factory:
-                 Optional[Callable[[], AsyncSlotBaseEventLoop]] = None):
+                 Optional[Callable[[], QiBaseEventLoop]] = None):
         self._debug = debug
         self._loop_factory = loop_factory
-        self._loop: Optional[AsyncSlotBaseEventLoop] = None
+        self._loop: Optional[QiBaseEventLoop] = None
 
     def __enter__(self):
         if self._loop_factory is None:
-            self._loop = AsyncSlotDefaultEventLoop()
+            self._loop = QiDefaultEventLoop()
         else:
             self._loop = self._loop_factory()
         self._loop.set_guest(True)

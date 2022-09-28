@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "asyncslot"
+name = "qtinter"
 authors = [ { name="fancidev", email="fancidev@gmail.com" } ]
-description = "Use asyncio-based library from Python for Qt."
+description = "Interop between asyncio and Qt for Python"
 readme = "README.md"
 requires-python = ">=3.7"
 keywords = ["asyncio", "coroutine", "qt", "signal", "slot"]
@@ -27,7 +27,7 @@ PySide2 = ["PySide2"]
 PySide6 = ["PySide6"]
 
 [project.urls]
-"Homepage" = "https://github.com/fancidev/asyncslot"
-"Bug Tracker" = "https://github.com/fancidev/asyncslot/issues"
+"Homepage" = "https://github.com/fancidev/qtinter"
+"Bug Tracker" = "https://github.com/fancidev/qtinter/issues"
 
 [tool.setuptools_scm]

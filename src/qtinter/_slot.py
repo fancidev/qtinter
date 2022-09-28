@@ -1,30 +1,30 @@
-""" _slot.py - definition of AsyncSlot decorator """
+""" _slot.py - definition of helper functions """
 
 import asyncio
 import functools
 import inspect
 from typing import Callable, Coroutine, Set
-from ._base_events import AsyncSlotBaseEventLoop
+from ._base_events import QiBaseEventLoop
 
 
-__all__ = 'asyncSlot',
+__all__ = 'asyncslot',
 
 
-# Global variable to store strong reference to AsyncSlot tasks so that they
-# don't get garbage collected during execution.
+# Global variable to store strong reference to tasks created by asyncslot()
+# so that they don't get garbage collected during execution.
 _running_tasks: Set[asyncio.Task] = set()
 
 
 CoroutineFunction = Callable[..., Coroutine]
 
 
-def asyncSlot(fn: CoroutineFunction):  # noqa
+def asyncslot(fn: CoroutineFunction):  # noqa
     """ Wrap a coroutine function to make it usable as a Qt slot. """
 
     # TODO: support decoration on @classmethod or @staticmethod by returning
     # TODO: a wrapper method descriptor.
     if not inspect.iscoroutinefunction(fn):
-        raise TypeError(f'asyncSlot cannot be applied to {fn!r} because '
+        raise TypeError(f'asyncslot cannot be applied to {fn!r} because '
                         f'it is not a coroutine function')
 
     # Because the wrapper's signature is (*args), PySide/PyQt will always
@@ -50,7 +50,7 @@ def asyncSlot(fn: CoroutineFunction):  # noqa
             param_count = -1
         elif p.kind == p.KEYWORD_ONLY:
             if p.default is not p.empty:
-                raise TypeError(f"asyncSlot cannot be applied to {fn!r} "
+                raise TypeError(f"asyncslot cannot be applied to {fn!r} "
                                 f"because it contains keyword-only argument "
                                 f"'{p.name} without default")
         elif p.kind == p.VAR_KEYWORD:
@@ -59,12 +59,12 @@ def asyncSlot(fn: CoroutineFunction):  # noqa
             assert False, f"unexpected parameter kind '{p.kind}'"
 
     @functools.wraps(fn)
-    def asyncSlotWrapper(*args):
+    def asyncslot_wrapper(*args):
         loop = asyncio.events._get_running_loop()
         if loop is None:
             raise RuntimeError('cannot call asyncSlot without a running loop')
 
-        if not isinstance(loop, AsyncSlotBaseEventLoop):
+        if not isinstance(loop, QiBaseEventLoop):
             raise RuntimeError(f"asyncSlot is not compatible with the "
                                f"running event loop '{loop!r}'")
 
@@ -81,8 +81,8 @@ def asyncSlot(fn: CoroutineFunction):  # noqa
     # fn may have been decorated with Slot() or pyqtSlot().  "Carry over"
     # the decoration if so.
     if hasattr(fn, '_slots'):  # PySide2, PySide6
-        asyncSlotWrapper._slots = fn._slots  # noqa
+        asyncslot_wrapper._slots = fn._slots  # noqa
     if hasattr(fn, '__pyqtSignature__'):  # PyQt5, PyQt6
-        asyncSlotWrapper.__pyqtSignature__ = fn.__pyqtSignature__
+        asyncslot_wrapper.__pyqtSignature__ = fn.__pyqtSignature__
 
-    return asyncSlotWrapper
+    return asyncslot_wrapper
