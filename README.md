@@ -1,25 +1,25 @@
-# asyncslot
+# qtinter
 
-[![build](https://github.com/fancidev/asyncslot/actions/workflows/build.yml/badge.svg)](https://github.com/fancidev/asyncslot/actions/workflows/build.yml)
-[![tests](https://github.com/fancidev/asyncslot/actions/workflows/tests.yml/badge.svg)](https://github.com/fancidev/asyncslot/actions/workflows/tests.yml)
-[![codecov](https://codecov.io/gh/fancidev/asyncslot/branch/master/graph/badge.svg?token=JZ5ON6CHKA)](https://codecov.io/gh/fancidev/asyncslot)
-[![PyPI](https://img.shields.io/pypi/v/asyncslot)](https://pypi.org/project/asyncslot/)
+[![build](https://github.com/fancidev/qtinter/actions/workflows/build.yml/badge.svg)](https://github.com/fancidev/qtinter/actions/workflows/build.yml)
+[![tests](https://github.com/fancidev/qtinter/actions/workflows/tests.yml/badge.svg)](https://github.com/fancidev/qtinter/actions/workflows/tests.yml)
+[![codecov](https://codecov.io/gh/fancidev/qtinter/branch/master/graph/badge.svg?token=JZ5ON6CHKA)](https://codecov.io/gh/fancidev/qtinter)
+[![PyPI](https://img.shields.io/pypi/v/qtinter)](https://pypi.org/project/qtinter/)
 
-`asyncslot` is a Python module that allows you to use asyncio-based 
+`qtinter` is a Python module that allows you to use asyncio-based 
 libraries in Python for Qt.
 
 ## Synopsis
 
-To use asyncio-based libraries in Python for Qt, wrap `app.exec()` inside 
-`AsyncSlotRunner`, and connect signal to a coroutine function using 
-`asyncSlot`.
+To use asyncio-based libraries in Qt for Python, wrap `app.exec()` 
+inside `QiRunner`, and connect signal to a coroutine function using 
+`asyncslot`.
 
 A minimal working GUI example (taken from `examples/minimal_gui.py`):
 
 ```Python
 import asyncio
 from PySide6 import QtWidgets
-from asyncslot import asyncSlot, AsyncSlotRunner
+from qtinter import asyncslot, QiRunner
 
 async def say_hi():
     await asyncio.sleep(1)
@@ -28,16 +28,16 @@ async def say_hi():
 app = QtWidgets.QApplication()
 button = QtWidgets.QPushButton()
 button.setText('Say Hi after one second')
-button.clicked.connect(asyncSlot(say_hi))  # <-- instead of connect(say_hi)
+button.clicked.connect(asyncslot(say_hi))  # <-- instead of connect(say_hi)
 button.show()
 
-with AsyncSlotRunner():  # <-- wrap in Runner
+with QiRunner():  # <-- wrap in Runner
     app.exec()
 ```
 
 ## Requirements
 
-`asyncslot` supports the following:
+`qtinter` supports the following:
 
 - Python version: 3.7 or higher
 - Qt binding: PyQt5, PyQt6, PySide2, PySide6
@@ -47,7 +47,7 @@ with AsyncSlotRunner():  # <-- wrap in Runner
 ## Installation
 
 ```commandline
-pip install asyncslot
+pip install qtinter
 ```
 
 The above does _not_ install the Qt bindings.  To install Qt bindings, you may
@@ -56,30 +56,30 @@ The above does _not_ install the Qt bindings.  To install Qt bindings, you may
 pip install PyQt6
 ```
 
-Alternatively, you may install `asyncslot` together with your Qt binding of 
+Alternatively, you may install `qtinter` together with your Qt binding of 
 choice, for example
 
 ```commandline
-pip install asyncslot[PyQt6]
+pip install qtinter[PyQt6]
 ```
 
 
 ## Details
 
-`asyncslot` embeds a logical asyncio event loop (`AsyncSlotEventLoop`) 
+`qtinter` embeds a logical asyncio event loop
 within a physical Qt event loop (`QEventLoop`), so that Python libraries 
 written for asyncio can be used by a Python for Qt application.
 
 ### Running Modes
 
-An `AsyncSlotEventLoop` may be run in _attached mode_ or _nested mode_.
+An `QiBaseEventLoop` may be run in _attached mode_ or _nested mode_.
 
-Use `AsyncSlotEventLoop` as a context manager to run it in attached mode.  
+Use `QiRunner` context manager to run it in attached mode.  
 This mode only installs the logical asyncio event loop; the physical Qt 
 event loop must still be run as usual, e.g. by `app.exec()`.  This is the 
 preferred workflow as it integrates seamlessly with an existing Qt app.
 
-Call `AsyncSlotEventLoop.run_forever` to run it in nested mode.  This starts 
+Call `run_forever` to run it in nested mode.  This starts 
 a (possibly nested) Qt event loop using `QEventLoop.exec()` and waits until 
 it exits.  This is the standard asyncio workflow and is convenient for 
 unit testing, but it is not recommended for integration with an existing Qt 
@@ -96,7 +96,7 @@ should call `shutdown_asyncgens` and `shutdown_default_executor`, followed
 by `close`.  The first two methods are actually coroutines and therefore
 must be run from within the event loop.
 
-For attached mode, use the `asyncslot.AsyncSlotRunner` context manager, 
+For attached mode, use the `QiRunner` context manager, 
 which handles clean-up automatically.  Note, however, that it actually runs 
 the first two coroutines in nested mode, i.e. a Qt event loop is started.  
 Your code should be prepared for this.
@@ -104,15 +104,15 @@ Your code should be prepared for this.
 For nested mode, `asyncio.run()` handles clean-up automatically.
 
 
-### The `asyncSlot` Adaptor
+### The `asyncslot` Adaptor
 
-`asyncslot.asyncSlot` wraps a coroutine function (one defined by `async def`)
+`qtinter.asyncslot` wraps a coroutine function (one defined by `async def`)
 to make it usable as a Qt slot.  Without wrapping, a coroutine function
 (whether decorated with `QtCore.Slot`/`PyQt6.pyqtSlot` or not)
 generally cannot be used as a slot because calling it merely returns a 
 coroutine object instead of performing real work.
 
-Under the hood, `asyncslot.asyncSlot` calls `AsyncSlotEventLoop.run_task`,
+Under the hood, `qtinter.asyncslot` calls `QiBaseEventLoop.run_task`,
 a custom method which creates a Task wrapping the coroutine and executes
 it immediately until the first suspension point.
 
@@ -123,10 +123,10 @@ before actually sending the order over network, to avoid sending duplicate
 orders.  For this to work correctly, the code until the first suspension 
 point must be executed synchronously.
 
-An `AsyncSlotEventLoop` must be running when a coroutine wrapped by 
-`asyncSlot` is called, or a `RuntimeError` will be raised.
+An `QiBaseEventLoop` must be running when a coroutine wrapped by 
+`asyncslot` is called, or a `RuntimeError` will be raised.
 
-It is not recommended to decorate a coroutine function with `asyncSlot`
+It is not recommended to decorate a coroutine function with `asyncslot`
 as that would make an `async def` function into a normal function, which
 is confusing.
 
@@ -200,8 +200,8 @@ the selector to simulate a `call_soon_threadsafe` call.
 
 `asyncslot` is derived from
 [qasync](https://github.com/CabbageDevelopment/qasync) but rewritten from 
-scratch.  qasync is a fork of 
-[asyncqt](https://github.com/gmarull/asyncqt), which is a fork of
+scratch.  qasync is derived from 
+[asyncqt](https://github.com/gmarull/asyncqt), which is derived from
 [quamash](https://github.com/harvimt/quamash).
 
 
