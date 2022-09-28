@@ -61,7 +61,7 @@ asyncio.selector_events.BaseSelectorEventLoop = qtinter.QiBaseSelectorEventLoop
 asyncio.proactor_events.BaseProactorEventLoop = qtinter.QiBaseProactorEventLoop
 
 if sys.platform == 'win32':
-    asyncio.SelectorEventLoop = asyncio.windows_events.SelectorEventLoop = asyncio.windows_events._WindowsSelectorEventLoop = asyncslot.QiSelectorEventLoop
+    asyncio.SelectorEventLoop = asyncio.windows_events.SelectorEventLoop = asyncio.windows_events._WindowsSelectorEventLoop = qtinter.QiSelectorEventLoop
     asyncio.ProactorEventLoop = asyncio.windows_events.ProactorEventLoop = qtinter.QiProactorEventLoop
     asyncio.IocpProactor = asyncio.windows_events.IocpProactor = qtinter._windows_events._QiProactor
     asyncio.WindowsSelectorEventLoopPolicy = asyncio.windows_events.WindowsSelectorEventLoopPolicy = qtinter.QiSelectorEventLoopPolicy
