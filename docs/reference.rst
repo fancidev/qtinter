@@ -1,30 +1,96 @@
 API Reference
 =============
 
-This page documents the public API exposed by the ``qtinter`` module.
+This page documents the public API exposed by the :mod:`qtinter` module.
 
 
-Guidelines
-----------
+Introduction
+------------
 
-If your code is Qt-driven (e.g. it calls ``app.exec()`` as its entry point)
-and you want to use an asyncio-based library, enclose your Qt entry point
-in the :class:`asyncslot.AsyncSlotRunner` context manager.
+:mod:`qtinter` exposes a high-level API and a low-level API.  The
+high-level API is implemented based on the low-level API.  Normally
+you only need the high-level API.
 
-If your code is asyncio-driven (e.g. it calls :func:`asyncio.run()` as its
-entry point) and you want to use a Qt object, call
-:func:`asyncio.set_event_loop_policy` and pass one of the
-`event loop policy objects`_ below *before* calling the asyncio entry point.
-Alternatively, starting from Python 3.11, use :class:`asyncio.Runner` as
-the entry point and pass one of the `event loop objects`_ below to its
-*loop_factory* parameter.
+The high-level API provides two context managers --- you will typically
+use one of them depending on your usage scenario:
 
-In addition, this module provides a few `functions`_ to make it easier
-to use asyncio from Qt and vice versa.
+* If your code is Qt-driven (e.g. by calling ``app.exec()`` as
+  entry point) and you want to use an asyncio-based library, enclose
+  the Qt entry point in the :func:`qtinter.using_asyncio_from_qt()`
+  context manager.
+
+* If your code is asyncio-driven (e.g. by calling :func:`asyncio.run()`
+  as entry point) and you want to use a Qt object, enclose the asyncio
+  entry point in the :func:`qtinter.using_qt_from_asyncio` context
+  manager.
+
+  .. note:: *In Python 3.11 and above*: If you use :class:`asyncio.Runner`
+     as the entry point, pass :class:`qtinter.default_loop_factory` as
+     its *loop_factory* parameter.
 
 
-Context manager
----------------
+The high-level API also provides two helper functions to make it easier
+to interp between Qt and asyncio:
+
+* :func:`qtinter.asyncslot` wraps a coroutine function as a Qt slot.
+  This is convenient in Qt-driven code.
+
+* :func:`qtinter.asyncsignal` wraps a Qt signal as an asyncio-based
+  coroutine.  This is convenient in asyncio-driven code.
+
+
+High-level API
+--------------
+
+.. function:: qtinter.asyncsignal(signal) -> typing.Any
+   :async:
+
+   Wait until *signal* is emitted and return the argument(s)
+   passed to the signal.
+
+   .. _PyQt5.QtCore.pyqtSignal: https://www.riverbankcomputing.com/static/Docs/PyQt5/signals_slots.html#PyQt5.QtCore.pyqtSignal
+   .. _PyQt6.QtCore.pyqtSignal: https://www.riverbankcomputing.com/static/Docs/PyQt6/signals_slots.html#PyQt6.QtCore.pyqtSignal
+   .. _PySide2.QtCore.Signal: https://doc.qt.io/qtforpython-5/PySide2/QtCore/Signal.html
+   .. _PySide6.QtCore.Signal: https://doc.qt.io/qtforpython/PySide6/QtCore/Signal.html#PySide6.QtCore.PySide6.QtCore.Signal
+
+   *signal* must be a Qt signal exposed by the Qt binding in use, i.e.
+   one of `PyQt5.QtCore.pyqtSignal`_, `PyQt6.QtCore.pyqtSignal`_,
+   `PySide2.QtCore.Signal`_ or `PySide6.QtCore.Signal`_.
+
+   If the signal has no arguments, return ``None``.  If the signal has
+   only one argument, return that argument.  If the signal has two or
+   more arguments, return those arguments in a :class:`tuple`.
+
+.. function:: qtinter.asyncslot(fn: typing.Callable[..., typing.Coroutine]) \
+              -> typing.Callable[..., None]
+
+   Wrap coroutine function *fn* so that it can be used as a Qt slot to
+   be connected to a Qt signal.
+
+   When the slot is invoked, *fn* is called with the signal arguments to
+   produce a coroutine object.  The coroutine is then wrapped in an
+   :class:`asyncio.Task` and executed immediately until the first ``yield``,
+   ``return`` or ``raise``, whichever comes first.  The remainder of the
+   coroutine is scheduled for later execution.
+
+   This function may be called without an active loop.  However, there
+   must be a running :class:`qtinter.QiBaseEventLoop` when the slot is
+   invoked.
+
+.. function:: qtinter.default_loop_factory() -> asyncio.AbstractEventLoop
+
+   Create an asyncio-compatible event loop that runs on top of the Qt
+   event loop.
+
+.. function:: qtinter.using_asyncio_from_qt()
+
+   Context manager that sets up the machineary for using asyncio-based
+   libraries from Qt-driven code.
+
+.. function:: qtinter.using_qt_from_asyncio()
+
+   Context manager that sets up the machineary for using Qt components
+   from asyncio-driven code.
 
 
 Event loop interface
@@ -115,41 +181,4 @@ Event loop policy objects
 
    Event loop policy that creates :class:`qtinter.QiSelectorEventLoop`.
 
-
-Functions
----------
-
-.. function:: qtinter.asyncslot(fn: typing.Callable[..., typing.Coroutine]) -> None
-
-   Wrap a coroutine function *fn* so that it is usable as a Qt slot.
-
-   When the slot is invoked, the coroutine function *fn* is called with
-   the signal arguments to produce a coroutine object.  The coroutine is
-   then wrapped in an :class:`asyncio.Task` and executed immediately
-   until the first ``yield``, ``return`` or ``raise``, whichever comes
-   earliest.  The remainder of the the coroutine is scheduled for later
-   execution before the function returns.
-
-   This function may be called without an active loop.  However, there
-   must be a running :class:`qtinter.QiBaseEventLoop` when the slot is
-   invoked.
-
-.. function:: qtinter.asyncsignal(signal) -> typing.Any
-   :async:
-
-   Wait until *signal* is emitted and return the argument(s)
-   passed to the signal.
-
-   .. _PyQt5.QtCore.pyqtSignal: https://www.riverbankcomputing.com/static/Docs/PyQt5/signals_slots.html#PyQt5.QtCore.pyqtSignal
-   .. _PyQt6.QtCore.pyqtSignal: https://www.riverbankcomputing.com/static/Docs/PyQt6/signals_slots.html#PyQt6.QtCore.pyqtSignal
-   .. _PySide2.QtCore.Signal: https://doc.qt.io/qtforpython-5/PySide2/QtCore/Signal.html
-   .. _PySide6.QtCore.Signal: https://doc.qt.io/qtforpython/PySide6/QtCore/Signal.html#PySide6.QtCore.PySide6.QtCore.Signal
-
-   *signal* must be a Qt signal exposed by the Qt binding in use, i.e.
-   one of `PyQt5.QtCore.pyqtSignal`_, `PyQt6.QtCore.pyqtSignal`_,
-   `PySide2.QtCore.Signal`_ or `PySide6.QtCore.Signal`_.
-
-   If the signal has no arguments, return ``None``.  If the signal has
-   only one argument, return that argument.  If the signal has two or
-   more arguments, return those arguments in a :class:`tuple`.
 

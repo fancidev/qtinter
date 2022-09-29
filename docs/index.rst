@@ -1,125 +1,111 @@
-asyncslot --- Seamless integration of asyncio and Qt for Python
-===============================================================
+.. module:: qtinter
+   :synopsis: Interop between asyncio and Qt for Python
 
-``asyncslot`` is a Python module that allows you to use asyncio-based
-libraries in Qt for Python code, and vice versa.
+qtinter --- Interop between asyncio and Qt for Python
+=====================================================
 
-``asyncslot`` strives to be **simple** and **reliable** to use:
+:mod:`qtinter` is a Python module that brings together asyncio and Qt
+for Python, allowing you to use one from the other seamlessly.
 
-* *Simple*: You only need to add **a few lines of code** to use asyncio
-  from Qt or the other way around.  **No refactoring** of your existing
-  codebase is necessary.
+:mod:`qtinter` strives to be **simple** and **reliable**:
 
-* *Reliable*: The module passes the **entire asyncio test suite**.
-  Reassured your favorite asyncio-based library **will work**.
+* *Simple*: You only need to add **a few lines** of code to use asyncio
+  from Qt and vice versa.  **No refactoring** of your existing codebase
+  is required.
+
+* *Reliable*: :mod:`qtinter` runs on top of a Qt event loop and passes
+  the **entire asyncio test suite**.  Rest assured that your favorite
+  asyncio or Qt component **will work**.
 
 
 Installation
 ------------
 
-``asyncslot`` is installed via ``pip`` from the command line:
-
 .. code-block:: console
 
-   $ pip install asyncslot
+   $ pip install qtinter
 
 
 Using asyncio from Qt
 ---------------------
 
-If you have a Qt for Python codebase and want to use an asyncio-based
-library, follow these steps:
+If your code uses Qt as its entry point (e.g. by calling ``app.exec()``)
+and you want to use an asyncio-based library, follow these steps.
 
 
-Step 1 - import ``asyncslot``.
-
-.. code-block:: python
-
-   import asyncslot
-
-
-Step 2 - enclose your existing ``app.exec()`` inside an ``AsyncSlotRunner()``
-context manager.
+Step 1 --- import :mod:`qtinter`:
 
 .. code-block:: python
 
-   with asyncslot.AsyncSlotRunner():
+   import qtinter
+
+
+Step 2 --- enclose the Qt entry point inside
+:func:`qtinter.using_asyncio_from_qt` context manager:
+
+.. code-block:: python
+
+   with qtinter.using_asyncio_from_qt():
        app.exec()
 
 
-Step 3 (optional) - connect coroutine functions to signals by wrapping
-them with ``asyncSlot``.
+Step 3 --- (optionally) connect coroutine functions to Qt signals by
+wrapping them with :func:`qtinter.asyncslot`:
 
 .. code-block:: python
 
-   my_signal.connect(asyncslot.asyncSlot(my_coroutine_function))
+   my_signal.connect(qtinter.asyncslot(my_coroutine_function))
 
 
 And that's it!
 
-Let's put the above together into a minimal working example
-(``examples/minimal_gui.py``):
 
-.. code-block:: python
-
-   import asyncio
-   import asyncslot  # <-- step 1 - import module
-   from PyQt6 import QtWidgets
-
-   async def say_hi():
-       await asyncio.sleep(1)
-       QtWidgets.QMessageBox.information(None, "Demo", "Hi")
-
-   app = QtWidgets.QApplication([])
-
-   button = QtWidgets.QPushButton()
-   button.setText('Say Hi in one second')
-   button.clicked.connect(asyncslot.asyncSlot(say_hi))  # <-- step 3 - wrap slot
-   button.show()
-
-   with asyncslot.AsyncSlotRunner():  # <-- step 2 - enclose in context manager
-       app.exec()
+To see these in action, check out the (hello world) example and the
+(http client) example.
 
 
 Using Qt from asyncio
 ---------------------
 
-If you have an asyncio-based Python codebase and want to use a Qt
-component, follow these steps.
+If your code uses asyncio as its entry point (e.g. by calling
+:func:`asyncio.run()`) and you want to use a Qt component, follow these steps.
 
 
-Step 1 - import ``asyncslot``.
-
-.. code-block:: python
-
-   import asyncslot
-
-
-Step 2 - create a global ``QtCore.QCoreApplication``
-(or ``QtWidgets.QApplication``) instance.
+Step 1 --- import :mod:`qtinter`:
 
 .. code-block:: python
 
-   from PyQt6 import QtCore
-   app = QtCore.QCoreApplication([])
+   import qtinter
 
 
-Step 3 - activate ``AsyncSlotDefaultEventLoopPolicy``.
+Step 2 --- enclose the asyncio entry point inside
+:func:`qtinter.using_qt_from_asyncio` context manager:
 
 .. code-block:: python
 
-   import asyncio
-   asyncio.set_event_loop_policy(asyncslot.AsyncSlotDefaultEventLoopPolicy())
+   with qtinter.using_qt_from_asyncio():
+       asyncio.run(my_coro())
 
 
-And that's it!  You can now use Qt components in your asyncio-based code.
+Step 3 --- (optionally) wait for Qt signals by wrapping them with
+:func:`qtinter.asyncsignal`:
 
+.. code-block:: python
+
+   await qtinter.asyncsignal(button.clicked)
+
+
+And that's it!
+
+
+To see these in action, check out the (speaker) example and the (plotter)
+example.
 
 
 Requirements
 ------------
 
-``asyncslot`` supports the following:
+:mod:`qtinter` supports the following:
 
 - Python version: 3.7 and higher
 
@@ -137,7 +123,7 @@ BSD License.
 History
 -------
 
-``asyncslot`` is derived from qasync_ but rewritten from scratch. qasync_
+:mod:`qtinter` is derived from qasync_ but rewritten from scratch. qasync_
 is derived from asyncqt_, which is derived from quamash_.
 
 .. _qasync: https://github.com/CabbageDevelopment/qasync
@@ -148,8 +134,7 @@ is derived from asyncqt_, which is derived from quamash_.
 Further reading
 ---------------
 
-Check out the following pages for details on using ``asyncslot``
-as well as its internals:
+Check out the following pages for details about using :mod:`qtinter`:
 
 .. toctree::
    :maxdepth: 2
@@ -160,10 +145,3 @@ as well as its internals:
    bindings
    reference
 
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
