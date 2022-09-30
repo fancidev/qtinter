@@ -4,43 +4,99 @@ API Reference
 This page documents the public API exposed by the :mod:`qtinter` module.
 
 
-Introduction
+Overview
+--------
+
+:mod:`qtinter` provides the following functions and classes:
+
+`Context managers`_ for asyncio-Qt interop:
+
+* :func:`qtinter.using_asyncio_from_qt` enables asyncio-based
+  components in Qt-driven code.
+
+* :func:`qtinter.using_qt_from_asyncio` enables Qt-based components
+  in asyncio-driven code.
+
+
+`Helper functions`_ to make interp code look more natural for the current
+code style:
+
+* :func:`qtinter.asyncslot` connects a coroutine function
+  to a Qt signal; useful for Qt-driven code.
+
+* :func:`qtinter.asyncsignal` makes a Qt signal *awaitable*;
+  useful for asyncio-driven code.
+
+
+`Loop factory`_ to create `event loop objects`_ directly:
+
+* :func:`qtinter.default_loop_factory` creates an asyncio-compatible
+  event loop object that runs on top of a Qt event loop.
+
+
+`Low-level classes`_ that do the actual work of bridging Qt and asyncio:
+
+* `Event loop interface`_
+
+* `Event loop objects`_
+
+* `Event loop policy objects`_
+
+
+Context managers
+----------------
+
+.. function:: qtinter.using_asyncio_from_qt()
+
+   Context manager that enables enclosed *Qt-driven* code to use
+   asyncio-based libraries.
+
+   Your code is *Qt-driven* if it calls ``app.exec()`` or equivalent
+   as its entry point.
+
+   Example:
+
+   .. code-block:: python
+
+      app = QtWidgets.QApplication([])
+      with qtinter.using_asyncio_from_qt():
+          app.exec()
+   
+.. function:: qtinter.using_qt_from_asyncio()
+
+   Context manager that enables enclosed *asyncio-driven* code to use
+   Qt components.
+
+   Your code is *asyncio-driven* if it calls :func:`asyncio.run()` or
+   equivalent as its entry point.
+
+   .. note::
+
+      This context manager modifies the global (per-interpreter) asyncio
+      event loop policy.  Do not use this context manager if your code
+      uses different types of event loops from multiple threads.
+      Instead, call :func:`qtinter.default_loop_factory` to create an
+      event loop object and run coroutines on that loop object, e.g. by
+      passing it to :class:`asyncio.Runner` (available since Python 3.11).
+      
+
+Loop factory
 ------------
 
-:mod:`qtinter` exposes a high-level API and a low-level API.  The
-high-level API is implemented based on the low-level API.  Normally
-you only need the high-level API.
+.. function:: qtinter.default_loop_factory() -> asyncio.AbstractEventLoop
 
-The high-level API provides two context managers --- you will typically
-use one of them depending on your usage scenario:
+   Return a new instance of an asyncio-compatible event loop object that
+   runs on top of a Qt event loop.
 
-* If your code is Qt-driven (e.g. by calling ``app.exec()`` as
-  entry point) and you want to use an asyncio-based library, enclose
-  the Qt entry point in the :func:`qtinter.using_asyncio_from_qt()`
-  context manager.
-
-* If your code is asyncio-driven (e.g. by calling :func:`asyncio.run()`
-  as entry point) and you want to use a Qt object, enclose the asyncio
-  entry point in the :func:`qtinter.using_qt_from_asyncio` context
-  manager.
-
-  .. note:: *In Python 3.11 and above*: If you use :class:`asyncio.Runner`
-     as the entry point, pass :class:`qtinter.default_loop_factory` as
-     its *loop_factory* parameter.
+   Use this function instead of :func:`qtinter.using_qt_from_asyncio`
+   if your code uses different types of event loops from multiple threads.
+   For example, starting from Python 3.11, if your code uses
+   :class:`asyncio.Runner` as its entry point, pass this function as the
+   *loop_factory* parameter when constructing :class:`asyncio.Runner`.
 
 
-The high-level API also provides two helper functions to make it easier
-to interp between Qt and asyncio:
-
-* :func:`qtinter.asyncslot` wraps a coroutine function as a Qt slot.
-  This is convenient in Qt-driven code.
-
-* :func:`qtinter.asyncsignal` wraps a Qt signal as an asyncio-based
-  coroutine.  This is convenient in asyncio-driven code.
-
-
-High-level API
---------------
+Helper functions
+----------------
 
 .. function:: qtinter.asyncsignal(signal) -> typing.Any
    :async:
@@ -77,24 +133,15 @@ High-level API
    must be a running :class:`qtinter.QiBaseEventLoop` when the slot is
    invoked.
 
-.. function:: qtinter.default_loop_factory() -> asyncio.AbstractEventLoop
 
-   Create an asyncio-compatible event loop that runs on top of the Qt
-   event loop.
+Low-level classes
+-----------------
 
-.. function:: qtinter.using_asyncio_from_qt()
-
-   Context manager that sets up the machineary for using asyncio-based
-   libraries from Qt-driven code.
-
-.. function:: qtinter.using_qt_from_asyncio()
-
-   Context manager that sets up the machineary for using Qt components
-   from asyncio-driven code.
+You normally do not have to use these classes directly.
 
 
 Event loop interface
---------------------
+~~~~~~~~~~~~~~~~~~~~
 
 All `event loop objects`_ below are derived from the abstract base class
 :class:`qtinter.QiBaseEventLoop`.
@@ -139,7 +186,7 @@ All `event loop objects`_ below are derived from the abstract base class
 
 
 Event loop objects
-------------------
+~~~~~~~~~~~~~~~~~~
 
 .. class:: qtinter.QiDefaultEventLoop
 
@@ -162,7 +209,7 @@ Event loop objects
 
 
 Event loop policy objects
--------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. class:: qtinter.QiDefaultEventLoopPolicy
 
