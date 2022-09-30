@@ -42,7 +42,7 @@ from ._base_events import *
 from ._selector_events import *
 from ._proactor_events import *
 from ._slot import *
-from ._runners import *
+from ._contexts import *
 
 
 __all__ = (
@@ -50,7 +50,7 @@ __all__ = (
     _selector_events.__all__ +
     _proactor_events.__all__ +
     _slot.__all__ +
-    _runners.__all__
+    _contexts.__all__
 )
 
 

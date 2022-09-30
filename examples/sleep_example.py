@@ -56,7 +56,7 @@ def main():
     widget.resize(400, 300)
     widget.show()
 
-    with qtinter.QiRunner():
+    with qtinter.using_asyncio_from_qt():
         sys.exit(app.exec())
 
 

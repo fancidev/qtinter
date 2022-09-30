@@ -12,11 +12,11 @@ To simulate slow network response so that it's easier to visualize the
 difference between synchronous and asynchronous download, this example
 implements a minimal http server that sleeps for 3 seconds before sending
 back the response.  The http server runs in a separate thread and does
-not use any of asyncslot's functionality.
+not use any of qtinter's functionality.
 
-Pay attention to code blocks marked with FEATURE -- they demonstrate the
-usage of asyncslot.  The rest code builds up the GUI and program logic
-and is not specific to asyncslot.
+Code blocks marked with FEATURE demonstrate the usage of qtinter.  The
+rest of the code builds up the GUI and program logic and is not specific
+to qtinter.
 """
 
 import asyncio
@@ -61,7 +61,7 @@ class MyWidget(QtWidgets.QWidget):
         # blocked -- the ball freezes if the Qt event loop is blocked.
         self._bouncer = BouncingWidget()
 
-        # URl input.
+        # URL input.
         self._url = QtWidgets.QLineEdit(self)
 
         # The 'Sync GET' button downloads the web page synchronously,
@@ -76,7 +76,7 @@ class MyWidget(QtWidgets.QWidget):
 
         # ---- FEATURE ----
         # To connect an async function to the clicked signal, wrap the async
-        # function in asyncslot.asyncSlot.
+        # function in qtinter.asyncslot.
         self._async_button.clicked.connect(
             qtinter.asyncslot(self.async_download))
 
@@ -154,7 +154,7 @@ class MyWidget(QtWidgets.QWidget):
             # Download web page using httpx library.  The httpx library
             # works with both asyncio and trio, and uses anyio to detect
             # the type of the running event loop.  That httpx works with
-            # asyncslot shows that asyncslot's event loop behaves like
+            # qtinter shows that qtinter's event loop behaves like
             # an asyncio event loop.
             async with httpx.AsyncClient() as client:
                 url = self._url.text() + "?async"
@@ -167,12 +167,13 @@ class MyWidget(QtWidgets.QWidget):
             # Catching a CancelledError indicates the task is cancelled.
             # This can happen either because the user clicked the 'Cancel'
             # button, or because the window is closed.  In the latter case
-            # Qt's event loop exits and AsyncSlotRunner shuts down the
-            # asyncslot event loop, cancelling all running tasks.
+            # Qt's event loop exits and qtinter.using_asyncio_from_qt()
+            # shuts down qtinter's event loop after cancelling all pending
+            # tasks.
             if self.isVisible():
                 # If the window is still open, the task must have been
                 # cancelled by clicking the 'Cancel' button.  This is
-                # because asyncslot only cancels running tasks _after_ the
+                # because qtinter only cancels running tasks _after_ the
                 # Qt event loop exits, and the Qt event loop exits only
                 # after all windows are closed.
                 QtWidgets.QMessageBox.information(
@@ -216,10 +217,11 @@ def main():
     widget.show()
 
     # ---- FEATURE ----
-    # For asyncslot to work, enclose app.exec inside the context manager
-    # AsyncSlotRunner().  The runner is responsible for starting up and
-    # shutting down the logical asyncio event loop.
-    with qtinter.QiRunner():
+    # To enable asyncio-based components from Qt-driven code, enclose
+    # app.exec inside the context manager using_asyncio_from_qt().
+    # This context manager is responsible for starting up and shutting
+    # down the logical asyncio event loop.
+    with qtinter.using_asyncio_from_qt():
         sys.exit(app.exec())
 
 

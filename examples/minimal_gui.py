@@ -1,7 +1,7 @@
 """ minimal_gui.py - minimal gui application using asyncslot """
 
 import asyncio
-import qtinter  # <-- step 1 - import module
+import qtinter  # <-- import module
 from PyQt6 import QtWidgets
 
 
@@ -13,8 +13,8 @@ app = QtWidgets.QApplication([])
 
 button = QtWidgets.QPushButton()
 button.setText('Say Hi in one second')
-button.clicked.connect(qtinter.asyncslot(say_hi))  # <-- step 3 - wrap slot
+button.clicked.connect(qtinter.asyncslot(say_hi))  # <-- wrap coroutine function
 button.show()
 
-with qtinter.QiRunner():  # <-- step 2 - enclose in context manager
+with qtinter.using_asyncio_from_qt():  # <-- enclose app.exec in context manager
     app.exec()
