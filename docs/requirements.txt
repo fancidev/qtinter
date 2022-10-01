@@ -1,3 +1,4 @@
 # The following packages are required to build the documentation.
 sphinx
 sphinx-rtd-theme
+sphinx-togglebutton

@@ -14,7 +14,11 @@ release = '0.4.1'
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = ['sphinx.ext.intersphinx', 'sphinx_rtd_theme']
+extensions = [
+    'sphinx.ext.intersphinx',
+    'sphinx_rtd_theme',
+    'sphinx_togglebutton',
+]
 intersphinx_mapping = {'python': ('https://docs.python.org/3', None)}
 
 templates_path = ['_templates']

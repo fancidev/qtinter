@@ -61,8 +61,8 @@ wrapping them with :func:`qtinter.asyncslot`:
 And that's it!
 
 
-To see these in action, check out the (hello world) example and the
-(http client) example.
+To see these in action, check out the :ref:`hello-world-example` and the
+:ref:`http-client-example`.
 
 
 Using Qt from asyncio

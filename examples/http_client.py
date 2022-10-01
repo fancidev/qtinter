@@ -1,23 +1,4 @@
-"""Demonstrates asynchronous http download and cancellation.
-
-This example displays a window that allows the user to download a web
-page asynchronously and optionally cancel the download.
-
-The window contains an 'Async GET' button whose 'clicked' signal is
-connected to a coroutine function wrapped by asyncslot.asyncSlot.  The
-window also contains a 'Cancel' button used to cancel the asynchronous
-download operation.
-
-To simulate slow network response so that it's easier to visualize the
-difference between synchronous and asynchronous download, this example
-implements a minimal http server that sleeps for 3 seconds before sending
-back the response.  The http server runs in a separate thread and does
-not use any of qtinter's functionality.
-
-Code blocks marked with FEATURE demonstrate the usage of qtinter.  The
-rest of the code builds up the GUI and program logic and is not specific
-to qtinter.
-"""
+"""Demo asyncio http download and cancellation from Qt app."""
 
 import asyncio
 import qtinter
@@ -32,8 +13,14 @@ import httpx
 
 
 def create_http_server():
-    """ Create a local http server to simulate slow response """
+    """Create a minimal local http server.
 
+    This server sleeps for 3 seconds before sending back a response.
+    This makes it easier to visualize the difference between synchronous
+    and asynchronous download.
+
+    The server implementation is unrelated to qtinter.
+    """
     class MyRequestHandler(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
             time.sleep(3)  # simulate slow response
@@ -66,24 +53,22 @@ class MyWidget(QtWidgets.QWidget):
         self._url = QtWidgets.QLineEdit(self)
 
         # The 'Sync GET' button downloads the web page synchronously,
-        # which blocks the Qt event loop.  The bouncing ball freezes
-        # when this button is clicked until download is complete.
+        # which blocks the Qt event loop.  The progress bar freezes
+        # when this button is clicked until the download completes.
         self._sync_button = QtWidgets.QPushButton("Sync GET")
         self._sync_button.clicked.connect(self.sync_download)
 
         # The 'Async GET' button downloads the web page asynchronously.
-        # The ball keeps bouncing while the download is in progress.
+        # The progress bar keeps running while the download is in progress.
         self._async_button = QtWidgets.QPushButton("Async GET")
 
-        # ---- FEATURE ----
-        # To connect an async function to the clicked signal, wrap the async
-        # function in qtinter.asyncslot.
+        # [DEMO] To connect an async function to the clicked signal, wrap
+        # the async function with qtinter.asyncslot.
         self._async_button.clicked.connect(
             qtinter.asyncslot(self.async_download))
 
-        # ---- FEATURE ----
-        # When an async download is in progress, _async_task is set to the
-        # task executing the download, so that the download may be cancelled
+        # [DEMO] When an async download is in progress, _async_task is set
+        # to the task executing the download, so that it may be cancelled
         # by clicking the 'Cancel' button.
         self._async_task: Optional[asyncio.Task] = None
 
@@ -115,15 +100,14 @@ class MyWidget(QtWidgets.QWidget):
         # runs in a separate thread.
         self._server = create_http_server()
 
-        # Set default URL to the locally-run http server, which sleeps for
-        # 3 seconds before sending back a response.
+        # Set default URL to the locally-run http server.
         self._url.setText("http://{}:{}/dummy"
                           .format(*self._server.server_address))
 
     def closeEvent(self, event):
         # Handle the closeEvent to shut down the local HTTP server so that
         # the program exits (cleanly).  The shutdown() call blocks; you
-        # may notice a short freeze of the bouncing ball.
+        # might observe a short freeze of the progress bar.
         self._server.shutdown()
         event.accept()
 
@@ -137,19 +121,19 @@ class MyWidget(QtWidgets.QWidget):
         response = requests.get(url)
         self._output.setText(response.text)
 
-    # ---- FEATURE ----
-    # When the 'Async GET' button is clicked, initiate asynchronous download.
+    # [DEMO] asynchronous slot for the 'Async GET' button.
     async def async_download(self):
-        # Retrieve and store the asyncio task wrapping this coroutine,
-        # so that it may be cancelled by calling its cancel() method.
+        # Store the asyncio task wrapping the running coroutine so that
+        # it may be cancelled by calling its cancel() method.
         self._async_task = asyncio.current_task()
         assert self._async_task is not None
 
         # Update GUI elements -- this is a common pattern in event handling.
-        # Because asyncslot executes the slot immediately until the first
-        # yield, the changes take effect immediately, eliminating potential
-        # race conditions.  The actual GUI repainting happens after the first
-        # yield, where control is given back to the Qt event loop.
+        # Because qtinter.asyncslot() executes the coroutine immediately
+        # until the first yield, the changes take effect immediately,
+        # eliminating potential race conditions.  The actual GUI repainting
+        # happens after the first yield when control is returned to the Qt
+        # event loop.
         self._sync_button.setEnabled(False)
         self._async_button.setEnabled(False)
         self._cancel_button.setEnabled(True)
@@ -178,7 +162,7 @@ class MyWidget(QtWidgets.QWidget):
             if self.isVisible():
                 # If the window is still open, the task must have been
                 # cancelled by clicking the 'Cancel' button.  This is
-                # because qtinter only cancels running tasks _after_ the
+                # because qtinter only cancels pending tasks _after_ the
                 # Qt event loop exits, and the Qt event loop exits only
                 # after all windows are closed.
                 QtWidgets.QMessageBox.information(
@@ -194,8 +178,7 @@ class MyWidget(QtWidgets.QWidget):
             self._sync_button.setEnabled(True)
             self._async_task = None
 
-    # ---- FEATURE ----
-    # When the 'Cancel' button is clicked, cancel the async download.
+    # [DEMO] When the 'Cancel' button is clicked, cancel the async download.
     def cancel_async_download(self):
         # The 'Cancel' button is enabled only if the async download is
         # in progress, so the task object must be set.
@@ -205,7 +188,7 @@ class MyWidget(QtWidgets.QWidget):
         # into the (suspended) coroutine, which must catch the exception and
         # perform actual cancellation.  (Note that it is possible for the
         # task to be done before CancelledError is thrown, as a cancellation
-        # request is scheduled by call_soon and it could happen that
+        # request is scheduled by call_soon() and it might so happen that
         # a task completion callback is scheduled before it.)  Cancelling
         # a done task has no effect.
         self._async_task.cancel()
@@ -220,11 +203,10 @@ def main():
     widget.resize(400, 200)
     widget.show()
 
-    # ---- FEATURE ----
-    # To enable asyncio-based components from Qt-driven code, enclose
-    # app.exec inside the context manager using_asyncio_from_qt().
-    # This context manager is responsible for starting up and shutting
-    # down the logical asyncio event loop.
+    # [DEMO] To enable asyncio-based components from Qt-driven code,
+    # enclose app.exec() inside the qtinter.using_asyncio_from_qt()
+    # context manager.  This context manager takes care of starting
+    # up and shutting down an asyncio-compatible logical event loop.
     with qtinter.using_asyncio_from_qt():
         sys.exit(app.exec())
 
