@@ -1,4 +1,4 @@
-""" http_example.py - asynchronous http download and cancellation
+"""Demonstrates asynchronous http download and cancellation.
 
 This example displays a window that allows the user to download a web
 page asynchronously and optionally cancel the download.
@@ -24,7 +24,6 @@ import qtinter
 import sys
 import time
 from PyQt6 import QtWidgets
-from bouncingwidget import BouncingWidget
 from typing import Optional
 import requests
 import http.server
@@ -55,11 +54,13 @@ class MyWidget(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("qtinter - Http Example")
+        self.setWindowTitle("qtinter - Http Client Example")
 
-        # Show a bouncing ball to visualize whether the Qt event loop is
-        # blocked -- the ball freezes if the Qt event loop is blocked.
-        self._bouncer = BouncingWidget()
+        # Show an indefinite progress bar to visualize whether the Qt event
+        # loop is blocked -- the progress bar freezes if the Qt event loop
+        # is blocked.
+        self._progress = QtWidgets.QProgressBar()
+        self._progress.setRange(0, 0)
 
         # URL input.
         self._url = QtWidgets.QLineEdit(self)
@@ -93,14 +94,19 @@ class MyWidget(QtWidgets.QWidget):
 
         # Response from the http server is shown in the below box.
         self._output = QtWidgets.QTextEdit(self)
+        self._output.setReadOnly(True)
 
         # Set up layout.
         self._buttons = QtWidgets.QHBoxLayout()
+        self._buttons.setContentsMargins(0, 0, 0, 0)
+        self._buttons.setSpacing(5)
         self._buttons.addWidget(self._sync_button)
         self._buttons.addWidget(self._async_button)
         self._buttons.addWidget(self._cancel_button)
         self._layout = QtWidgets.QVBoxLayout(self)
-        self._layout.addWidget(self._bouncer)
+        self._layout.setContentsMargins(10, 10, 10, 10)
+        self._layout.setSpacing(5)
+        self._layout.addWidget(self._progress)
         self._layout.addWidget(self._url)
         self._layout.addLayout(self._buttons)
         self._layout.addWidget(self._output)
@@ -123,11 +129,11 @@ class MyWidget(QtWidgets.QWidget):
 
     def sync_download(self):
         # When the 'Sync GET' button is clicked, download the web page
-        # using the (blocking) requests library.  The bouncing ball freezes
-        # until download is complete.  There is no need to disable buttons
+        # using the (blocking) requests library.  The progress bar freezes
+        # until the download completes.  There is no need to disable buttons
         # etc because there is no chance for the Qt event loop to process
         # events or repaint the GUI.
-        url = self._url.text() + "?sync"
+        url = self._url.text()
         response = requests.get(url)
         self._output.setText(response.text)
 
@@ -148,7 +154,6 @@ class MyWidget(QtWidgets.QWidget):
         self._async_button.setEnabled(False)
         self._cancel_button.setEnabled(True)
         self._output.clear()
-        self._output.setEnabled(False)
 
         try:
             # Download web page using httpx library.  The httpx library
@@ -157,7 +162,7 @@ class MyWidget(QtWidgets.QWidget):
             # qtinter shows that qtinter's event loop behaves like
             # an asyncio event loop.
             async with httpx.AsyncClient() as client:
-                url = self._url.text() + "?async"
+                url = self._url.text()
                 response = await client.get(url)
                 # TODO: test asyncgen close
                 body = await response.aread()
@@ -184,7 +189,6 @@ class MyWidget(QtWidgets.QWidget):
 
         finally:
             # Restore GUI element states.
-            self._output.setEnabled(True)
             self._cancel_button.setEnabled(False)
             self._async_button.setEnabled(True)
             self._sync_button.setEnabled(True)
@@ -213,7 +217,7 @@ def main():
 
     # Create widgets, as usual.
     widget = MyWidget()
-    widget.resize(400, 300)
+    widget.resize(400, 200)
     widget.show()
 
     # ---- FEATURE ----

@@ -45,6 +45,7 @@ Step 2 --- enclose the Qt entry point inside
 
 .. code-block:: python
 
+   app = QtWidgets.QApplication([])
    with qtinter.using_asyncio_from_qt():
        app.exec()
 
@@ -83,6 +84,7 @@ Step 2 --- enclose the asyncio entry point inside
 
 .. code-block:: python
 
+   app = QtWidgets.QApplication([])
    with qtinter.using_qt_from_asyncio():
        asyncio.run(my_coro())
 
@@ -131,10 +133,8 @@ is derived from asyncqt_, which is derived from quamash_.
 .. _quamash: https://github.com/harvimt/quamash
 
 
-Further reading
----------------
-
-Check out the following pages for details about using :mod:`qtinter`:
+Contents
+--------
 
 .. toctree::
    :maxdepth: 2

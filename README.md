@@ -1,25 +1,26 @@
 # qtinter
 
 [![build](https://github.com/fancidev/qtinter/actions/workflows/build.yml/badge.svg)](https://github.com/fancidev/qtinter/actions/workflows/build.yml)
+[![docs](https://readthedocs.org/projects/qtinter/badge/?version=latest)](https://qtinter.readthedocs.io/en/latest/?badge=latest)
 [![tests](https://github.com/fancidev/qtinter/actions/workflows/tests.yml/badge.svg)](https://github.com/fancidev/qtinter/actions/workflows/tests.yml)
 [![codecov](https://codecov.io/gh/fancidev/qtinter/branch/master/graph/badge.svg?token=JZ5ON6CHKA)](https://codecov.io/gh/fancidev/qtinter)
 [![PyPI](https://img.shields.io/pypi/v/qtinter)](https://pypi.org/project/qtinter/)
 
 `qtinter` is a Python module that allows you to use asyncio-based 
-libraries in Python for Qt.
+libraries in Qt for Python and vice versa.
 
 ## Synopsis
 
-To use asyncio-based libraries in Qt for Python, wrap `app.exec()` 
-inside `QiRunner`, and connect signal to a coroutine function using 
-`asyncslot`.
+To use asyncio-based libraries in Qt for Python, enclose `app.exec()`
+inside context manager `qtinter.using_asyncio_from_qt()`, and optionally
+connect Qt signals to coroutine functions using `qtinter.asyncslot()`.
 
 A minimal working GUI example (taken from `examples/minimal_gui.py`):
 
 ```Python
 import asyncio
 from PySide6 import QtWidgets
-from qtinter import asyncslot, QiRunner
+from qtinter import asyncslot, using_asyncio_from_qt
 
 async def say_hi():
     await asyncio.sleep(1)
@@ -31,7 +32,7 @@ button.setText('Say Hi after one second')
 button.clicked.connect(asyncslot(say_hi))  # <-- instead of connect(say_hi)
 button.show()
 
-with QiRunner():  # <-- wrap in Runner
+with using_asyncio_from_qt():  # <-- wrap in context manager
     app.exec()
 ```
 
