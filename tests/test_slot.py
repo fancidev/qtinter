@@ -3,7 +3,7 @@
 import asyncio
 import unittest
 from shim import QtCore
-from qtinter import asyncslot, QiRunner
+from qtinter import asyncslot, using_asyncio_from_qt
 
 
 called = []
@@ -231,7 +231,7 @@ class TestSlot(unittest.TestCase):
         self.signal.emit(True)
 
         called.clear()
-        with QiRunner():
+        with using_asyncio_from_qt():
             if hasattr(self.qt_loop, 'exec'):
                 self.qt_loop.exec()
             else:
