@@ -98,11 +98,11 @@ Loop factory
 Helper functions
 ----------------
 
-.. function:: qtinter.asyncsignal(signal) -> typing.Any
+.. function:: qtinter.asyncsignal(signal, *, copy=True) -> typing.Any
    :async:
 
-   Wait until *signal* is emitted and return the argument(s)
-   passed to the signal.
+   Wait until *signal* is emitted and return the signal arguments
+   or their copy.
 
    .. _PyQt5.QtCore.pyqtSignal: https://www.riverbankcomputing.com/static/Docs/PyQt5/signals_slots.html#PyQt5.QtCore.pyqtSignal
    .. _PyQt6.QtCore.pyqtSignal: https://www.riverbankcomputing.com/static/Docs/PyQt6/signals_slots.html#PyQt6.QtCore.pyqtSignal
@@ -116,6 +116,12 @@ Helper functions
    If the signal has no arguments, return ``None``.  If the signal has
    only one argument, return that argument.  If the signal has two or
    more arguments, return those arguments in a :class:`tuple`.
+
+   If *copy* is ``True`` (the default), a copy of each signal argument
+   is returned instead of the argument itself.  Copying is necessary
+   if the signal argument's lifetime is valid only for the duration of
+   the callback.  The copy is made by calling the argument's class
+   with the argument as the sole parameter.
 
 .. function:: qtinter.asyncslot(fn: typing.Callable[..., typing.Coroutine]) \
               -> typing.Callable[..., None]
