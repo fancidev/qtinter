@@ -28,19 +28,20 @@ def main():
     engine = QtTextToSpeech.QTextToSpeech()
     locales = dict((l.name(), l) for l in engine.availableLocales())
     voices = dict((v.name(), v) for v in engine.availableVoices())
-    usage = (f"{sys.argv[0]} [-e] [-l locale] [-p pitch] [-r rate] [-v voice]\n"
-             f"Read out text from stdin."
+    usage = (f"usage: {sys.argv[0]} [options]\n"
+             f"Read out text from stdin.\n"
              f"Options:\n"
              f"    -e          Echo each line before reading it out\n"
-             f"    -l locale   One of {', '.join(sorted(locales))}\n"
-             f"                Default: {engine.locale().name()}\n"
+             f"    -h          Show this screen and exit\n"
+             f"    -l locale   One of {', '.join(sorted(locales))} "
+             f"(default: {engine.locale().name()})\n"
              f"    -p pitch    Number between -1.0 and +1.0 (default: 0.0)\n"
              f"    -r rate     Number between -1.0 and +1.0 (default: 0.0)\n"
-             f"    -v voice    One of {', '.join(sorted(voices))}\n"
-             f"                Default: {engine.voice().name()}\n")
+             f"    -v voice    One of {', '.join(sorted(voices))} "
+             f"(default: {engine.voice().name()})\n")
 
     try:
-        args, rest = getopt.getopt(sys.argv[1:], "el:p:r:v:")
+        args, rest = getopt.getopt(sys.argv[1:], "ehl:p:r:v:")
     except getopt.error:
         print(usage, file=sys.stderr)
         return 1
@@ -53,6 +54,9 @@ def main():
     for opt, val in args:
         if opt == "-e":
             echo = True
+        elif opt == "-h":
+            print(usage)
+            return 0
         elif opt == "-l":
             engine.setLocale(locales[val])
         elif opt == "-p":

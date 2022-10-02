@@ -100,7 +100,7 @@ Step 3 --- (optionally) wait for Qt signals by wrapping them with
 And that's it!
 
 
-To see these in action, check out the (speaker) example and the (plotter)
+To see these in action, check out the :ref:`read-out-example` and the (plotter)
 example.
 
 
