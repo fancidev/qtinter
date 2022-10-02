@@ -41,6 +41,7 @@ import sys
 from ._base_events import *
 from ._selector_events import *
 from ._proactor_events import *
+from ._signal import *
 from ._slot import *
 from ._contexts import *
 
@@ -49,6 +50,7 @@ __all__ = (
     _base_events.__all__ +
     _selector_events.__all__ +
     _proactor_events.__all__ +
+    _signal.__all__ +
     _slot.__all__ +
     _contexts.__all__
 )
