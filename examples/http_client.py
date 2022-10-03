@@ -4,7 +4,7 @@ import asyncio
 import qtinter
 import sys
 import time
-from PyQt6 import QtWidgets
+from PyQt6 import QtCore, QtWidgets
 from typing import Optional
 import requests
 import http.server
@@ -113,13 +113,21 @@ class MyWidget(QtWidgets.QWidget):
 
     def sync_download(self):
         # When the 'Sync GET' button is clicked, download the web page
-        # using the (blocking) requests library.  The progress bar freezes
-        # until the download completes.  There is no need to disable buttons
-        # etc because there is no chance for the Qt event loop to process
-        # events or repaint the GUI.
+        # using the (blocking) requests library.  This has two drawbacks:
+        # 1. The GUI freezes during the download.  For example, the progress
+        #    bar stops updating.
+        # 2. Buttons remain clickable even if disabled before download starts
+        #    and re-enabled after download completes.  A workaround seems to
+        #    be waiting for 10 milliseconds before re-enabling the button;
+        #    hard-coding a timeout is certainly not ideal.
         url = self._url.text()
-        response = requests.get(url)
-        self._output.setText(response.text)
+        self._async_button.setEnabled(False)
+        try:
+            response = requests.get(url)
+            self._output.setText(response.text)
+        finally:
+            QtCore.QTimer.singleShot(
+                10, lambda: self._async_button.setEnabled(True))
 
     # [DEMO] asynchronous slot for the 'Async GET' button.
     async def async_download(self):
