@@ -4,7 +4,7 @@ import asyncio
 import getopt
 import qtinter
 import sys
-from PyQt5 import QtGui, QtTextToSpeech
+from PyQt6 import QtGui, QtTextToSpeech
 
 
 async def read_out(engine: QtTextToSpeech.QTextToSpeech, echo=False):

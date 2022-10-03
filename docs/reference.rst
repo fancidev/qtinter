@@ -80,21 +80,6 @@ Context managers
       passing it to :class:`asyncio.Runner` (available since Python 3.11).
       
 
-Loop factory
-------------
-
-.. function:: qtinter.default_loop_factory() -> asyncio.AbstractEventLoop
-
-   Return a new instance of an asyncio-compatible event loop object that
-   runs on top of a Qt event loop.
-
-   Use this function instead of :func:`qtinter.using_qt_from_asyncio`
-   if your code uses different types of event loops from multiple threads.
-   For example, starting from Python 3.11, if your code uses
-   :class:`asyncio.Runner` as its entry point, pass this function as the
-   *loop_factory* parameter when constructing :class:`asyncio.Runner`.
-
-
 Helper functions
 ----------------
 
@@ -140,6 +125,21 @@ Helper functions
    invoked.
 
 
+Loop factory
+------------
+
+.. function:: qtinter.default_loop_factory() -> asyncio.AbstractEventLoop
+
+   Return a new instance of an asyncio-compatible event loop object that
+   runs on top of a Qt event loop.
+
+   Use this function instead of :func:`qtinter.using_qt_from_asyncio`
+   if your code uses different types of event loops from multiple threads.
+   For example, starting from Python 3.11, if your code uses
+   :class:`asyncio.Runner` as its entry point, pass this function as the
+   *loop_factory* parameter when constructing :class:`asyncio.Runner`.
+
+
 Low-level classes
 -----------------
 
@@ -152,15 +152,13 @@ Event loop interface
 All `event loop objects`_ below are derived from the abstract base class
 :class:`qtinter.QiBaseEventLoop`.
 
-.. _event loop methods: https://docs.python.org/3/library/asyncio-eventloop.html#event-loop-methods
-
 .. class:: qtinter.QiBaseEventLoop
 
-   Counterpart to (the undocumented) :class:`asyncio.BaseEventLoop` class
+   Counterpart to the (undocumented) :class:`asyncio.BaseEventLoop` class
    implemented on top of a Qt event loop.
 
-   In addition to the asyncio `event loop methods`_,
-   this class defines the following methods for Qt interop:
+   In addition to the :external:ref:`asyncio-event-loop-methods` defined
+   by asyncio, this class defines the following methods for Qt interop:
 
    .. method:: run_task(coro: typing.Coroutine, *, name: typing.Optional[str] = None) -> asyncio.Task
 

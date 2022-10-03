@@ -6,7 +6,9 @@ This page shows a few examples that demonstrate the usage of :mod:`qtinter`.
 The source code is listed for each example.  Lines that demonstrate the usage
 of :mod:`qtinter`'s API are highlighted.
 
-.. toctree::
+.. contents::
+   :depth: 1
+   :local:
 
 
 .. _hello-world-example:
@@ -54,15 +56,17 @@ Source code:
 Read Out Example
 ----------------
 
-This example shows how to use a Qt component (``QtTextToSpeech`` in this
-case) in asyncio-driven code.
+.. _QtTextToSpeech: https://doc-snapshots.qt.io/qt6-dev/qttexttospeech-index.html
+
+This example shows how to use a Qt component (`QtTextToSpeech`_)
+in asyncio-driven code.
 
 Sample output (on macOS 12):
 
 .. code-block:: console
 
-   $ python examples/read_out.py -h
-   usage: examples/read_out.py [options]
+   $ python read_out.py -h
+   usage: read_out.py [options]
    Read out text from stdin.
    Options:
        -e          Echo each line before reading it out
@@ -79,5 +83,41 @@ Source code:
    .. literalinclude:: ../examples/read_out.py
       :language: python
       :emphasize-lines: 5,21,72
+      :linenos:
+
+
+.. _where-am-i-example:
+
+Where am I Example
+------------------
+
+This example implements a command line utility that prints the current
+geolocation.
+
+Sample output:
+
+.. code-block:: console
+
+   $ python where_am_i.py
+   12° 34' 56.7" N, 98° 76' 54.3" E, 123.456m
+
+.. _QtPositioning: https://doc-snapshots.qt.io/qt6-dev/qtpositioning-index.html
+
+The example shows how to use a Qt component (`QtPositioning`_) from
+asyncio-driven code.  The example also shows two coding patterns:
+
+#. Use :external:meth:`asyncio.loop.call_soon` to invoke a Qt method
+   *after* installing signal handlers (line 22).
+
+#. Use :func:`asyncio.wait` to wait for the first of multiple Qt
+   signals (lines 29-30).
+
+Source code:
+
+.. toggle::
+
+   .. literalinclude:: ../examples/where_am_i.py
+      :language: python
+      :emphasize-lines: 4,25,26,46
       :linenos:
 
