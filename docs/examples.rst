@@ -47,7 +47,7 @@ Source code:
 
    .. literalinclude:: ../examples/http_client.py
       :language: python
-      :emphasize-lines: 4,68,210
+      :emphasize-lines: 4,68,218
       :linenos:
 
 
@@ -75,6 +75,17 @@ Sample output (on macOS 12):
        -p pitch    Number between -1.0 and +1.0 (default: 0.0)
        -r rate     Number between -1.0 and +1.0 (default: 0.0)
        -v voice    One of Alex, Fiona, Fred, Samantha, Victoria (default: Alex)
+
+.. note::
+
+   On Unix, press ``Ctrl+D`` to terminate input.  On Windows, press ``Ctrl+Z``.
+
+.. note::
+
+   On macOS, the program 'steals' the focus of the terminal window
+   when started.  You have to click in the terminal window to input text.
+   This is a behavior of the ``QGuiApplication`` class and not specific
+   to :mod:`qtinter`.
 
 Source code:
 

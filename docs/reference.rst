@@ -18,8 +18,8 @@ Overview
   in asyncio-driven code.
 
 
-`Helper functions`_ to make interp code look more natural for the current
-code style:
+`Helper functions`_ to make interp code fit naturally into the
+current coding pattern:
 
 * :func:`qtinter.asyncslot` connects a coroutine function
   to a Qt signal; useful for Qt-driven code.
