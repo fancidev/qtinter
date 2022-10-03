@@ -133,13 +133,6 @@ is derived from asyncqt_, which is derived from quamash_.
 .. _quamash: https://github.com/harvimt/quamash
 
 
-Credits
--------
-
-The favicon is attributed to `Loop icons created by Dreamstale - Flaticon
-<https://www.flaticon.com/free-icons/loop>`_.
-
-
 Contents
 --------
 
