@@ -1,51 +1,34 @@
 Usage
 =====
 
-This page explains how to use ``asyncslot`` in detail.
+This page contains a detailed description of using :mod:`qtinter`.
 
 
 Installation
 ------------
 
-``asyncslot`` is a simple Python package and can be installed via ``pip``:
+:mod:`qtinter` is installed via ``pip``:
 
 .. code-block:: console
 
-   (.venv) $ pip install asyncslot
-
-The above does *not* install any Qt bindings because it is assumed that
-you already have a Python/Qt codebase using your Qt binding of choice
-and ``asyncslot`` will simply work with that.
+   $ pip install --update qtinter
 
 .. note::
 
-   ``asyncslot`` supports all of the popular Qt bindings, namely
-   PyQt5, PyQt6, PySide2 and PySide6.
+   The ``--update`` option upgrades an existing ``qtinter`` installation
+   (if any) to the latest version.
 
-If you have not installed any Qt binding, install one e.g. by
-
-.. code-block:: console
-
-   (.venv) $ pip install PyQt6
-
-If you don't know which Qt binding to install, pick PyQt6 if you're ok
-with GPL License, or pick PySide6 to go with LGPL License.  (Both offer
-a commercial license alternative, by the way.)  You may also check the
-:doc:`bindings` page to learn about the subtle (but immaterial)
-differences between those bindings.
-
-Finally, it's worth mentioning that you can install a Qt binding at
-the same time of installing ``asyncslot``, by
+The above command does *not* install any Qt bindings because it is
+assumed that you are already using some binding in your codebase.
+If this is not the case, you may install a Qt binding together with
+:mod:`qtinter` with the followinng command:
 
 .. code-block:: console
 
-   (.venv) $ pip install asyncslot[PyQt6]
+   $ pip install qtinter[PyQt6]
 
-.. note::
-
-   It is good practice to install ``asyncslot`` (or *any* Python package)
-   in a virtual environment.  The above command line prompts start with
-   ``(.venv)`` to indicate that a virtual environment is activated.
+Replace ``PyQt6`` with one of ``PyQt5``, ``PyQt6``, ``PySide2`` or
+``PySide6`` of your choice.
 
 
 Standard Usage
@@ -55,35 +38,90 @@ Standard Usage
 Qt event loop, so that asyncio-based Python libraries can be used by
 a Python/Qt application.
 
-``asyncslot`` is designed to be as intuitive to the user (developer)
-as possible.  You're expected to know how to write a Python/Qt program
-and how to write a coroutine that uses asyncio-based libraries; but
-we don't want you to spend more than five minutes to learn how to put
-them together to work, and we don't want you to have to refactor your
-existing Python/Qt code or asyncio code to make it work.  It should
-just work effortlessly.
-
 ``asyncslot`` allows you to connect a coroutine function to a signal,
 like a normal slot.  A coroutine function normally cannot be connected
 to a signal because calling it merely returns a coroutine object instead
 of doing real work.
 
 
-Qt Binding Lookup
+Operating modes
+---------------
+
+A :class:`qtinter.QiBaseEventLoop` has three modes of operations:
+*host mode*, *guest mode*, and *legacy mode*.
+
+.. note::
+
+   Both host and guest mode require a (global) ``QtCore.QCoreApplication``,
+   ``QtGui.QGuiApplication`` or ``QtWidgets.QApplication`` instance to exist
+   before *running* the loop.  This is because these modes rely on Qt signals
+   and slots, which require a global application instance to function.
+
+Host mode
+~~~~~~~~~
+
+*Host mode* provides 100% asyncio loop semantics and should be used
+if your code calls :func:`asyncio.run` or equivalent as its entry point.
+You normally launch a loop in host mode using the
+:func:`qtinter.using_qt_from_asyncio` context manager.  Alternatively,
+call :func:`qtinter.default_loop_factory` to create a loop in host mode
+and then manipulate it manually.
+
+.. note::
+
+   :class:`qtinter.QiBaseEventLoop` runs a ``QtCore.QEventLoop`` when
+   operating in host mode.  If a Qt event loop is already running,
+   the loop will be nested, which is not recommended.  Also, after
+   ``QtCore.QCoreApplication.exit()`` is called, it is no longer
+   possible to start a ``QtCore.QEventLoop``, and hence not possible
+   to run a :class:`qtinter.QiBaseEventLoop` in host mode.
+
+Guest mode
+~~~~~~~~~~
+
+*Guest mode* is designed for Qt-driven code, and is normally activated
+using the :func:`qtinter.using_asyncio_from_qt` context manager.
+In guest mode, only a *logical* asyncio event loop is activated; the
+*physical* Qt event loop must still be run by the application code,
+e.g. by calling ``app.exec()``.
+
+.. note::
+
+   Keep in mind that the running state of the logical asyncio event loop
+   is decoupled from and independent of the running state of the physical
+   Qt event loop when operating in guest mode.
+
+Legacy mode
+~~~~~~~~~~~
+
+*Legacy mode* is activated when :external:meth:`asyncio.loop.run_forever`
+is called on a :class:`qtinter.QiBaseEventLoop` object operating in guest
+mode.  In legacy mode, an 'authentic' asyncio event loop is run, and no
+Qt event loop is used at all.  This is designed for running clean-up code,
+possibly after ``QtCore.QCoreApplication.exec`` has been called.
+
+.. note::
+
+   Because no Qt event loop is running in legacy mode, you should not
+   use any signal-slot mechanism in clean-up code.
+
+
+
+Qt binding lookup
 -----------------
 
-``asyncslot`` checks for the Qt binding used by the application the
-first time an ``AsyncSlotEventLoop`` is run.  It remembers this binding
-afterwards.
+:mod:`qtinter` checks for the Qt binding used by the process
+(interpreter) the first time a :func:`qtinter.QiBaseEventLoop`
+is run.  It remembers this binding afterwards.
 
 If exactly one of PyQt5, PyQt6, PySide2 or PySide6 is imported in
 ``sys.modules`` at the time of binding lookup, it is chosen.  This is
 the default scenario that works with most workflow.
 
 If none of the above modules are imported at the time of lookup,
-the environment variable ``ASYNCSLOT_QTBINDING`` is checked.  If it is
-set to one of PyQt5, PyQt6, PySide2 or PySide6, that binding is used.
-Otherwise, an ``ImportError`` is raised.
+the environment variable ``QTINTERBINDING`` is checked.  If it is
+set to one of PyQt5, PyQt6, PySide2 or PySide6, that binding is used;
+otherwise, :external:exc:`ImportError` is raised.
 
 If more than one supported binding modules are imported at the time of
-lookup, an ``ImportError`` is raised.
+lookup, :external:exc:`ImportError` is raised.

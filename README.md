@@ -97,25 +97,6 @@ See full documentation at [qtinter.readthedocs.io](https://qtinter.readthedocs.i
 within a physical Qt event loop (`QEventLoop`), so that Python libraries 
 written for asyncio can be used by a Python for Qt application.
 
-### Running Modes
-
-An `QiBaseEventLoop` may be run in _attached mode_ or _nested mode_.
-
-Use `QiRunner` context manager to run it in attached mode.  
-This mode only installs the logical asyncio event loop; the physical Qt 
-event loop must still be run as usual, e.g. by `app.exec()`.  This is the 
-preferred workflow as it integrates seamlessly with an existing Qt app.
-
-Call `run_forever` to run it in nested mode.  This starts 
-a (possibly nested) Qt event loop using `QEventLoop.exec()` and waits until 
-it exits.  This is the standard asyncio workflow and is convenient for 
-unit testing, but it is not recommended for integration with an existing Qt 
-app as nested event loops are advised against by Qt.
-
-For either mode, a (global) `QCoreApplication` (or `QApplication` /
-`QGuiApplication`) instance must exist before running any coroutine,
-as is required by Qt.
-
 ### Clean-up
 
 To properly release the resources of the event loop after it stops, you 
