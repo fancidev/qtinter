@@ -1,4 +1,4 @@
-# qtinter --- Interop between asyncio and Qt for Python
+# qtinter — Interop between asyncio and Qt for Python
 
 [![build](https://github.com/fancidev/qtinter/actions/workflows/build.yml/badge.svg)](https://github.com/fancidev/qtinter/actions/workflows/build.yml)
 [![docs](https://readthedocs.org/projects/qtinter/badge/?version=latest)](https://qtinter.readthedocs.io/en/latest/?badge=latest)

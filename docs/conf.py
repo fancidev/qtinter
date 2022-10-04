@@ -9,7 +9,7 @@
 project = 'qtinter'
 copyright = '2022, fancidev'
 author = 'fancidev'
-release = '0.4.1'
+release = '0.5.0'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
