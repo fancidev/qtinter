@@ -1,4 +1,4 @@
-# qtinter
+# qtinter --- Interop between asyncio and Qt for Python
 
 [![build](https://github.com/fancidev/qtinter/actions/workflows/build.yml/badge.svg)](https://github.com/fancidev/qtinter/actions/workflows/build.yml)
 [![docs](https://readthedocs.org/projects/qtinter/badge/?version=latest)](https://qtinter.readthedocs.io/en/latest/?badge=latest)
@@ -6,35 +6,81 @@
 [![codecov](https://codecov.io/gh/fancidev/qtinter/branch/master/graph/badge.svg?token=JZ5ON6CHKA)](https://codecov.io/gh/fancidev/qtinter)
 [![PyPI](https://img.shields.io/pypi/v/qtinter)](https://pypi.org/project/qtinter/)
 
-`qtinter` is a Python module that allows you to use asyncio-based 
-libraries in Qt for Python and vice versa.
+`qtinter` is a Python module that brings together asyncio and Qt
+for Python, allowing you to use one from the other seamlessly.
 
-## Synopsis
+## Quickstart
+
+### Installation
+
+```commandline
+$ pip install qtinter
+```
+
+### Using asyncio from Qt
 
 To use asyncio-based libraries in Qt for Python, enclose `app.exec()`
 inside context manager `qtinter.using_asyncio_from_qt()`, and optionally
 connect Qt signals to coroutine functions using `qtinter.asyncslot()`.
 
-A minimal working GUI example (taken from `examples/minimal_gui.py`):
+Minimal example (taken from `examples/sleep.py`):
 
 ```Python
 import asyncio
-from PySide6 import QtWidgets
-from qtinter import asyncslot, using_asyncio_from_qt
+import qtinter  # <-- import module
+from PyQt6 import QtWidgets
 
-async def say_hi():
+async def sleep():
+    button.setEnabled(False)
     await asyncio.sleep(1)
-    QtWidgets.QMessageBox.information(None, "Demo", "Hi")
+    button.setEnabled(True)
 
-app = QtWidgets.QApplication()
-button = QtWidgets.QPushButton()
-button.setText('Say Hi after one second')
-button.clicked.connect(asyncslot(say_hi))  # <-- instead of connect(say_hi)
-button.show()
+if __name__ == "__main__":
+    app = QtWidgets.QApplication([])
 
-with using_asyncio_from_qt():  # <-- wrap in context manager
-    app.exec()
+    button = QtWidgets.QPushButton()
+    button.setText('Sleep for one second')
+    button.clicked.connect(qtinter.asyncslot(sleep))  # <-- wrap coroutine function
+    button.show()
+
+    with qtinter.using_asyncio_from_qt():  # <-- enclose in context manager
+        app.exec()
 ```
+
+### Using Qt from asyncio
+
+To use Qt components from asyncio-based code, enclose the asyncio
+entry-point inside context manager `qtinter.using_qt_from_asyncio()`,
+and optionally wait for Qt signals using `qtinter.asyncsignal()`.
+
+Minimal example (taken from `examples/color.py`):
+
+```Python
+import asyncio
+import qtinter  # <-- import module
+from PyQt6 import QtWidgets
+
+async def choose_color():
+    dialog = QtWidgets.QColorDialog()
+    dialog.show()
+    result = await qtinter.asyncsignal(dialog.finished)  # <-- wait for signal
+    if result == QtWidgets.QDialog.DialogCode.Accepted:
+        return dialog.selectedColor().name()
+    else:
+        return None
+
+if __name__ == "__main__":
+    app = QtWidgets.QApplication([])
+    with qtinter.using_qt_from_asyncio():  # <-- enclose in context manager
+        color = asyncio.run(choose_color())
+        if color is not None:
+            print(color)
+```
+
+## Documentation
+
+See full documentation at [qtinter.readthedocs.io](https://qtinter.readthedocs.io).
+
 
 ## Requirements
 
@@ -43,26 +89,6 @@ with using_asyncio_from_qt():  # <-- wrap in context manager
 - Python version: 3.7 or higher
 - Qt binding: PyQt5, PyQt6, PySide2, PySide6
 - Operating system: Linux, MacOS, Windows
-
-
-## Installation
-
-```commandline
-pip install qtinter
-```
-
-The above does _not_ install the Qt bindings.  To install Qt bindings, you may
-
-```commandline
-pip install PyQt6
-```
-
-Alternatively, you may install `qtinter` together with your Qt binding of 
-choice, for example
-
-```commandline
-pip install qtinter[PyQt6]
-```
 
 
 ## Details

@@ -11,11 +11,11 @@ Overview
 
 `Context managers`_ for asyncio-Qt interop:
 
-* :func:`qtinter.using_asyncio_from_qt` enables asyncio-based
-  components in Qt-driven code.
+* :func:`qtinter.using_asyncio_from_qt` enables Qt-driven code
+  to use asyncio-based components.
 
-* :func:`qtinter.using_qt_from_asyncio` enables Qt-based components
-  in asyncio-driven code.
+* :func:`qtinter.using_qt_from_asyncio` enables asyncio-driven code
+  to use Qt-based components.
 
 
 `Helper functions`_ to make interp code fit naturally into the
@@ -86,8 +86,7 @@ Helper functions
 .. function:: qtinter.asyncsignal(signal, *, copy=True) -> typing.Any
    :async:
 
-   Wait until *signal* is emitted and return the signal arguments
-   or their copy.
+   Wait until *signal* is emitted and return the signal arguments.
 
    .. _PyQt5.QtCore.pyqtSignal: https://www.riverbankcomputing.com/static/Docs/PyQt5/signals_slots.html#PyQt5.QtCore.pyqtSignal
    .. _PyQt6.QtCore.pyqtSignal: https://www.riverbankcomputing.com/static/Docs/PyQt6/signals_slots.html#PyQt6.QtCore.pyqtSignal
@@ -111,18 +110,17 @@ Helper functions
 .. function:: qtinter.asyncslot(fn: typing.Callable[..., typing.Coroutine]) \
               -> typing.Callable[..., None]
 
-   Wrap coroutine function *fn* so that it can be used as a Qt slot to
-   be connected to a Qt signal.
+   Return a callable object wrapping coroutine function *fn* so that
+   it can be connected to a Qt signal.
 
-   When the slot is invoked, *fn* is called with the signal arguments to
-   produce a coroutine object.  The coroutine is then wrapped in an
-   :class:`asyncio.Task` and executed immediately until the first ``yield``,
-   ``return`` or ``raise``, whichever comes first.  The remainder of the
-   coroutine is scheduled for later execution.
+   When the returned callable object is invoked, *fn* is called with the
+   same arguments to produce a coroutine object.  The coroutine is then
+   wrapped in an :class:`asyncio.Task` and executed immediately until
+   the first ``yield``, ``return`` or ``raise``, whichever comes first.
+   The remainder of the coroutine is scheduled for later execution.
 
-   This function may be called without an active loop.  However, there
-   must be a running :class:`qtinter.QiBaseEventLoop` when the slot is
-   invoked.
+   A :class:`qtinter.QiBaseEventLoop` must be running when the returned
+   callable object is invoked.
 
 
 Loop factory
@@ -154,20 +152,21 @@ All `event loop objects`_ below are derived from the abstract base class
 
 .. class:: qtinter.QiBaseEventLoop
 
-   Counterpart to the (undocumented) :class:`asyncio.BaseEventLoop` class
+   Counterpart to the (undocumented) :class:`asyncio.BaseEventLoop` class,
    implemented on top of a Qt event loop.
 
-   In addition to the :external:ref:`asyncio-event-loop-methods` defined
-   by asyncio, this class defines the following methods for Qt interop:
+   In addition to asyncio's :external:ref:`asyncio-event-loop-methods`,
+   this class defines the following methods for Qt interop:
 
    .. method:: run_task(coro: typing.Coroutine, *, name: typing.Optional[str] = None) -> asyncio.Task
 
-      Create an :external:class:`asyncio.Task` wrapping the coroutine *coro*
-      and execute it immediately until the first ``yield``, ``return`` or
-      ``raise``, whichever comes earliest.  Schedule the remainer for
-      later execution and return the :external:class:`asyncio.Task` object.
+      Create an :external:class:`asyncio.Task` wrapping the coroutine
+      *coro* and execute it immediately until the first ``yield``,
+      ``return`` or ``raise``, whichever comes first.  The remainder
+      of the coroutine is scheduled for later execution.  Return the
+      :external:class:`asyncio.Task` object.
 
-      *In Python 3.8 and above*: The *name* parameter is added.
+      *In Python 3.8 and above*: Added the *name* parameter.
 
    .. method:: set_guest(guest: bool) -> None:
 
@@ -201,14 +200,14 @@ Event loop objects
 
 .. class:: qtinter.QiProactorEventLoop(proactor=None)
 
-   Counterpart to :class:`asyncio.ProactorEventLoop` implemented on top of
+   Counterpart to :class:`asyncio.ProactorEventLoop`, implemented on top of
    a Qt event loop.
 
    *Availability*: Windows.
 
 .. class:: qtinter.QiSelectorEventLoop(selector=None)
 
-   Counterpart to :class:`asyncio.SelectorEventLoop` implemented on top of
+   Counterpart to :class:`asyncio.SelectorEventLoop`, implemented on top of
    a Qt event loop.
 
 
