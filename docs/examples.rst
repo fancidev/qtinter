@@ -1,3 +1,5 @@
+.. currentmodule:: qtinter
+
 Examples
 ========
 
@@ -56,10 +58,15 @@ Source code:
 Read Out Example
 ----------------
 
-.. _QtTextToSpeech: https://doc-snapshots.qt.io/qt6-dev/qttexttospeech-index.html
+.. _say: https://ss64.com/osx/say.html
 
-This example shows how to use a Qt component (`QtTextToSpeech`_)
-in asyncio-driven code.
+This example implements a command line utility that reads out the text
+from standard input.  It is a cross-platform version of the macOS `say`_
+command.
+
+.. note::
+
+   On Unix, press ``Ctrl+D`` to terminate input.  On Windows, press ``Ctrl+Z``.
 
 Sample output (on macOS 12):
 
@@ -76,16 +83,18 @@ Sample output (on macOS 12):
        -r rate     Number between -1.0 and +1.0 (default: 0.0)
        -v voice    One of Alex, Fiona, Fred, Samantha, Victoria (default: Alex)
 
+.. _QtTextToSpeech: https://doc-snapshots.qt.io/qt6-dev/qttexttospeech-index.html
+
+The example demonstrates the use of :func:`qtinter.using_qt_from_asyncio`
+to use a Qt component (`QtTextToSpeech`_) in asyncio-driven code, and the
+use of :func:`qtinter.asyncsignal` to wait for a Qt signal.
+
 .. note::
 
-   On Unix, press ``Ctrl+D`` to terminate input.  On Windows, press ``Ctrl+Z``.
-
-.. note::
-
-   On macOS, the program 'steals' the focus of the terminal window
-   when started.  You have to click in the terminal window to input text.
-   This is a behavior of the ``QGuiApplication`` class and not specific
-   to :mod:`qtinter`.
+   On macOS, the program 'steals' the focus from the terminal window to
+   a hidden desktop window on start-up.  Click in the terminal window to
+   regain focus and input text.  This is a behavior of the
+   ``QtGui.QGuiApplication`` class and not specific to :mod:`qtinter`.
 
 Source code:
 
@@ -114,11 +123,14 @@ Sample output:
 
 .. _QtPositioning: https://doc-snapshots.qt.io/qt6-dev/qtpositioning-index.html
 
-The example shows how to use a Qt component (`QtPositioning`_) from
-asyncio-driven code.  The example also shows two coding patterns:
+The example demonstrates the use of :func:`qtinter.using_qt_from_asyncio`
+to use a Qt component (`QtPositioning`_) in asyncio-driven code, and the
+use of :func:`qtinter.asyncsignal` to wait for a Qt signal.
 
-#. Use :external:meth:`asyncio.loop.call_soon` to invoke a Qt method
-   *after* installing signal handlers (line 22).
+In addition, the example demonstrates two coding patterns:
+
+#. Use :external:meth:`asyncio.loop.call_soon` to start the operation of
+   a Qt object *after* connecting to its signals (line 22).
 
 #. Use :func:`asyncio.wait` to wait for the first of multiple Qt
    signals (lines 29-30).

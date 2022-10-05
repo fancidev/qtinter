@@ -1,3 +1,5 @@
+.. currentmodule:: qtinter
+
 API Reference
 =============
 
@@ -11,26 +13,26 @@ Overview
 
 `Context managers`_ for asyncio-Qt interop:
 
-* :func:`qtinter.using_asyncio_from_qt` enables Qt-driven code
+* :func:`using_asyncio_from_qt` enables Qt-driven code
   to use asyncio-based components.
 
-* :func:`qtinter.using_qt_from_asyncio` enables asyncio-driven code
+* :func:`using_qt_from_asyncio` enables asyncio-driven code
   to use Qt-based components.
 
 
 `Helper functions`_ to make interp code fit naturally into the
 current coding pattern:
 
-* :func:`qtinter.asyncslot` connects a coroutine function
+* :func:`asyncslot` connects a coroutine function
   to a Qt signal; useful for Qt-driven code.
 
-* :func:`qtinter.asyncsignal` makes a Qt signal *awaitable*;
+* :func:`asyncsignal` makes a Qt signal *awaitable*;
   useful for asyncio-driven code.
 
 
 `Loop factory`_ to create `event loop objects`_ directly:
 
-* :func:`qtinter.default_loop_factory` creates an asyncio-compatible
+* :func:`default_loop_factory` creates an asyncio-compatible
   event loop object that runs on top of a Qt event loop.
 
 
@@ -46,7 +48,7 @@ current coding pattern:
 Context managers
 ----------------
 
-.. function:: qtinter.using_asyncio_from_qt()
+.. function:: using_asyncio_from_qt()
 
    Context manager that enables enclosed *Qt-driven* code to use
    asyncio-based libraries.
@@ -62,7 +64,7 @@ Context managers
       with qtinter.using_asyncio_from_qt():
           app.exec()
    
-.. function:: qtinter.using_qt_from_asyncio()
+.. function:: using_qt_from_asyncio()
 
    Context manager that enables enclosed *asyncio-driven* code to use
    Qt components.
@@ -75,7 +77,7 @@ Context managers
       This context manager modifies the global (per-interpreter) asyncio
       event loop policy.  Do not use this context manager if your code
       uses different types of event loops from multiple threads.
-      Instead, call :func:`qtinter.default_loop_factory` to create an
+      Instead, call :func:`default_loop_factory` to create an
       event loop object and run coroutines on that loop object, e.g. by
       passing it to :class:`asyncio.Runner` (available since Python 3.11).
       
@@ -83,7 +85,7 @@ Context managers
 Helper functions
 ----------------
 
-.. function:: qtinter.asyncsignal(signal, *, copy=True) -> typing.Any
+.. function:: asyncsignal(signal, *, copy=True) -> typing.Any
    :async:
 
    Wait until *signal* is emitted and return the signal arguments.
@@ -107,7 +109,7 @@ Helper functions
    the callback.  The copy is made by calling the argument's class
    with the argument as the sole parameter.
 
-.. function:: qtinter.asyncslot(fn: typing.Callable[..., typing.Coroutine]) \
+.. function:: asyncslot(fn: typing.Callable[..., typing.Coroutine]) \
               -> typing.Callable[..., None]
 
    Return a callable object wrapping coroutine function *fn* so that
@@ -119,19 +121,19 @@ Helper functions
    the first ``yield``, ``return`` or ``raise``, whichever comes first.
    The remainder of the coroutine is scheduled for later execution.
 
-   A :class:`qtinter.QiBaseEventLoop` must be running when the returned
+   A :class:`QiBaseEventLoop` must be running when the returned
    callable object is invoked.
 
 
 Loop factory
 ------------
 
-.. function:: qtinter.default_loop_factory() -> asyncio.AbstractEventLoop
+.. function:: default_loop_factory() -> asyncio.AbstractEventLoop
 
    Return a new instance of an asyncio-compatible event loop object that
    runs on top of a Qt event loop.
 
-   Use this function instead of :func:`qtinter.using_qt_from_asyncio`
+   Use this function instead of :func:`using_qt_from_asyncio`
    if your code uses different types of event loops from multiple threads.
    For example, starting from Python 3.11, if your code uses
    :class:`asyncio.Runner` as its entry point, pass this function as the
@@ -148,9 +150,9 @@ Event loop interface
 ~~~~~~~~~~~~~~~~~~~~
 
 All `event loop objects`_ below are derived from the abstract base class
-:class:`qtinter.QiBaseEventLoop`.
+:class:`QiBaseEventLoop`.
 
-.. class:: qtinter.QiBaseEventLoop
+.. class:: QiBaseEventLoop
 
    Counterpart to the (undocumented) :class:`asyncio.BaseEventLoop` class,
    implemented on top of a Qt event loop.
@@ -191,21 +193,21 @@ All `event loop objects`_ below are derived from the abstract base class
 Event loop objects
 ~~~~~~~~~~~~~~~~~~
 
-.. class:: qtinter.QiDefaultEventLoop
+.. class:: QiDefaultEventLoop
 
-   *In Python 3.7*: alias to :class:`qtinter.QiSelectorEventLoop`.
+   *In Python 3.7*: alias to :class:`QiSelectorEventLoop`.
 
-   *In Python 3.8 and above*: alias to :class:`qtinter.QiSelectorEventLoop`
-   on Unix and :class:`qtinter.QiProactorEventLoop` on Windows.
+   *In Python 3.8 and above*: alias to :class:`QiSelectorEventLoop`
+   on Unix and :class:`QiProactorEventLoop` on Windows.
 
-.. class:: qtinter.QiProactorEventLoop(proactor=None)
+.. class:: QiProactorEventLoop(proactor=None)
 
    Counterpart to :class:`asyncio.ProactorEventLoop`, implemented on top of
    a Qt event loop.
 
    *Availability*: Windows.
 
-.. class:: qtinter.QiSelectorEventLoop(selector=None)
+.. class:: QiSelectorEventLoop(selector=None)
 
    Counterpart to :class:`asyncio.SelectorEventLoop`, implemented on top of
    a Qt event loop.
@@ -214,21 +216,21 @@ Event loop objects
 Event loop policy objects
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. class:: qtinter.QiDefaultEventLoopPolicy
+.. class:: QiDefaultEventLoopPolicy
 
-   On Python 3.7, alias to :class:`qtinter.QiSelectorEventLoopPolicy`.
+   On Python 3.7, alias to :class:`QiSelectorEventLoopPolicy`.
 
-   On Python 3.8 and above, alias to :class:`qtinter.QiSelectorEventLoopPolicy`
-   on Unix and :class:`qtinter.QiProactorEventLoopPolicy` on Windows.
+   On Python 3.8 and above, alias to :class:`QiSelectorEventLoopPolicy`
+   on Unix and :class:`QiProactorEventLoopPolicy` on Windows.
 
-.. class:: qtinter.QiProactorEventLoopPolicy
+.. class:: QiProactorEventLoopPolicy
 
-   Event loop policy that creates :class:`qtinter.QiProactorEventLoop`.
+   Event loop policy that creates :class:`QiProactorEventLoop`.
 
    *Availability*: Windows.
 
-.. class:: qtinter.QiSelectorEventLoopPolicy
+.. class:: QiSelectorEventLoopPolicy
 
-   Event loop policy that creates :class:`qtinter.QiSelectorEventLoop`.
+   Event loop policy that creates :class:`QiSelectorEventLoop`.
 
 

@@ -93,61 +93,6 @@ See full documentation at [qtinter.readthedocs.io](https://qtinter.readthedocs.i
 
 ## Details
 
-`qtinter` embeds a logical asyncio event loop
-within a physical Qt event loop (`QEventLoop`), so that Python libraries 
-written for asyncio can be used by a Python for Qt application.
-
-### Clean-up
-
-To properly release the resources of the event loop after it stops, you 
-should call `shutdown_asyncgens` and `shutdown_default_executor`, followed
-by `close`.  The first two methods are actually coroutines and therefore
-must be run from within the event loop.
-
-For attached mode, use the `QiRunner` context manager, 
-which handles clean-up automatically.  Note, however, that it actually runs 
-the first two coroutines in nested mode, i.e. a Qt event loop is started.  
-Your code should be prepared for this.
-
-For nested mode, `asyncio.run()` handles clean-up automatically.
-
-
-### The `asyncslot` Adaptor
-
-`qtinter.asyncslot` wraps a coroutine function (one defined by `async def`)
-to make it usable as a Qt slot.  Without wrapping, a coroutine function
-(whether decorated with `QtCore.Slot`/`PyQt6.pyqtSlot` or not)
-generally cannot be used as a slot because calling it merely returns a 
-coroutine object instead of performing real work.
-
-Under the hood, `qtinter.asyncslot` calls `QiBaseEventLoop.run_task`,
-a custom method which creates a Task wrapping the coroutine and executes
-it immediately until the first suspension point.
-
-This is designed to work with a common pattern where some work has to be
-performed immediately in response to a signal.  For example, the `clicked`
-handler of a "Send Order" button normally disables the button on entry
-before actually sending the order over network, to avoid sending duplicate
-orders.  For this to work correctly, the code until the first suspension 
-point must be executed synchronously.
-
-An `QiBaseEventLoop` must be running when a coroutine wrapped by 
-`asyncslot` is called, or a `RuntimeError` will be raised.
-
-It is not recommended to decorate a coroutine function with `asyncslot`
-as that would make an `async def` function into a normal function, which
-is confusing.
-
-
-### Cancellation
-
-To cancel a running coroutine from within itself, raise 
-`asyncio.CancelledError`.
-
-To retrieve the `Task` object from within the running coroutine and store
-it somewhere to be used later, call `asyncio.current_task()` from within
-the running coroutine.
-
 
 ## Implementation Notes
 
