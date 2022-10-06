@@ -11,7 +11,7 @@ Best Practice
 -------------
 
 Clean-up
-~~~~~~~~
+--------
 
 The :func:`using_asyncio_from_qt` context manager handles clean-up
 automatically.  The :func:`using_qt_from_asyncio` context manager
@@ -43,40 +43,24 @@ loop.
    Steps 2-4 in a *physical* asyncio event loop.
 
 
-Qt binding lookup
------------------
+Qt binding resolution
+---------------------
 
 :mod:`qtinter` checks for the Qt binding used by the process
 (interpreter) the first time a :func:`qtinter.QiBaseEventLoop`
 is run.  It remembers this binding afterwards.
 
-If exactly one of PyQt5, PyQt6, PySide2 or PySide6 is imported in
-``sys.modules`` at the time of binding lookup, it is chosen.  This is
-the default scenario that works with most workflow.
+If exactly one of ``PyQt5``, ``PyQt6``, ``PySide2`` or ``PySide6`` is
+imported in :external:data:`sys.modules` at the time of binding lookup,
+it is chosen.
 
 If none of the above modules are imported at the time of lookup,
 the environment variable ``QTINTERBINDING`` is checked.  If it is
-set to one of PyQt5, PyQt6, PySide2 or PySide6, that binding is used;
-otherwise, :external:exc:`ImportError` is raised.
+set to one of ``PyQt5``, ``PyQt6``, ``PySide2`` or ``PySide6``,
+that binding is used; otherwise, :external:exc:`ImportError` is raised.
 
 If more than one supported binding modules are imported at the time of
 lookup, :external:exc:`ImportError` is raised.
-
-
-Using :func:`using_asyncio_from_qt`
------------------------------------
-
-
-Using :func:`using_qt_from_asyncio`
------------------------------------
-
-
-Using :func:`asyncslot`
------------------------
-
-
-Using :func:`asyncsignal`
--------------------------
 
 
 Handling keyboard interrupt

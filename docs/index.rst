@@ -17,16 +17,14 @@ for Python, allowing you to use one from the other seamlessly.
   the **entire asyncio test suite**.  Rest assured that your favorite
   asyncio or Qt component **will work**.
 
-
-Table of Contents
------------------
+Read on for detailed documentation on :mod:`qtinter`.
 
 .. toctree::
    :maxdepth: 2
 
    quickstart
    usage
-   advanced
    examples
+   advanced
    reference
    internals

@@ -1,10 +1,24 @@
 .. currentmodule:: qtinter
 
-Usage Guide
-===========
+Usage Details
+=============
 
 This page explains how to use :mod:`qtinter`.
 
+
+.. _using-using-asyncio-from-qt:
+
+Using :func:`using_asyncio_from_qt`
+-----------------------------------
+
+
+.. _using-using-qt-from-asyncio:
+
+Using :func:`using_qt_from_asyncio`
+-----------------------------------
+
+
+.. _using-asyncslot:
 
 Using :func:`asyncslot`
 -----------------------
@@ -38,5 +52,11 @@ The task object may be stored somewhere to cancel the coroutine later.
 
 (From within the coroutine, raise :exc:`asyncio.CancelledError` to cancel
 itself.)
+
+
+.. _using-asyncsignal:
+
+Using :func:`asyncsignal`
+-------------------------
 
 

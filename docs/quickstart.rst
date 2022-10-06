@@ -1,10 +1,10 @@
 .. currentmodule:: qtinter
 
-Quickstart
-==========
+Getting Started
+===============
 
-This page shows the essentials of :mod:`qtinter` and get you up and running
-in five minutes.
+This section shows the essentials of :mod:`qtinter` and gets you up
+and running in five minutes.
 
 
 Requirements
@@ -30,8 +30,9 @@ Installation
    $ pip install qtinter
 
 The above command does *not* install any Qt bindings because it is
-assumed that you already have one.  If not, you may install a Qt
-binding together with :mod:`qtinter` using the following command:
+assumed that you already have one.  If that's not the case, you may
+install a Qt binding together with :mod:`qtinter` using the
+following command:
 
 .. code-block:: console
 
@@ -41,8 +42,8 @@ Replace ``PyQt6`` with one of ``PyQt5``, ``PyQt6``, ``PySide2`` or
 ``PySide6`` of your choice.
 
 
-Calling asyncio from Qt
------------------------
+Using asyncio from Qt
+---------------------
 
 If your code uses Qt as its entry point (e.g. by calling ``app.exec()``)
 and you want to use an asyncio-based library, follow these steps.
@@ -73,10 +74,12 @@ And that's it!
 
 To see these in action, check out the :ref:`hello-world-example` and the
 :ref:`http-client-example`.
+For usage details, see :ref:`using-using-asyncio-from-qt` and
+:ref:`using-asyncslot`.
 
 
-Calling qt from asyncio
------------------------
+Using Qt from asyncio
+---------------------
 
 If your code uses asyncio as its entry point (e.g. by calling
 :func:`asyncio.run()`) and you want to use a Qt component, follow these steps.
@@ -107,6 +110,8 @@ And that's it!
 
 To see these in action, check out the :ref:`read-out-example` and the
 :ref:`where-am-i-example`.
+For usage details, see :ref:`using-using-qt-from-asyncio` and
+:ref:`using-asyncsignal`.
 
 
 License
@@ -118,7 +123,9 @@ BSD License.
 Contributing
 ------------
 
-The source code is hosted on Github.  Please raise an issue if you have
+.. _GitHub: https://github.com/fancidev/qtinter
+
+The source code is hosted on `GitHub`_.  Please raise an issue if you have
 any questions.  Pull requests are more than welcome!
 
 
