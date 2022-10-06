@@ -4,7 +4,7 @@ import asyncio.runners
 import contextlib
 import sys
 from typing import Callable, Optional
-from ._base_events import QiBaseEventLoop
+from ._base_events import QiBaseEventLoop, QiLoopMode
 
 if sys.platform == 'win32':
     from ._windows_events import QiDefaultEventLoop, QiDefaultEventLoopPolicy
@@ -27,7 +27,7 @@ def using_asyncio_from_qt(
     else:
         loop = loop_factory()
 
-    loop.set_guest(True)
+    loop.set_mode(QiLoopMode.GUEST)
     if debug is not None:
         loop.set_debug(debug)
 
@@ -39,12 +39,13 @@ def using_asyncio_from_qt(
         if loop.is_running():
             # Don't stop again if user code has already stopped the loop.
             loop.stop()
+        # Note: the following steps will be run in NATIVE mode because
+        # it is undesirable, and maybe even impossible, to launch a
+        # Qt event loop at this point -- e.g. QCoreApplication.exit()
+        # may have been called.
+        loop.set_mode(QiLoopMode.NATIVE)
         try:
             asyncio.runners._cancel_all_tasks(loop)
-            # Note: the following steps will be run in EXCLUSIVE mode as
-            # it is undesirable, and maybe even impossible, to launch a
-            # Qt event loop at this point -- e.g. QCoreApplication.exit()
-            # may have been called.
             loop.run_until_complete(loop.shutdown_asyncgens())
             if hasattr(loop, "shutdown_default_executor"):
                 loop.run_until_complete(loop.shutdown_default_executor())

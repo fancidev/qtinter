@@ -1,6 +1,7 @@
 """ _base_events.py - event loop implementation using Qt """
 
 import asyncio
+import enum
 import signal
 import sys
 import threading
@@ -10,11 +11,11 @@ from typing import Optional
 from ._selectable import *
 
 
-__all__ = 'QiBaseEventLoop',
+__all__ = 'QiBaseEventLoop', 'QiLoopMode',
 
 
 class _QiYield(Exception):
-    """ Raised by an QiSelectable to indicate that no IO is readily
+    """ Raised by a _QiSelectable to indicate that no IO is readily
     available and that _run_once should yield to the Qt event loop. """
     pass
 
@@ -91,7 +92,7 @@ def _create_notifier(loop: "QiBaseEventLoop"):
                 if _interrupt_event.is_set():
                     raise KeyboardInterrupt
                 if self._loop is not None:
-                    self._loop._asyncslot_loop_iteration()
+                    self._loop._qi_loop_iteration()
                 else:
                     # TODO: print a warning that notification is received after
                     # TODO: the notifier is closed.
@@ -100,7 +101,7 @@ def _create_notifier(loop: "QiBaseEventLoop"):
                 # We catch Ctrl+C only once.  If Ctrl+C is pressed again
                 # immediately, the program will crash.
                 if self._loop is not None:
-                    self._loop._asyncslot_loop_interrupt(exc)
+                    self._loop._qi_loop_interrupt(exc)
                 else:
                     pass  # ignore Ctrl+C for once
             finally:
@@ -131,8 +132,14 @@ def _create_notifier(loop: "QiBaseEventLoop"):
     return _QiNotifierObject(loop)
 
 
+class QiLoopMode(enum.Enum):
+    OWNER = 'OWNER'
+    GUEST = 'GUEST'
+    NATIVE = 'NATIVE'
+
+
 class QiBaseEventLoop(asyncio.BaseEventLoop):
-    """Implements the scheduling logic of asyncslot event loop.
+    """Implements the scheduling logic of qtinter event loop.
 
     An asyncio event loop can be in one of the following 'states':
       - STOPPED: loop is not polling for IO or processing events
@@ -146,65 +153,67 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
       STOPPED    False      None
       CLOSED     True       None
 
-    A RUNNING QiEventLoop can run in one of the following 'modes':
-      - STANDALONE: run_forever creates a QEventLoop and calls exec()
-      - INTEGRATED: user is responsible for creating a Qt event loop
-      - EXCLUSIVE:  run_forever creates a true asyncio event loop
+    A QiBaseEventLoop can operate in one of the following 'modes':
+      - OWNER: run_forever creates a QEventLoop and calls exec() on it
+      - GUEST: user is responsible for creating and running a Qt event loop
+      - NATIVE: run_forever creates a native asyncio event loop free of Qt
 
-    The __qt_event_loop and __notifier attributes determine the current
-    running mode (provided the loop is RUNNING):
+    The __qt_event_loop and __notifier attributes are set as follows
+    depending on the operating mode (provided the loop is RUNNING):
 
-                    __qt_event_loop    __notifier
-      STANDALONE    not None           not None
-      INTEGRATED    None               not None
-      EXCLUSIVE     None               None
+                __qt_event_loop    __notifier
+      OWNER     not None           not None
+      GUEST     None               not None
+      NATIVE    None               None
 
-    A RUNNING QiEventLoop in STANDALONE or INTEGRATED mode can
+    A RUNNING QiBaseEventLoop in OWNER or GUEST mode can
     further be in one of two sub-states: PROCESSING or SELECTING.
 
-      - PROCESSING: __process_asyncio_events() is being executed
-      - SELECTING: __process_asyncio_events() is waiting to be scheduled
+      - PROCESSING: _qi_loop_iteration() is being executed
+      - SELECTING: _qi_loop_iteration() is waiting to be scheduled
 
-    A RUNNING QiEventLoop in EXCLUSIVE mode is always PROCESSING.
+    A RUNNING QiBaseEventLoop in NATIVE mode is always PROCESSING.
 
     The __processing attribute determines the current sub-state (provided
     the loop is RUNNING).
 
-    STANDALONE Mode
-    ---------------
+    OWNER Mode
+    ----------
 
-    A loop created with standalone == True launches a QEventLoop and calls
-    exec() on it when run_forever is called.  If no QObjects are accessed,
+    A loop operating in OWNER mode launches a QEventLoop and calls
+    exec() on it when run_forever() is called.  If no QObjects are accessed,
     such a loop provides 100% API and semantics compatibility with asyncio.
-    This mode is mainly used for testing the conformance of asyncslot's
-    loop implementation.
+    This mode is useful for accessing Qt objects from asyncio-driven code.
 
-    INTEGRATED Mode & EXCLUSIVE Mode
-    --------------------------------
+    GUEST Mode
+    ----------
 
-    A loop created with standalone == False never launches a Qt event loop
+    A loop operating in GUEST mode never launches a Qt event loop
     itself.  The normal workflow is for the user to call start() first and
     then launch a Qt event loop, e.g. by calling one of QEventLoop.exec(),
     QCoreApplication.exec(), QThread.exec(), etc.  After the Qt event loop
-    exits, the user should call stop().  Such a loop run is said to be in
-    INTEGRATED mode.
+    exits, the user should call stop().
 
-    Note that start() and stop() only change the (logical) state of an
-    QiEventLoop; they have no effect on the (physical) Qt event
-    loop and is in fact independent of the lifetime of the latter.
+    Note that start() and stop() only change the (logical) state of the
+    QiBaseEventLoop; they have no effect on the (physical) Qt event loop
+    and is in fact independent of the lifetime of the latter.
 
-    If run_forever() is called on a loop created with standalone == False,
-    a 'true' asyncio event loop is run, which blocks the calling thread
-    until stop() is called.  This is known as EXCLUSIVE mode, and is
-    designed for running clean-up code after the Qt event loop has exited.
-    Such clean-up code should finish as soon as possible, and should not
-    access any Qt object as no Qt loop is running.
+    NATIVE Mode
+    -----------
+
+    If run_forever() is called on a loop operating in NATIVE mode,
+    a native asyncio event loop is run, which blocks the calling thread
+    until stop() is called.  This is designed for running clean-up code
+    after the Qt event loop has exited.  Such clean-up code should finish
+    as soon as possible, and should not access any Qt object since no Qt
+    event loop is running.
     """
     def __init__(self, *args, **kwargs):
-        # If True, run_forever will launch the loop in STANDALONE mode.
-        # If False, run_forever will launch the loop in EXCLUSIVE mode;
-        # use start() to launch the loop in INTEGRATED mode.
-        self.__standalone = True
+        # The operating mode.  This can only be changed when the loop is
+        # not running.  As a sanity check, the _stopping flag must be
+        # False when changing the mode.
+        # self.__standalone = True
+        self.__mode = QiLoopMode.OWNER
 
         # If self is created in STANDALONE mode and is running,
         # __qt_event_loop is set to the QEventLoop that is being run.
@@ -249,10 +258,12 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
     # Custom methods
     # =========================================================================
 
-    def set_guest(self, guest: bool) -> None:
+    def set_mode(self, mode: QiLoopMode) -> None:
         self._check_closed()
         self._check_running()
-        self.__standalone = not guest
+        if self._stopping:
+            raise RuntimeError('cannot call set_mode when the loop is stopping')
+        self.__mode = mode
 
     def run_task(self, coro, *, name=None):
         try:
@@ -267,12 +278,12 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
             self.__call_soon_eagerly = False
 
     def start(self) -> None:
-        if self.__standalone:
+        if self.__mode != QiLoopMode.GUEST:
             raise RuntimeError('QiBaseEventLoop.start() can only be '
-                               'called for a loop operating in guest mode')
-        self._asyncslot_loop_startup()
+                               'called for a loop operating in GUEST mode')
+        self._qi_loop_startup()
 
-    def _asyncslot_loop_startup(self) -> None:
+    def _qi_loop_startup(self) -> None:
         """ Start the logical asyncio event loop. """
 
         # ---- BEGIN COPIED FROM BaseEventLoop.run_forever
@@ -297,7 +308,7 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
 
         events._set_running_loop(self)  # TODO: what does this do?
 
-    def _asyncslot_loop_cleanup(self) -> None:
+    def _qi_loop_cleanup(self) -> None:
         """ Stop the logical asyncio event loop. """
         if self.__old_agen_hooks is not None:
             old_agen_hooks = self.__old_agen_hooks
@@ -318,7 +329,7 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
         sys.set_asyncgen_hooks(*old_agen_hooks)
         # ---- END COPIED FROM BaseEventLoop.run_forever
 
-    def _asyncslot_loop_iteration(self):
+    def _qi_loop_iteration(self):
         """ This slot is connected to the notified signal of self.__notifier,
         which is emitted whenever asyncio events are possibly available
         and need to be processed."""
@@ -334,33 +345,35 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
         except _QiYield:
             # Ignore _stopping flag until select() returns.  This follows
             # asyncio behavior.
+            # TODO: but this should not happen, because 0 timeout is passed
+            # TODO: to select() if _stopping is True.
             pass
         except BaseException as exc:
-            self._asyncslot_loop_interrupt(exc)
+            self._qi_loop_interrupt(exc)
         else:
             # To be consistent with asyncio behavior, check the _stopping
             # flag only after running a full iteration of _run_once.
             if self._stopping:
                 if self.__qt_event_loop is not None:
-                    # In STANDALONE mode, quit the loop and let run_forever
+                    # In OWNER mode, quit the loop and let run_forever
                     # perform clean up.
                     self.__qt_event_loop.exit(0)
                 else:
-                    # In INTEGRATED mode, stop immediately because there is
+                    # In GUEST mode, stop immediately because there is
                     # no 'caller' to perform the cleanup for us.
-                    self._asyncslot_loop_cleanup()
+                    self._qi_loop_cleanup()
             else:
                 # Schedule next iteration if this iteration did not block
                 self.__notifier.notify()
         finally:
             self.__processing = False
 
-    def _asyncslot_loop_interrupt(self, exc: BaseException):
+    def _qi_loop_interrupt(self, exc: BaseException):
         """Terminate the loop abnormally with the given exception.
 
         This method is called by:
 
-          (1) QiBaseEventLoop._asyncslot_loop_iteration() if
+          (1) QiBaseEventLoop._qi_loop_iteration() if
               _run_once raised a BaseException, typically SystemExit
               or KeyboardInterrupt; and
 
@@ -369,18 +382,18 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
 
         """
         if self.__qt_event_loop is not None:
-            # In STANDALONE mode, propagate the exception to the caller
+            # In OWNER mode, propagate the exception to the caller
             # of run_forever.
             self.__run_once_error = exc
             self.__qt_event_loop.exit(1)
         else:
-            # In INTEGRATED mode, stop the loop immediately and raise
+            # In GUEST mode, stop the loop immediately and raise
             # the error into the Qt event loop.  For PyQt this will
             # terminate the process; for PySide this will log an error
             # and then ignored.
             # TODO: if KeyboardInterrupt is raised, the object may not
             # TODO: be in a consistent state to perform cleanup.
-            self._asyncslot_loop_cleanup()
+            self._qi_loop_cleanup()
             raise exc
             # TODO: implement consistent behavior under both bindings.
             # TODO: maybe call some exception handler and let it decide
@@ -407,31 +420,35 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
     def run_forever(self) -> None:
         """ Run the event loop until stop() is called. """
 
-        # If run_forever is called in INTEGRATED mode, start an 'authentic'
-        # asyncio event loop (by leaving __notifier to None).
-        if not self.__standalone:
+        if self.__mode == QiLoopMode.GUEST:
+            raise RuntimeError('run_forever cannot be called for a loop '
+                               'operating in GUEST mode')
+
+        if self.__mode == QiLoopMode.NATIVE:
             try:
                 self.__processing = True
                 return super().run_forever()
             finally:
                 self.__processing = False
 
+        assert self.__mode == QiLoopMode.OWNER
+
         from .bindings import QtCore
         if QtCore.QCoreApplication.instance() is None:
             # TODO: do we need the same check in start()?
             raise RuntimeError('An instance of QCoreApplication or its '
-                               'derived class must be create before running '
-                               'QiEventLoop')
+                               'derived class must be created in order '
+                               'to run QiBaseEventLoop')
 
         try:
-            self._asyncslot_loop_startup()
+            self._qi_loop_startup()
             self.__qt_event_loop = QtCore.QEventLoop()
             if hasattr(QtCore.QEventLoop, 'exec'):
                 exit_code = self.__qt_event_loop.exec()
             else:
                 exit_code = self.__qt_event_loop.exec_()
             if exit_code != 0:
-                # Propagate exception from _process_asyncio_events if
+                # Propagate exception from _qi_loop_iteration() if
                 # one is set.  The exception is not set if the Qt loop
                 # is terminated by e.g. QCoreApplication.exit().  Note
                 # also that if QCoreApplication.exit() has been called
@@ -449,7 +466,7 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
         finally:
             self.__run_once_error = None
             self.__qt_event_loop = None
-            self._asyncslot_loop_cleanup()
+            self._qi_loop_cleanup()
 
     # run_until_complete = BaseEventLoop.run_until_complete
 
@@ -458,7 +475,7 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
 
         The precise semantics are as follows:
 
-        If the loop is operating in 'host' mode:
+        If the loop is operating in OWNER mode:
 
           - If stop() is called when the loop is STOPPED, the next time the
             loop is RUNNING it will run exactly one iteration and then stop.
@@ -466,11 +483,11 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
           - If stop() is called from a callback of a RUNNING loop, the loop
             will stop after completing the current iteration.
 
-          - If stop() is called from interleaving code (a Qt slot) when the
+          - If stop() is called from interleaved code (a Qt slot) when the
             loop is RUNNING, treat as if called via call_soon_threadsafe():
             wake up the selector, which will run one iteration and stop.
 
-        If the loop is operating in 'guest' mode:
+        If the loop is operating in GUEST mode:
 
           - If stop() is called when the loop is STOPPED, raise an error.
             (The pre-stop idiom is not supported.)
@@ -484,29 +501,40 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
             and stop the loop immediately, since there might not be a Qt
             loop to execute the next iteration.
 
+        If the loop is operating in NATIVE mode:
+
+          - If stop() is called when the loop is STOPPED, the next time the
+            loop is RUNNING it will run exactly one iteration and then stop.
+
+          - If stop() is called from a callback of a RUNNING loop, the loop
+            will stop after completing the current iteration.
+
         In any case, if KeyboardInterrupt or SystemExit is raised when
         processing an iteration, that iteration is interrupted, the loop
         is stopped immediately, and the exception is propagated to the
-        caller of run_forever if operating in 'host' mode or thrown into
-        the Qt loop if operating in 'guest' mode.
+        caller of run_forever if operating in OWNER or NATIVE mode or
+        thrown into the Qt loop if operating in GUEST mode.
         """
-        if self.__standalone:
+        if self.__mode == QiLoopMode.NATIVE:
+            super().stop()
+
+        elif self.__mode == QiLoopMode.OWNER:
             if self.is_running() and not self.__processing:
                 self._write_to_self()
             super().stop()
 
-        elif not self.is_running():
-            raise RuntimeError('QiEventLoop: stop can only be called '
-                               'when a loop created in integrated mode is '
-                               'running')
-
-        elif self.__processing:
-            super().stop()
-
         else:
-            self._write_to_self()
-            super().stop()  # this only sets the flat
-            self._asyncslot_loop_cleanup()
+            assert self.__mode == QiLoopMode.GUEST
+            if not self.is_running():
+                raise RuntimeError('QiBaseEventLoop: stop can only be called '
+                                   'when a loop operating in GUEST mode is '
+                                   'running')
+            elif self.__processing:
+                super().stop()
+            else:
+                self._write_to_self()
+                super().stop()  # this only sets the flat
+                self._qi_loop_cleanup()
 
     # is_running = BaseEventLoop.is_running
     # is_closed = BaseEventLoop.is_closed

@@ -133,10 +133,10 @@ class QiBaseSelectorEventLoop(
             selector = selectors.DefaultSelector()
         if isinstance(selector, unittest.mock.Mock):
             # Pass through mock object for testing
-            asyncslot_selector = selector
+            qi_selector = selector
         else:
-            asyncslot_selector = _QiSelector(selector)
-        super().__init__(asyncslot_selector)
+            qi_selector = _QiSelector(selector)
+        super().__init__(qi_selector)
 
         # Similar to asyncio.BaseProactorEventLoop, install wakeup fd
         # so that select() in a separate thread can be interrupted by
@@ -144,9 +144,9 @@ class QiBaseSelectorEventLoop(
         # install a wakeup fd, but other threads will never receive a
         # KeyboardInterrupt, so it's ok if set_wakeup_fd fails.
         self.__wakeup_fd_installed = False
-        self._asyncslot_install_wakeup_fd()
+        self._qi_install_wakeup_fd()
 
-    def _asyncslot_install_wakeup_fd(self):
+    def _qi_install_wakeup_fd(self):
         try:
             signal.set_wakeup_fd(self._csock.fileno())
         except Exception:

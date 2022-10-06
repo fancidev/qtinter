@@ -29,7 +29,7 @@ class QiSelectorEventLoop(
             # _UnixSelectorEventLoop.remove_signal_handler uninstalls
             # it if there are no signal handlers.  This is not what we
             # want.  Re-install the wakeup in this case.
-            self._asyncslot_install_wakeup_fd()
+            self._qi_install_wakeup_fd()
         return result
 
 

@@ -201,15 +201,15 @@ class QiProactorEventLoop(
     if sys.version_info >= (3, 8):
         # run_forever is overridden in Python 3.8 and above
 
-        def _asyncslot_loop_startup(self):
+        def _qi_loop_startup(self):
             # ---- BEGIN COPIED FROM ProactorEventLoop.run_forever
             assert self._self_reading_future is None
             self.call_soon(self._loop_self_reading)
             # ---- END COPIED FROM ProactorEventLoop.run_forever
-            super()._asyncslot_loop_startup()
+            super()._qi_loop_startup()
 
-        def _asyncslot_loop_cleanup(self):
-            super()._asyncslot_loop_cleanup()
+        def _qi_loop_cleanup(self):
+            super()._qi_loop_cleanup()
             # ---- BEGIN COPIED FROM ProactorEventLoop.run_forever
             if self._self_reading_future is not None:
                 ov = self._self_reading_future._ov
