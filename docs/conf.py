@@ -33,3 +33,9 @@ add_module_names = True
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
 html_favicon = 'favicon.ico'
+html_domain_indices = False
+
+# -- Options for Latex output ------------------------------------------------
+
+latex_domain_indices = False
+

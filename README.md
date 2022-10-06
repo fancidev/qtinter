@@ -104,7 +104,7 @@ than welcome!
 
 ## Credits
 
-`asyncslot` is derived from
+`qtinter` is derived from
 [qasync](https://github.com/CabbageDevelopment/qasync) but rewritten from 
 scratch.  qasync is derived from 
 [asyncqt](https://github.com/gmarull/asyncqt), which is derived from
