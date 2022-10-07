@@ -1,0 +1,8 @@
+# The following dependencies are needed for developing, building and
+# testing qtinter, as well as running the examples.  You do not need
+# to install these if you simply *use* qtinter.
+
+-r src/requirements.txt
+-r dist/requirements.txt
+-r tests/requirements.txt
+-r examples/requirements.txt
