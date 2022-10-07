@@ -23,8 +23,8 @@ Read on for detailed documentation on :mod:`qtinter`.
    :maxdepth: 2
 
    quickstart
-   usage
    examples
+   usage
    advanced
    reference
    internals

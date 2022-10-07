@@ -1,7 +1,7 @@
 .. currentmodule:: qtinter
 
-Usage Details
-=============
+Usage Guide
+===========
 
 This page explains how to use :mod:`qtinter`.
 
