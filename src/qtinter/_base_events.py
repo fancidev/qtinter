@@ -58,7 +58,8 @@ def _create_notifier(loop: "QiBaseEventLoop"):
 
     from .bindings import QtCore
 
-    class _QiNotifierObject(QtCore.QObject):
+    # Global name cannot be used in class definition.
+    class _QiNotifierObjectImpl(QtCore.QObject):
         if hasattr(QtCore, "pyqtSignal"):
             _notified = QtCore.pyqtSignal()
         else:
@@ -129,6 +130,7 @@ def _create_notifier(loop: "QiBaseEventLoop"):
                 finally:
                     self._interrupt_handler_installed = False
 
+    _QiNotifierObject = _QiNotifierObjectImpl
     return _QiNotifierObject(loop)
 
 
