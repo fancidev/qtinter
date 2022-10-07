@@ -1,5 +1,8 @@
 name: tests
-on: [push]
+on:
+  push:
+  schedule:
+    - cron: '30 14 * * *'
 
 jobs:
   Unit-Tests:
