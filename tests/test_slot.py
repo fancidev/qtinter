@@ -1,4 +1,4 @@
-""" test_slot.py - test asyncslot with signal-slot connection """
+""" test_slot.py - test the asyncslot() function """
 
 import asyncio
 import unittest

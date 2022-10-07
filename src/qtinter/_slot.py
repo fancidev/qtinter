@@ -62,10 +62,10 @@ def asyncslot(fn: CoroutineFunction):  # noqa
     def asyncslot_wrapper(*args):
         loop = asyncio.events._get_running_loop()
         if loop is None:
-            raise RuntimeError('cannot call asyncSlot without a running loop')
+            raise RuntimeError('cannot call asyncslot without a running loop')
 
         if not isinstance(loop, QiBaseEventLoop):
-            raise RuntimeError(f"asyncSlot is not compatible with the "
+            raise RuntimeError(f"asyncslot is not compatible with the "
                                f"running event loop '{loop!r}'")
 
         # Truncate arguments if slot expects fewer than signal provides

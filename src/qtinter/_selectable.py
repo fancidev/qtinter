@@ -7,8 +7,8 @@ __all__ = '_QiNotifier', '_QiSelectable',
 
 
 class _QiNotifier:
-    """An object responsible for the communication between an asyncslot
-    event loop and a selectable object."""
+    """An object responsible for the communication between a QiBaseEventLoop
+    object and a _QiSelectable object."""
 
     def no_result(self) -> Any:
         """Called by the selectable object if no result is immediately

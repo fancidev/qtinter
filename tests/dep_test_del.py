@@ -1,6 +1,6 @@
 """ dep_test_del.py - demo a strange bug with PyQt6, PySide2 and PySide6
 
-With certain code (unrelated to asyncslot), these bindings raise an
+With certain code (unrelated to qtinter), these bindings raise an
 exception in asyncio's event loop's __del__ method, complaining about
 invalid file handle when attempting to unregister a self-read socket.
 It appears that a reference cycle is created if a QtCore.QCoreApplication

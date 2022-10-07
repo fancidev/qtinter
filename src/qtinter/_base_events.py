@@ -239,7 +239,7 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
         # case, __notifier is set to None.
         self.__notifier: Optional[_QiNotifier] = None
 
-        # __processing is set to True in _asyncslot_loop_iteration to
+        # __processing is set to True in _qi_loop_iteration to
         # indicate that a 'normal' asyncio event processing iteration
         # (i.e. _run_once) is running.  It is also set to True when the
         # loop is running in EXCLUSIVE mode.
@@ -417,7 +417,7 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
     # =========================================================================
 
     if sys.version_info < (3, 7):
-        raise RuntimeError('asyncslot requires Python 3.7 or higher')
+        raise RuntimeError('qtinter requires Python 3.7 or higher')
 
     elif sys.version_info < (3, 8):
         _check_running = asyncio.BaseEventLoop._check_runnung

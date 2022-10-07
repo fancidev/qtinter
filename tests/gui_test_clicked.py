@@ -1,4 +1,4 @@
-""" gui_test_clicked.py - test asyncSlot with QAbstractButton """
+""" gui_test_clicked.py - test qtinter with QAbstractButton """
 
 import asyncio
 import qtinter

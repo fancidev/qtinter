@@ -76,8 +76,8 @@ else:
 from test.test_asyncio import load_tests
 
 # The following test is expected to fail because the call stack is
-# changed under asyncslot.  If the test succeeds, it means the monkey
-# patching didn't work!
+# changed with a qtinter event loop implementation.  If the test passes,
+# it means the monkey patching didn't work!
 import test.test_asyncio.test_events
 test.test_asyncio.test_events.HandleTests.test_handle_source_traceback = \
     unittest.expectedFailure(test.test_asyncio.test_events.HandleTests.test_handle_source_traceback)
