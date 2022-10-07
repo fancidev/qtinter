@@ -194,7 +194,10 @@ class QiProactorEventLoop(
     _proactor_events.QiBaseProactorEventLoop,
     asyncio.windows_events.ProactorEventLoop
 ):
-    def __init__(self):
+    def __init__(self, proactor=None):
+        # The proactor argument is defined only for signature compatibility
+        # with ProactorEventLoop.  It must be set to None.
+        assert proactor is None, 'proactor must be None'
         proactor = _QiProactor()
         super().__init__(proactor)
 
