@@ -10,6 +10,8 @@ overview of how Qt works.  We then explain how :mod:`qtinter` bridges
 them.
 
 
+.. _loop-modes:
+
 Loop modes
 ----------
 

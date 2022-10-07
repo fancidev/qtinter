@@ -170,16 +170,14 @@ All `event loop objects`_ below are derived from the abstract base class
 
       *In Python 3.8 and above*: Added the *name* parameter.
 
-   .. method:: set_guest(guest: bool) -> None:
+   .. method:: set_mode(mode: QiLoopMode) -> None:
 
-      If *guest* is ``True``, put the loop in guest mode.
-      If *guest* is ``False``, put the loop in host mode.
+      Set loop operating mode to *mode*.
 
-      This method can only be called when the loop is not running and not
-      closed.
+      This method can only be called when the loop is not closed and
+      not running, and no stop is pending.
 
-      A newly created loop object is put in host mode (corresponding to
-      ``guest == False``).
+      A newly created loop object is in :data:`QiLoopMode.OWNER` mode.
 
    .. method:: start() -> None:
 
@@ -188,6 +186,25 @@ All `event loop objects`_ below are derived from the abstract base class
 
       This method can only be called in guest mode and when the loop
       is not already running.
+
+.. class:: QiLoopMode
+
+   An :external:class:`enum.Enum` defining the possible operating modes
+   of a :class:`QiBaseEventLoop`.  Its members are:
+
+   .. data:: OWNER
+
+      Appropriate for use with asyncio-driven code.
+
+   .. data:: GUEST
+
+      Appropriate for use with Qt-driven code.
+
+   .. data:: NATIVE
+
+      Appropriate for running clean-up code.
+
+   For details on the semantics of these modes, see :ref:`loop-modes`.
 
 
 Event loop objects
