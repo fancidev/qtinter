@@ -85,7 +85,7 @@ Context managers
 Helper functions
 ----------------
 
-.. function:: asyncsignal(signal, *, copy=True) -> typing.Any
+.. function:: asyncsignal(signal, *, copy_args=True) -> typing.Any
    :async:
 
    Wait until *signal* is emitted and return the signal arguments.
@@ -103,7 +103,7 @@ Helper functions
    only one argument, return that argument.  If the signal has two or
    more arguments, return those arguments in a :class:`tuple`.
 
-   If *copy* is ``True`` (the default), a copy of each signal argument
+   If *copy_args* is ``True`` (the default), a copy of each signal argument
    is returned instead of the argument itself.  Copying is necessary
    if the signal argument's lifetime is valid only for the duration of
    the callback.  The copy is made by calling the argument's class

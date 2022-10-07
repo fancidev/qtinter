@@ -6,7 +6,7 @@ import asyncio
 __all__ = 'asyncsignal',
 
 
-async def asyncsignal(signal, *, copy=True):
+async def asyncsignal(signal, *, copy_args=True):
     # signal must be pyqtSignal or Signal
 
     fut = asyncio.Future()
@@ -15,7 +15,7 @@ async def asyncsignal(signal, *, copy=True):
     def handler(*args):
         nonlocal disconnected
         if not fut.done():
-            if copy:
+            if copy_args:
                 result = tuple(arg.__class__(arg) for arg in args)
             else:
                 result = args
