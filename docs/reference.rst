@@ -3,13 +3,8 @@
 API Reference
 =============
 
-This page documents the public API exposed by the :mod:`qtinter` module.
-
-
-Overview
---------
-
-:mod:`qtinter` provides the following functions and classes:
+:mod:`qtinter` provides the following functions and classes in its
+public API:
 
 `Context managers`_ for asyncio-Qt interop:
 
@@ -189,8 +184,8 @@ All `event loop objects`_ below are derived from the abstract base class
 
 .. class:: QiLoopMode
 
-   An :external:class:`enum.Enum` defining the possible operating modes
-   of a :class:`QiBaseEventLoop`.  Its members are:
+   Defines the possible operating modes of a :class:`QiBaseEventLoop`.
+   Its members are:
 
    .. data:: OWNER
 
@@ -205,6 +200,9 @@ All `event loop objects`_ below are derived from the abstract base class
       Appropriate for running clean-up code.
 
    For details on the semantics of these modes, see :ref:`loop-modes`.
+
+   *Since Python 3.8*: :class:`QiLoopMode` now derives from
+   :external:class:`enum.Enum`.
 
 
 Event loop objects
