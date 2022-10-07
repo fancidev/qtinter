@@ -1,7 +1,7 @@
 """ _base_events.py - event loop implementation using Qt """
 
 import asyncio
-import enum
+# import enum
 import signal
 import sys
 import threading
@@ -134,7 +134,8 @@ def _create_notifier(loop: "QiBaseEventLoop"):
     return _QiNotifierObject(loop)
 
 
-class QiLoopMode(enum.Enum):
+# class QiLoopMode(enum.Enum):
+class QiLoopMode:
     OWNER = 'OWNER'
     GUEST = 'GUEST'
     NATIVE = 'NATIVE'
