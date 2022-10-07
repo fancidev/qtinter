@@ -90,9 +90,12 @@ Helper functions
    .. _PySide2.QtCore.Signal: https://doc.qt.io/qtforpython-5/PySide2/QtCore/Signal.html
    .. _PySide6.QtCore.Signal: https://doc.qt.io/qtforpython/PySide6/QtCore/Signal.html#PySide6.QtCore.PySide6.QtCore.Signal
 
-   *signal* must be a Qt signal exposed by the Qt binding in use, i.e.
-   one of `PyQt5.QtCore.pyqtSignal`_, `PyQt6.QtCore.pyqtSignal`_,
-   `PySide2.QtCore.Signal`_ or `PySide6.QtCore.Signal`_.
+   *signal* must be either a Qt signal exposed by the Qt binding in use,
+   i.e. one of `PyQt5.QtCore.pyqtSignal`_, `PyQt6.QtCore.pyqtSignal`_,
+   `PySide2.QtCore.Signal`_ or `PySide6.QtCore.Signal`_, or a 'signal-like'
+   object providing ``connect()`` and ``disconnect()`` methods with Qt
+   signal's semantics.  :class:`asyncsignal` always calls ``connect()``
+   with a single argument.
 
    If the signal has no arguments, return ``None``.  If the signal has
    only one argument, return that argument.  If the signal has two or
