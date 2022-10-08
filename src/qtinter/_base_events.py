@@ -47,98 +47,79 @@ def _interrupt_handler(sig, frame):
     return signal.default_int_handler(sig, frame)
 
 
-_QiNotifierObject = None
+class _QiNotifierImpl(_QiNotifier):
+
+    def __init__(self, loop: "QiBaseEventLoop", qi_object):
+        # The following creates a reference cycle.  Call close() to
+        # break the cycle.
+        self._loop = loop
+
+        # Register callback.
+        self._qi_object = qi_object
+        self._qi_object.add_callback(self._on_notified)
+
+        # Install a SIGINT handler if no custom handler is installed.
+        self._interrupt_handler_installed = False
+        if signal.getsignal(signal.SIGINT) is signal.default_int_handler:
+            try:
+                signal.signal(signal.SIGINT, _interrupt_handler)
+            except (ValueError, OSError):
+                pass
+            else:
+                self._interrupt_handler_installed = True
+
+    def _on_notified(self, _interrupt_event=_InterruptEvent()):
+        # If Ctrl+C is pressed while the loop is in a 'non-blocking'
+        # select(), the select() will be woken up (due to set_wakeup_fd)
+        # and the _notified signal emitted.  KeyboardInterrupt will be
+        # raised at the first point where Python byte code is run, i.e.
+        # this method.  We wrap the body in try-except to handle this.
+        try:
+            if _interrupt_event.is_set():
+                raise KeyboardInterrupt
+            if self._loop is not None:
+                self._loop._qi_loop_iteration()
+            else:
+                # TODO: print a warning that notification is received after
+                # TODO: the notifier is closed.
+                pass
+        except KeyboardInterrupt as exc:
+            # We catch Ctrl+C only once.  If Ctrl+C is pressed again
+            # immediately, the program will crash.
+            if self._loop is not None:
+                self._loop._qi_loop_interrupt(exc)
+            else:
+                pass  # ignore Ctrl+C for once
+        finally:
+            _interrupt_event.clear()
+
+    def no_result(self):
+        raise _QiYield
+
+    def notify(self):
+        self._qi_object.invoke_callbacks()
+
+    def wakeup(self):
+        self._loop._write_to_self()
+
+    def close(self):
+        if self._loop is not None:
+            self._qi_object.remove_callback(self._on_notified)
+            self._qi_object = None
+            self._loop = None
+        if self._interrupt_handler_installed:
+            try:
+                if signal.getsignal(signal.SIGINT) is _interrupt_handler:
+                    signal.signal(signal.SIGINT, signal.default_int_handler)
+            except (ValueError, OSError):
+                pass
+            finally:
+                self._interrupt_handler_installed = False
 
 
 def _create_notifier(loop: "QiBaseEventLoop"):
-    global _QiNotifierObject
-    if _QiNotifierObject is not None:
-        try:
-            return _QiNotifierObject(loop)
-        except AttributeError:
-            print(repr(_QiNotifierObject), file=sys.stderr)
-            print(dir(_QiNotifierObject), file=sys.stderr)
-            print(repr(_QiNotifierObject.__init__), file=sys.stderr)
-            raise
-
-    from .bindings import QtCore
-
-    # Global name cannot be used in class definition.
-    class _QiNotifierObjectImpl(QtCore.QObject):
-        if hasattr(QtCore, "pyqtSignal"):
-            _notified = QtCore.pyqtSignal()
-        else:
-            _notified = QtCore.Signal()
-
-        def __init__(self, _loop: "QiBaseEventLoop"):
-            super().__init__()
-            # The following creates a reference cycle.  Call close() to
-            # break the cycle.
-            self._loop = _loop
-            # Must make queued connection to avoid re-entrance.
-            self._notified.connect(self._on_notified,
-                                   QtCore.Qt.ConnectionType.QueuedConnection)
-            # Install a SIGINT handler if no custom handler is installed.
-            self._interrupt_handler_installed = False
-            if signal.getsignal(signal.SIGINT) is signal.default_int_handler:
-                try:
-                    signal.signal(signal.SIGINT, _interrupt_handler)
-                except (ValueError, OSError):
-                    pass
-                else:
-                    self._interrupt_handler_installed = True
-
-        def _on_notified(self, _interrupt_event=_InterruptEvent()):
-            # If Ctrl+C is pressed while the loop is in a 'non-blocking'
-            # select(), the select() will be woken up (due to set_wakeup_fd)
-            # and the _notified signal emitted.  KeyboardInterrupt will be
-            # raised at the first point where Python byte code is run, i.e.
-            # this method.  We wrap the body in try-except to handle this.
-            try:
-                if _interrupt_event.is_set():
-                    raise KeyboardInterrupt
-                if self._loop is not None:
-                    self._loop._qi_loop_iteration()
-                else:
-                    # TODO: print a warning that notification is received after
-                    # TODO: the notifier is closed.
-                    pass
-            except KeyboardInterrupt as exc:
-                # We catch Ctrl+C only once.  If Ctrl+C is pressed again
-                # immediately, the program will crash.
-                if self._loop is not None:
-                    self._loop._qi_loop_interrupt(exc)
-                else:
-                    pass  # ignore Ctrl+C for once
-            finally:
-                _interrupt_event.clear()
-
-        def no_result(self):
-            raise _QiYield
-
-        def notify(self):
-            self._notified.emit()
-
-        def wakeup(self):
-            self._loop._write_to_self()
-
-        def close(self):
-            if self._loop is not None:
-                self._notified.disconnect()
-                self._loop = None
-            if self._interrupt_handler_installed:
-                try:
-                    if signal.getsignal(signal.SIGINT) is _interrupt_handler:
-                        signal.signal(signal.SIGINT, signal.default_int_handler)
-                except (ValueError, OSError):
-                    pass
-                finally:
-                    self._interrupt_handler_installed = False
-
-    _QiNotifierObject = _QiNotifierObjectImpl
-    print("Object created: __init__=", repr(_QiNotifierObject.__init__),
-          file=sys.stderr)
-    return _QiNotifierObject(loop)
+    from .bindings import _QiObjectImpl
+    return _QiNotifierImpl(loop, _QiObjectImpl())
 
 
 if sys.version_info < (3, 8):

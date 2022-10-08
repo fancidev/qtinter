@@ -41,3 +41,21 @@ elif binding == 'PySide6':
 
 else:
     raise ImportError(f"unsupported QTINTERBINDING value '{binding}'")
+
+
+class _QiObjectImpl(QtCore.QObject):
+    if hasattr(QtCore, "pyqtSignal"):
+        qi_signal = QtCore.pyqtSignal()
+    else:
+        qi_signal = QtCore.Signal()
+
+    def add_callback(self, callback):
+        # Make queued connection to avoid re-entrance.
+        self.qi_signal.connect(
+            callback, QtCore.Qt.ConnectionType.QueuedConnection)
+
+    def remove_callback(self, callback):
+        self.qi_signal.disconnect(callback)
+
+    def invoke_callbacks(self):
+        self.qi_signal.emit()
