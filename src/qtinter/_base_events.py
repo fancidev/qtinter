@@ -53,6 +53,10 @@ _QiNotifierObject = None
 def _create_notifier(loop: "QiBaseEventLoop"):
     global _QiNotifierObject
     if _QiNotifierObject is not None:
+        if not hasattr(_QiNotifierObject, '__init__'):
+            print(repr(_QiNotifierObject))
+            print(dir(_QiNotifierObject))
+            raise RuntimeError('Broken object')
         return _QiNotifierObject(loop)
 
     from .bindings import QtCore
@@ -64,11 +68,11 @@ def _create_notifier(loop: "QiBaseEventLoop"):
         else:
             _notified = QtCore.Signal()
 
-        def __init__(self, loop: "QiBaseEventLoop"):
+        def __init__(self, _loop: "QiBaseEventLoop"):
             super().__init__()
             # The following creates a reference cycle.  Call close() to
             # break the cycle.
-            self._loop = loop
+            self._loop = _loop
             # Must make queued connection to avoid re-entrance.
             self._notified.connect(self._on_notified,
                                    QtCore.Qt.ConnectionType.QueuedConnection)
