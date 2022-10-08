@@ -58,6 +58,7 @@ def _create_notifier(loop: "QiBaseEventLoop"):
         except AttributeError:
             print(repr(_QiNotifierObject), file=sys.stderr)
             print(dir(_QiNotifierObject), file=sys.stderr)
+            print(repr(_QiNotifierObject.__init__), file=sys.stderr)
             raise
 
     from .bindings import QtCore
