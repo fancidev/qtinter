@@ -262,6 +262,12 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
         # run_task to eagerly execute the first step of a task.
         self.__call_soon_eagerly = False
 
+        # Remaining number of 'ready' callbacks to invoke from the
+        # last call to _run_once().  This may be greater than zero
+        # if a callback raised SystemExit or KeyboardInterrupt.
+        # Used to resume _run_once() without polling.
+        self.__ntodo = 0
+
         # Need to invoke base constructor after initializing member variables
         # for compatibility with Python 3.7's BaseProactorEventLoop (Windows),
         # which calls self.call_soon() indirectly from its constructor.
@@ -600,6 +606,108 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
 
     # time: see BaseEventLoop
     # create_future: see BaseEventLoop
+
+    def _run_once(self):
+        """Override asyncio.BaseEventLoop._run_once to support pause
+        and resume in _ready queue processing.  This is used to support
+        nested Qt event loop.
+
+        Most part of the code is copied verbatim.  The code is the same
+        from Python 3.8 to 3.11; Python 3.7 has additional logging for
+        the time taken by select() call, which we omit here.
+        """
+        from asyncio.base_events import (
+            heapq,
+            _MIN_SCHEDULED_TIMER_HANDLES,
+            _MIN_CANCELLED_TIMER_HANDLES_FRACTION,
+            MAXIMUM_SELECT_TIMEOUT,
+            logger,
+            _format_handle,
+        )
+
+        # --- BEGIN COPIED FROM asyncio.BaseEventLoop._run_once
+
+        sched_count = len(self._scheduled)
+        if (sched_count > _MIN_SCHEDULED_TIMER_HANDLES and
+            self._timer_cancelled_count / sched_count >
+                _MIN_CANCELLED_TIMER_HANDLES_FRACTION):
+            # Remove delayed calls that were cancelled if their number
+            # is too high
+            new_scheduled = []
+            for handle in self._scheduled:
+                if handle._cancelled:
+                    handle._scheduled = False
+                else:
+                    new_scheduled.append(handle)
+
+            heapq.heapify(new_scheduled)
+            self._scheduled = new_scheduled
+            self._timer_cancelled_count = 0
+        else:
+            # Remove delayed calls that were cancelled from head of queue.
+            while self._scheduled and self._scheduled[0]._cancelled:
+                self._timer_cancelled_count -= 1
+                handle = heapq.heappop(self._scheduled)
+                handle._scheduled = False
+
+        timeout = None
+        if self._ready or self._stopping:
+            timeout = 0
+        elif self._scheduled:
+            # Compute the desired timeout.
+            when = self._scheduled[0]._when
+            timeout = min(max(0, when - self.time()), MAXIMUM_SELECT_TIMEOUT)
+
+        # >>> CHANGED: Do not select if last _run_once has pending items
+        if self.__ntodo == 0:
+            event_list = self._selector.select(timeout)
+            self._process_events(event_list)
+        # >>> END OF CHANGED
+
+        # Handle 'later' callbacks that are ready.
+        end_time = self.time() + self._clock_resolution
+        while self._scheduled:
+            handle = self._scheduled[0]
+            if handle._when >= end_time:
+                break
+            handle = heapq.heappop(self._scheduled)
+            handle._scheduled = False
+            self._ready.append(handle)
+
+        # This is the only place where callbacks are actually *called*.
+        # All other places just add them to ready.
+        # Note: We run all currently scheduled callbacks, but not any
+        # callbacks scheduled by callbacks run this time around --
+        # they will be run the next time (after another I/O poll).
+        # Use an idiom that is thread-safe without using locks.
+
+        # >>> CHANGED: Use ntodo from last _run_once if any callback left
+        if self.__ntodo == 0:
+            self.__ntodo = len(self._ready)
+
+        while self.__ntodo > 0:
+            self.__ntodo -= 1
+        # >>> END OF CHANGE
+
+            handle = self._ready.popleft()
+            if handle._cancelled:
+                continue
+            if self._debug:
+                try:
+                    self._current_handle = handle
+                    t0 = self.time()
+                    handle._run()
+                    dt = self.time() - t0
+                    if dt >= self.slow_callback_duration:
+                        logger.warning('Executing %s took %.3f seconds',
+                                       _format_handle(handle), dt)
+                finally:
+                    self._current_handle = None
+            else:
+                handle._run()
+        handle = None  # Needed to break cycles when an exception occurs.
+
+        # --- END COPIED FROM asyncio.BaseEventLoop._run_once
 
     # -------------------------------------------------------------------------
     # Method scheduling a coroutine object: create a task.

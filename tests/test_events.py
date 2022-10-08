@@ -94,5 +94,39 @@ class TestWindowsCtrlC(TestCtrlC):
         self._test_ctrl_c(qtinter.QiSelectorEventLoop())
 
 
+class TestNested(unittest.TestCase):
+    """Tests related to nested QEventLoop"""
+
+    def setUp(self) -> None:
+        if QtCore.QCoreApplication.instance() is not None:
+            self.app = QtCore.QCoreApplication.instance()
+        else:
+            self.app = QtCore.QCoreApplication([])
+
+    def tearDown(self) -> None:
+        self.app = None
+
+    def test_pause_resume(self):
+        # If a callback raised SystemExit and is handled, rerunning the
+        # loop should pick up from where it left off without polling or
+        # executing additional callbacks.
+        var = 0
+
+        def inc():
+            nonlocal var, loop
+            var += 1
+            loop.call_soon(inc)  # this callback should not be called
+
+        loop = qtinter.QiDefaultEventLoop()
+        loop.call_soon(inc)
+        loop.call_soon(sys.exit)
+        loop.call_soon(loop.stop)
+
+        with self.assertRaises(SystemExit):
+            loop.run_forever()
+        loop.run_forever()
+        self.assertEqual(var, 1)
+
+
 if __name__ == '__main__':
     unittest.main()
