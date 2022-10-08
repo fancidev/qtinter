@@ -110,6 +110,18 @@ class TestNested(unittest.TestCase):
         # If a callback raised SystemExit and is handled, rerunning the
         # loop should pick up from where it left off without polling or
         # executing additional callbacks.
+        import selectors
+
+        class SelectOnce(selectors.DefaultSelector):
+            def __init__(self):
+                super().__init__()
+                self.__called = False
+
+            def select(self, *args):
+                assert not self.__called, 'should call select() only once'
+                self.__called = True
+                return super().select(*args)
+
         var = 0
 
         def inc():
@@ -117,7 +129,7 @@ class TestNested(unittest.TestCase):
             var += 1
             loop.call_soon(inc)  # this callback should not be called
 
-        loop = qtinter.QiDefaultEventLoop()
+        loop = qtinter.QiDefaultEventLoop(SelectOnce())
         loop.call_soon(inc)
         loop.call_soon(sys.exit)
         loop.call_soon(loop.stop)
@@ -125,6 +137,7 @@ class TestNested(unittest.TestCase):
         with self.assertRaises(SystemExit):
             loop.run_forever()
         loop.run_forever()
+        loop.close()
         self.assertEqual(var, 1)
 
 
