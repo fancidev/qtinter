@@ -1,6 +1,7 @@
 """ _base_events.py - event loop implementation using Qt """
 
 import asyncio
+import enum
 import signal
 import sys
 import threading
@@ -122,22 +123,10 @@ def _create_notifier(loop: "QiBaseEventLoop"):
     return _QiNotifierImpl(loop, _QiObjectImpl())
 
 
-if sys.version_info < (3, 8):
-    # _create_notifier fails on PySide6 + Python 3.7 + Windows if we
-    # import enum.  See https://github.com/fancidev/qtinter/issues/7
-    # To work around this PySide6 bug, do not derive from enum.Enum
-    # under Python 3.7.
-    class QiLoopMode:
-        OWNER = 'OWNER'
-        GUEST = 'GUEST'
-        NATIVE = 'NATIVE'
-else:
-    import enum
-
-    class QiLoopMode(enum.Enum):
-        OWNER = 'OWNER'
-        GUEST = 'GUEST'
-        NATIVE = 'NATIVE'
+class QiLoopMode(enum.Enum):
+    OWNER = 'OWNER'
+    GUEST = 'GUEST'
+    NATIVE = 'NATIVE'
 
 
 class QiBaseEventLoop(asyncio.BaseEventLoop):
