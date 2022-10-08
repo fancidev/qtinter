@@ -53,11 +53,12 @@ _QiNotifierObject = None
 def _create_notifier(loop: "QiBaseEventLoop"):
     global _QiNotifierObject
     if _QiNotifierObject is not None:
-        if not hasattr(_QiNotifierObject, '__init__'):
-            print(repr(_QiNotifierObject))
-            print(dir(_QiNotifierObject))
-            raise RuntimeError('Broken object')
-        return _QiNotifierObject(loop)
+        try:
+            return _QiNotifierObject(loop)
+        except AttributeError:
+            print(repr(_QiNotifierObject), file=sys.stderr)
+            print(dir(_QiNotifierObject), file=sys.stderr)
+            raise
 
     from .bindings import QtCore
 
