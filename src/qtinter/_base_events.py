@@ -129,6 +129,17 @@ class QiLoopMode(enum.Enum):
     NATIVE = 'NATIVE'
 
 
+class _QiDeferred(SystemExit):
+    """Special exception used by QiBaseEventLoop.run_modal() to break out
+    of _run_once and execute a callback."""
+    def __init__(self, callback):
+        super().__init__()
+        self.__callback = callback
+
+    def execute(self):
+        self.__callback()
+
+
 class QiBaseEventLoop(asyncio.BaseEventLoop):
     """Implements the scheduling logic of qtinter event loop.
 
@@ -274,6 +285,21 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
             # in case _call_soon is not called due to exception.
             self.__call_soon_eagerly = False
 
+    def exec_interleaved(self, callback) -> None:
+        """Schedule callback to be executed immediately after the current
+        loop iteration as if it were interleaved code.  This method must
+        be called from a callback or coroutine.
+
+        If this function is called more than once, the callbacks will be
+        scheduled in reverse (i.e. LIFO) order.  Note that only the
+        first-to-run callback is executed immediately after the current
+        loop iteration; the remaining callbacks may be interleaved with
+        other (truly) interleaved code.
+        """
+        def fn():
+            raise _QiDeferred(callback)
+        self.call_next(fn)
+
     def start(self) -> None:
         if self.__mode != QiLoopMode.GUEST:
             raise RuntimeError('QiBaseEventLoop.start() can only be '
@@ -338,13 +364,26 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
         # the Qt event loop.
         try:
             self.__processing = True
-            self._run_once()  # defined in asyncio.BaseEventLoop
+            try:
+                self._run_once()
+            finally:
+                self.__processing = False
         except _QiYield:
             # Ignore _stopping flag until select() returns.  This follows
             # asyncio behavior.
             # TODO: but this should not happen, because 0 timeout is passed
             # TODO: to select() if _stopping is True.
             pass
+        except _QiDeferred as deferred:
+            # The current loop iteration was interrupted in order to execute
+            # some callback as if it were interleaved code.  This is used to
+            # execute a Qt function that launches a nested Qt event loop.
+            # TODO: check if we can stop a Qt loop when there are nested
+            # TODO: loop running.
+            # Schedule the next loop iteration so that we can pick up where
+            # we left off.
+            self.__notifier.notify()
+            deferred.execute()
         except BaseException as exc:
             self._qi_loop_interrupt(exc)
         else:
@@ -362,8 +401,6 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
             else:
                 # Schedule next iteration if this iteration did not block
                 self.__notifier.notify()
-        finally:
-            self.__processing = False
 
     def _qi_loop_interrupt(self, exc: BaseException):
         """Terminate the loop abnormally with the given exception.
