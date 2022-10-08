@@ -607,6 +607,25 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
     # time: see BaseEventLoop
     # create_future: see BaseEventLoop
 
+    # This is a custom method!
+    def call_next(self, callback, *args, context=None):
+        """Schedule callback to be called right after the current callback.
+        Must be called from within a callback (i.e. not from another thread
+        or from interleaved code).
+
+        Unless the current callback raises KeyboardInterrupt or SystemExit,
+        callback is guaranteed to be called immediately afterwards (in the
+        same loop iteration).
+        """
+        if not self.__processing:
+            raise RuntimeError('QiBaseEventLoop.call_next() must be called '
+                               'from a coroutine or callback')
+
+        handle = super().call_soon(callback, *args, context=context)
+        assert self._ready.pop() is handle
+        self._ready.appendleft(handle)
+        self.__ntodo += 1
+
     def _run_once(self):
         """Override asyncio.BaseEventLoop._run_once to support pause
         and resume in _ready queue processing.  This is used to support

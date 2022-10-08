@@ -140,6 +140,36 @@ class TestNested(unittest.TestCase):
         loop.close()
         self.assertEqual(var, 1)
 
+    def test_call_next_outside_callback(self):
+        # Calling call_next() outside of a callback should raise RuntimeError
+        def fn(): pass
+
+        loop = qtinter.QiDefaultEventLoop()
+        with self.assertRaises(RuntimeError):
+            loop.call_next(fn)
+        loop.close()
+
+    def test_call_next_from_callback(self):
+        # call_next should be invoked immediately
+        var = 3
+
+        def f():
+            nonlocal var
+            loop.call_next(g)
+            var += 4
+
+        def g():
+            nonlocal var
+            var *= 5
+
+        loop = qtinter.QiDefaultEventLoop()
+        loop.call_soon(f)
+        loop.call_soon(sys.exit)
+        with self.assertRaises(SystemExit):
+            loop.run_forever()
+        loop.close()
+        self.assertEqual(var, 35)
+
 
 if __name__ == '__main__':
     unittest.main()
