@@ -603,6 +603,7 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
         assert self._ready.pop() is handle
         self._ready.appendleft(handle)
         self.__ntodo += 1
+        return handle
 
     def _run_once(self):
         """Override asyncio.BaseEventLoop._run_once to support pause
