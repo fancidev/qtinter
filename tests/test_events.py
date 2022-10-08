@@ -129,7 +129,7 @@ class TestNested(unittest.TestCase):
             var += 1
             loop.call_soon(inc)  # this callback should not be called
 
-        loop = qtinter.QiDefaultEventLoop(SelectOnce())
+        loop = qtinter.QiSelectorEventLoop(SelectOnce())
         loop.call_soon(inc)
         loop.call_soon(sys.exit)
         loop.call_soon(loop.stop)
