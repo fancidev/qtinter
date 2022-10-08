@@ -612,9 +612,7 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
         and resume in _ready queue processing.  This is used to support
         nested Qt event loop.
 
-        Most part of the code is copied verbatim.  The code is the same
-        from Python 3.8 to 3.11; Python 3.7 has additional logging for
-        the time taken by select() call, which we omit here.
+        Most part of the code is copied verbatim.
         """
         from asyncio.base_events import (
             heapq,
@@ -659,8 +657,32 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
             timeout = min(max(0, when - self.time()), MAXIMUM_SELECT_TIMEOUT)
 
         # >>> CHANGED: Do not select if last _run_once has pending items
+        # >>> Python 3.7 does logging for select() call; Python 3.8 and
+        # >>> above don't.
         if self.__ntodo == 0:
-            event_list = self._selector.select(timeout)
+            if sys.version_info < (3, 8) and self._debug and timeout != 0:
+                import logging  # <<< PATCH
+                t0 = self.time()
+                event_list = self._selector.select(timeout)
+                dt = self.time() - t0
+                if dt >= 1.0:
+                    level = logging.INFO
+                else:
+                    level = logging.DEBUG
+                nevent = len(event_list)
+                if timeout is None:
+                    logger.log(level, 'poll took %.3f ms: %s events',
+                               dt * 1e3, nevent)
+                elif nevent:
+                    logger.log(level,
+                               'poll %.3f ms took %.3f ms: %s events',
+                               timeout * 1e3, dt * 1e3, nevent)
+                elif dt >= 1.0:
+                    logger.log(level,
+                               'poll %.3f ms took %.3f ms: timeout',
+                               timeout * 1e3, dt * 1e3)
+            else:
+                event_list = self._selector.select(timeout)
             self._process_events(event_list)
         # >>> END OF CHANGED
 
