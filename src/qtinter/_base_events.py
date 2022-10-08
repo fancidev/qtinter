@@ -7,7 +7,7 @@ import sys
 import threading
 import traceback
 from asyncio import events
-from typing import Optional
+from typing import Any, Callable, Optional
 from ._selectable import *
 
 
@@ -129,15 +129,13 @@ class QiLoopMode(enum.Enum):
     NATIVE = 'NATIVE'
 
 
-class _QiDeferred(SystemExit):
-    """Special exception used by QiBaseEventLoop.run_modal() to break out
-    of _run_once and execute a callback."""
-    def __init__(self, callback):
-        super().__init__()
-        self.__callback = callback
+class _QiIterationExit(SystemExit):
+    """Special exception used to break out of _run_once() early."""
+    pass
 
-    def execute(self):
-        self.__callback()
+
+def _raise_QiIterationExit():
+    raise _QiIterationExit
 
 
 class QiBaseEventLoop(asyncio.BaseEventLoop):
@@ -251,11 +249,10 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
         # run_task to eagerly execute the first step of a task.
         self.__call_soon_eagerly = False
 
-        # Remaining number of 'ready' callbacks to invoke from the
-        # last call to _run_once().  This may be greater than zero
-        # if a callback raised SystemExit or KeyboardInterrupt.
-        # Used to resume _run_once() without polling.
-        self.__ntodo = 0
+        # If not None, specifies a function to be called right after
+        # _run_once() completes.  This is designed to support nested
+        # Qt event loops; see qtinter.modal() for usage.
+        self.__modal_fn: Optional[Callable[[], Any]] = None
 
         # Need to invoke base constructor after initializing member variables
         # for compatibility with Python 3.7's BaseProactorEventLoop (Windows),
@@ -285,20 +282,28 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
             # in case _call_soon is not called due to exception.
             self.__call_soon_eagerly = False
 
-    def exec_interleaved(self, callback) -> None:
-        """Schedule callback to be executed immediately after the current
-        loop iteration as if it were interleaved code.  This method must
-        be called from a callback or coroutine.
+    def exec_modal(self, modal_fn: Callable[[], Any]) -> None:
+        """Schedule modal_fn to be called immediately after the current
+        callback completes.  modal_fn will be called as if it were
+        interleaved code (i.e. not as an asyncio callback).
 
-        If this function is called more than once, the callbacks will be
-        scheduled in reverse (i.e. LIFO) order.  Note that only the
-        first-to-run callback is executed immediately after the current
-        loop iteration; the remaining callbacks may be interleaved with
-        other (truly) interleaved code.
+        This method must be called from a callback or coroutine.  There
+        can be no more than one pending modal_fn.
+
+        If the current callback raises KeyboardInterrupt or SystemExit,
+        modal_fn will be called the next time the loop is run.
         """
-        def fn():
-            raise _QiDeferred(callback)
-        self.call_next(fn)
+        if not self.__processing:
+            raise RuntimeError('QiBaseEventLoop.exec_modal() must be called '
+                               'from a coroutine or callback')
+
+        if self.__modal_fn is not None:
+            raise RuntimeError('A modal_fn is already scheduled and pending')
+
+        self.__modal_fn = modal_fn
+
+        handle = asyncio.Handle(_raise_QiIterationExit, (), self)
+        self._ready.appendleft(handle)
 
     def start(self) -> None:
         if self.__mode != QiLoopMode.GUEST:
@@ -366,6 +371,8 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
             self.__processing = True
             try:
                 self._run_once()
+            except _QiIterationExit:  # early exit is not an error
+                pass
             finally:
                 self.__processing = False
         except _QiYield:
@@ -374,19 +381,39 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
             # TODO: but this should not happen, because 0 timeout is passed
             # TODO: to select() if _stopping is True.
             pass
-        except _QiDeferred as deferred:
-            # The current loop iteration was interrupted in order to execute
-            # some callback as if it were interleaved code.  This is used to
-            # execute a Qt function that launches a nested Qt event loop.
-            # TODO: check if we can stop a Qt loop when there are nested
-            # TODO: loop running.
-            # Schedule the next loop iteration so that we can pick up where
-            # we left off.
-            self.__notifier.notify()
-            deferred.execute()
         except BaseException as exc:
             self._qi_loop_interrupt(exc)
         else:
+            # If a modal_fn is scheduled, the iteration is considered
+            # interrupted in order to execute modal_fn out of the
+            # iteration's context (i.e. not as a callback).
+            if self.__modal_fn is not None:
+                # The iteration may have been interrupted either by
+                # raising _QiIterationExit or by only just completing
+                # this 'generation' of _ready queue processing without
+                # running the next-scheduled _QiIterationExit.  In the
+                # latter case, remove the scheduled _QiIterationExit.
+                if (self._ready and
+                        self._ready[0]._callback is _raise_QiIterationExit):
+                    self._ready.popleft()
+
+                # Because the iteration is considered interrupted, do not
+                # check the _stopping flag, and schedule the next iteration
+                # instead.  Schedule before executing modal_fn so that if
+                # modal_fn creates a nested Qt event loop, the iteration
+                # could run there.  This is consistent with the semantics
+                # of executing modal_fn as if interleaved code.
+                self.__notifier.notify()
+
+                # Execute the modal_fn.  Any exception it raises is raised
+                # into the Qt event loop.
+                modal_fn = self.__modal_fn
+                self.__modal_fn = None
+                modal_fn()
+                # TODO: check if we can stop a Qt loop when there are nested
+                # TODO: loop running.
+                return
+
             # To be consistent with asyncio behavior, check the _stopping
             # flag only after running a full iteration of _run_once.
             if self._stopping:
@@ -621,150 +648,6 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
 
     # time: see BaseEventLoop
     # create_future: see BaseEventLoop
-
-    # This is a custom method!
-    def call_next(self, callback, *args, context=None):
-        """Schedule callback to be called right after the current callback.
-        Must be called from within a callback (i.e. not from another thread
-        or from interleaved code).
-
-        Unless the current callback raises KeyboardInterrupt or SystemExit,
-        callback is guaranteed to be called immediately afterwards (in the
-        same loop iteration).
-        """
-        if not self.__processing:
-            raise RuntimeError('QiBaseEventLoop.call_next() must be called '
-                               'from a coroutine or callback')
-
-        handle = super().call_soon(callback, *args, context=context)
-        assert self._ready.pop() is handle
-        self._ready.appendleft(handle)
-        self.__ntodo += 1
-        return handle
-
-    def _run_once(self):
-        """Override asyncio.BaseEventLoop._run_once to support pause
-        and resume in _ready queue processing.  This is used to support
-        nested Qt event loop.
-
-        Most part of the code is copied verbatim.
-        """
-        from asyncio.base_events import (
-            heapq,
-            _MIN_SCHEDULED_TIMER_HANDLES,
-            _MIN_CANCELLED_TIMER_HANDLES_FRACTION,
-            MAXIMUM_SELECT_TIMEOUT,
-            logger,
-            _format_handle,
-        )
-
-        # --- BEGIN COPIED FROM asyncio.BaseEventLoop._run_once
-
-        sched_count = len(self._scheduled)
-        if (sched_count > _MIN_SCHEDULED_TIMER_HANDLES and
-            self._timer_cancelled_count / sched_count >
-                _MIN_CANCELLED_TIMER_HANDLES_FRACTION):
-            # Remove delayed calls that were cancelled if their number
-            # is too high
-            new_scheduled = []
-            for handle in self._scheduled:
-                if handle._cancelled:
-                    handle._scheduled = False
-                else:
-                    new_scheduled.append(handle)
-
-            heapq.heapify(new_scheduled)
-            self._scheduled = new_scheduled
-            self._timer_cancelled_count = 0
-        else:
-            # Remove delayed calls that were cancelled from head of queue.
-            while self._scheduled and self._scheduled[0]._cancelled:
-                self._timer_cancelled_count -= 1
-                handle = heapq.heappop(self._scheduled)
-                handle._scheduled = False
-
-        timeout = None
-        if self._ready or self._stopping:
-            timeout = 0
-        elif self._scheduled:
-            # Compute the desired timeout.
-            when = self._scheduled[0]._when
-            timeout = min(max(0, when - self.time()), MAXIMUM_SELECT_TIMEOUT)
-
-        # >>> CHANGED: Do not select if last _run_once has pending items
-        # >>> Python 3.7 does logging for select() call; Python 3.8 and
-        # >>> above don't.
-        if self.__ntodo == 0:
-            if sys.version_info < (3, 8) and self._debug and timeout != 0:
-                import logging  # <<< PATCH
-                t0 = self.time()
-                event_list = self._selector.select(timeout)
-                dt = self.time() - t0
-                if dt >= 1.0:
-                    level = logging.INFO
-                else:
-                    level = logging.DEBUG
-                nevent = len(event_list)
-                if timeout is None:
-                    logger.log(level, 'poll took %.3f ms: %s events',
-                               dt * 1e3, nevent)
-                elif nevent:
-                    logger.log(level,
-                               'poll %.3f ms took %.3f ms: %s events',
-                               timeout * 1e3, dt * 1e3, nevent)
-                elif dt >= 1.0:
-                    logger.log(level,
-                               'poll %.3f ms took %.3f ms: timeout',
-                               timeout * 1e3, dt * 1e3)
-            else:
-                event_list = self._selector.select(timeout)
-            self._process_events(event_list)
-        # >>> END OF CHANGED
-
-        # Handle 'later' callbacks that are ready.
-        end_time = self.time() + self._clock_resolution
-        while self._scheduled:
-            handle = self._scheduled[0]
-            if handle._when >= end_time:
-                break
-            handle = heapq.heappop(self._scheduled)
-            handle._scheduled = False
-            self._ready.append(handle)
-
-        # This is the only place where callbacks are actually *called*.
-        # All other places just add them to ready.
-        # Note: We run all currently scheduled callbacks, but not any
-        # callbacks scheduled by callbacks run this time around --
-        # they will be run the next time (after another I/O poll).
-        # Use an idiom that is thread-safe without using locks.
-
-        # >>> CHANGED: Use ntodo from last _run_once if any callback left
-        if self.__ntodo == 0:
-            self.__ntodo = len(self._ready)
-
-        while self.__ntodo > 0:
-            self.__ntodo -= 1
-        # >>> END OF CHANGE
-
-            handle = self._ready.popleft()
-            if handle._cancelled:
-                continue
-            if self._debug:
-                try:
-                    self._current_handle = handle
-                    t0 = self.time()
-                    handle._run()
-                    dt = self.time() - t0
-                    if dt >= self.slow_callback_duration:
-                        logger.warning('Executing %s took %.3f seconds',
-                                       _format_handle(handle), dt)
-                finally:
-                    self._current_handle = None
-            else:
-                handle._run()
-        handle = None  # Needed to break cycles when an exception occurs.
-
-        # --- END COPIED FROM asyncio.BaseEventLoop._run_once
 
     # -------------------------------------------------------------------------
     # Method scheduling a coroutine object: create a task.

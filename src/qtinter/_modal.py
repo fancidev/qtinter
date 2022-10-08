@@ -14,7 +14,7 @@ def modal(fn):
             raise RuntimeError(f'qtinter.modal() requires QiBaseEventLoop, '
                                f'but got {loop!r}')
 
-        def modal_callback():
+        def modal_fn():
             try:
                 result = fn(*args, **kwargs)
             except BaseException as exc:
@@ -23,7 +23,7 @@ def modal(fn):
                 future.set_result(result)
 
         future = asyncio.Future()
-        loop.exec_interleaved(modal_callback)
+        loop.exec_modal(modal_fn)
         return await asyncio.shield(future)
 
     return modal_wrapper

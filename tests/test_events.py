@@ -94,8 +94,8 @@ class TestWindowsCtrlC(TestCtrlC):
         self._test_ctrl_c(qtinter.QiSelectorEventLoop())
 
 
-class TestNested(unittest.TestCase):
-    """Tests related to nested QEventLoop"""
+class TestModal(unittest.TestCase):
+    """Tests related to modal support"""
 
     def setUp(self) -> None:
         if QtCore.QCoreApplication.instance() is not None:
@@ -106,69 +106,69 @@ class TestNested(unittest.TestCase):
     def tearDown(self) -> None:
         self.app = None
 
-    def test_pause_resume(self):
-        # If a callback raised SystemExit and is handled, rerunning the
-        # loop should pick up from where it left off without polling or
-        # executing additional callbacks.
-        import selectors
-
-        class SelectOnce(selectors.DefaultSelector):
-            def __init__(self):
-                super().__init__()
-                self.__called = False
-
-            def select(self, *args):
-                assert not self.__called, 'should call select() only once'
-                self.__called = True
-                return super().select(*args)
-
-        var = 0
-
-        def inc():
-            nonlocal var, loop
-            var += 1
-            loop.call_soon(inc)  # this callback should not be called
-
-        loop = qtinter.QiSelectorEventLoop(SelectOnce())
-        loop.call_soon(inc)
-        loop.call_soon(sys.exit)
-        loop.call_soon(loop.stop)
-
-        with self.assertRaises(SystemExit):
-            loop.run_forever()
-        loop.run_forever()
-        loop.close()
-        self.assertEqual(var, 1)
-
-    def test_call_next_outside_callback(self):
-        # Calling call_next() outside of a callback should raise RuntimeError
-        def fn(): pass
-
-        loop = qtinter.QiDefaultEventLoop()
-        with self.assertRaises(RuntimeError):
-            loop.call_next(fn)
-        loop.close()
-
-    def test_call_next_from_callback(self):
-        # call_next should be invoked immediately
-        var = 3
-
-        def f():
-            nonlocal var
-            loop.call_next(g)
-            var += 4
-
-        def g():
-            nonlocal var
-            var *= 5
-
-        loop = qtinter.QiDefaultEventLoop()
-        loop.call_soon(f)
-        loop.call_soon(sys.exit)
-        with self.assertRaises(SystemExit):
-            loop.run_forever()
-        loop.close()
-        self.assertEqual(var, 35)
+    # def test_pause_resume(self):
+    #     # If a callback raised SystemExit and is handled, rerunning the
+    #     # loop should pick up from where it left off without polling or
+    #     # executing additional callbacks.
+    #     import selectors
+    #
+    #     class SelectOnce(selectors.DefaultSelector):
+    #         def __init__(self):
+    #             super().__init__()
+    #             self.__called = False
+    #
+    #         def select(self, *args):
+    #             assert not self.__called, 'should call select() only once'
+    #             self.__called = True
+    #             return super().select(*args)
+    #
+    #     var = 0
+    #
+    #     def inc():
+    #         nonlocal var, loop
+    #         var += 1
+    #         loop.call_soon(inc)  # this callback should not be called
+    #
+    #     loop = qtinter.QiSelectorEventLoop(SelectOnce())
+    #     loop.call_soon(inc)
+    #     loop.call_soon(sys.exit)
+    #     loop.call_soon(loop.stop)
+    #
+    #     with self.assertRaises(SystemExit):
+    #         loop.run_forever()
+    #     loop.run_forever()
+    #     loop.close()
+    #     self.assertEqual(var, 1)
+    #
+    # def test_call_next_outside_callback(self):
+    #     # Calling call_next() outside of a callback should raise RuntimeError
+    #     def fn(): pass
+    #
+    #     loop = qtinter.QiDefaultEventLoop()
+    #     with self.assertRaises(RuntimeError):
+    #         loop.call_next(fn)
+    #     loop.close()
+    #
+    # def test_call_next_from_callback(self):
+    #     # call_next should be invoked immediately
+    #     var = 3
+    #
+    #     def f():
+    #         nonlocal var
+    #         loop.call_next(g)
+    #         var += 4
+    #
+    #     def g():
+    #         nonlocal var
+    #         var *= 5
+    #
+    #     loop = qtinter.QiDefaultEventLoop()
+    #     loop.call_soon(f)
+    #     loop.call_soon(sys.exit)
+    #     with self.assertRaises(SystemExit):
+    #         loop.run_forever()
+    #     loop.close()
+    #     self.assertEqual(var, 35)
 
 
 if __name__ == '__main__':
