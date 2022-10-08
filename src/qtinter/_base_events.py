@@ -136,6 +136,8 @@ def _create_notifier(loop: "QiBaseEventLoop"):
                     self._interrupt_handler_installed = False
 
     _QiNotifierObject = _QiNotifierObjectImpl
+    print("Object created: __init__=", repr(_QiNotifierObject.__init__),
+          file=sys.stderr)
     return _QiNotifierObject(loop)
 
 
