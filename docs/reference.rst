@@ -158,6 +158,20 @@ All `event loop objects`_ below are derived from the abstract base class
    In addition to asyncio's :external:ref:`asyncio-event-loop-methods`,
    this class defines the following methods for Qt interop:
 
+   .. method:: call_next(callback, *args, context=None) -> asyncio.Handle:
+
+      Schedule *callback* to be called with *args* and *context* right
+      after the current callback completes.  This method must be called
+      from within a callback or coroutine.
+
+      Unless the current callback raises :exc:`KeyboardInterrupt` or
+      :exc:`SystemExit`, *callback* is guaranteed to be called in the
+      same loop iteration (without additional polling or interleaved
+      code).
+
+      If this method is called multiple times, the callbacks will be
+      invoked in reverse order (i.e. last-in-first-out).
+
    .. method:: run_task(coro: typing.Coroutine, *, name: typing.Optional[str] = None) -> asyncio.Task
 
       Create an :external:class:`asyncio.Task` wrapping the coroutine
@@ -187,8 +201,8 @@ All `event loop objects`_ below are derived from the abstract base class
 
 .. class:: QiLoopMode
 
-   Defines the possible operating modes of a :class:`QiBaseEventLoop`.
-   Its members are:
+   An :external:class:`enum.Enum` that defines the possible operating
+   modes of a :class:`QiBaseEventLoop`.  Its members are:
 
    .. data:: OWNER
 
@@ -203,9 +217,6 @@ All `event loop objects`_ below are derived from the abstract base class
       Appropriate for running clean-up code.
 
    For details on the semantics of these modes, see :ref:`loop-modes`.
-
-   *Since Python 3.8*: :class:`QiLoopMode` now derives from
-   :external:class:`enum.Enum`.
 
 
 Event loop objects
