@@ -9,9 +9,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        qt-binding: PySide6
-        python-version: '3.7'
-        platform: macos-latest
+        qt-binding: [PySide6]
+        python-version: ['3.7']
+        platform: [macos-latest]
     timeout-minutes: 10
 
     steps:
