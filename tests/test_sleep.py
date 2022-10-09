@@ -39,7 +39,7 @@ class TestSleep(unittest.TestCase):
 
         total_time = self.loop.run_until_complete(entry())
         self.assertGreater(total_time, total_duration - 0.1)
-        self.assertLess(total_time, total_duration + 1.0)
+        self.assertLess(total_time, total_duration + 1.5)
 
 
 if __name__ == '__main__':
