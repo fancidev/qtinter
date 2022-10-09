@@ -77,6 +77,44 @@ if __name__ == "__main__":
             print(color)
 ```
 
+### Using modal dialogs
+
+To execute a modal dialog without blocking the asyncio event loop and
+without the hazard of potential re-entrance, wrap the dialog entry-point
+in `qtinter.modal()` and `await` on it.
+
+Minimal example (taken from `examples/hit_100.py`):
+
+```Python
+import asyncio
+import qtinter
+from PyQt6 import QtWidgets
+
+async def main():
+    async def counter():
+        nonlocal n
+        while True:
+            print(f"\r{n}", end='', flush=True)
+            await asyncio.sleep(0.025)
+            n += 1
+
+    n = 0
+    counter_task = asyncio.create_task(counter())
+    await qtinter.modal(QtWidgets.QMessageBox.information)(
+        None, "Hit 100", "Click OK when you think you hit 100.")
+    counter_task.cancel()
+    if n == 100:
+        print("\nYou did it!")
+    else:
+        print("\nTry again!")
+
+if __name__ == "__main__":
+    app = QtWidgets.QApplication([])
+    with qtinter.using_qt_from_asyncio():
+        asyncio.run(main())
+```
+
+
 ## Documentation
 
 See full documentation at [qtinter.readthedocs.io](https://qtinter.readthedocs.io).

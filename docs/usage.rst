@@ -60,3 +60,8 @@ Using :func:`asyncsignal`
 -------------------------
 
 
+.. _using-modal:
+
+Using :func:`modal`
+-------------------
+

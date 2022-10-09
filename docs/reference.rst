@@ -24,6 +24,9 @@ current coding pattern:
 * :func:`asyncsignal` makes a Qt signal *awaitable*;
   useful for asyncio-driven code.
 
+* :func:`modal` allows the asyncio event loop to continue running
+  in a nested Qt event loop.
+
 
 `Loop factory`_ to create `event loop objects`_ directly:
 
@@ -122,6 +125,32 @@ Helper functions
    A :class:`QiBaseEventLoop` must be running when the returned
    callable object is invoked.
 
+.. function:: modal(fn: typing.Callable[..., typing.Any]) -> \
+              typing.Callable[..., typing.Coroutine]
+
+   Return a coroutine function that wraps a regular function *fn*.
+   The coroutine function takes the same arguments as *fn*.
+
+   When the returned coroutine function is called and awaited, *fn*
+   is scheduled to be called *as interleaved code* immediately after
+   the caller is suspended.  The result (exception) of *fn* is
+   returned (raised) by the coroutine.
+
+   .. note::
+
+      This function is similar to :meth:`asyncio.loop.run_in_executor`
+      except that *fn* is executed in the same thread as interleaved
+      code.
+
+   This function is designed to be called from a coroutine to schedule
+   an *fn* that creates a nested Qt event loop.  In this case, the
+   logical asyncio event loop is allowed to continue running without
+   nesting.  For example:
+
+   .. code-block:: python
+
+      await qtinter.modal(QtWidgets.QMessageBox.warning)(self, "Title", "Message")
+
 
 Loop factory
 ------------
@@ -158,19 +187,17 @@ All `event loop objects`_ below are derived from the abstract base class
    In addition to asyncio's :external:ref:`asyncio-event-loop-methods`,
    this class defines the following methods for Qt interop:
 
-   .. method:: call_next(callback, *args, context=None) -> asyncio.Handle:
+   .. method:: exec_modal(fn: typing.Callable[[], typing.Any]) -> None
 
-      Schedule *callback* to be called with *args* and *context* right
-      after the current callback completes.  This method must be called
-      from within a callback or coroutine.
+      Schedule *fn* to be called as interleaved code (i.e. not as a
+      callback) immediately after the current callback completes.
 
-      Unless the current callback raises :exc:`KeyboardInterrupt` or
-      :exc:`SystemExit`, *callback* is guaranteed to be called in the
-      same loop iteration (without additional polling or interleaved
-      code).
+      This method must be called from a coroutine or callback.  There
+      can be at most one pending *fn* at any time.
 
-      If this method is called multiple times, the callbacks will be
-      invoked in reverse order (i.e. last-in-first-out).
+      If the current callback raises :exc:`KeyboardInterrupt` or
+      :exc:`SystemExit`, *fn* will be called the next time the loop
+      is run.
 
    .. method:: run_task(coro: typing.Coroutine, *, name: typing.Optional[str] = None) -> asyncio.Task
 

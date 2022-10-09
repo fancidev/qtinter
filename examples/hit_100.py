@@ -21,7 +21,7 @@ async def main():
     if n == 100:
         print("\nYou did it!")
     else:
-        print(f"\nTry again!")
+        print("\nTry again!")
 
 
 if __name__ == "__main__":

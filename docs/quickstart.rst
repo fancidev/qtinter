@@ -114,6 +114,27 @@ For usage details, see :ref:`using-using-qt-from-asyncio` and
 :ref:`using-asyncsignal`.
 
 
+Using modal dialogs
+-------------------
+
+By default, opening a modal dialog from a coroutine or callback blocks
+the asyncio event loop until the dialog is closed.
+
+To get the asyncio event loop running without the hazard of potential
+re-entrance, wrap the dialog entry-point in :func:`modal` and ``await``
+on it.  For example:
+
+.. code-block:: python
+
+   await qtinter.modal(QtWidgets.QMessageBox.warning)(self, "Title", "Message")
+
+What's great about the above is that the asyncio event loop remains
+free of nesting, and the presence of ``await`` makes the suspension
+point crystal clear.
+
+For further details, see :ref:`using-modal`.
+
+
 License
 -------
 
