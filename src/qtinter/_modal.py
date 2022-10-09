@@ -5,6 +5,9 @@ import functools
 from ._base_events import QiBaseEventLoop
 
 
+__all__ = 'modal',
+
+
 def modal(fn):
 
     @functools.wraps(fn)

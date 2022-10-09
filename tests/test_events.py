@@ -1,10 +1,15 @@
+import asyncio
 import qtinter
 import signal
 import sys
 import threading
 import time
 import unittest
+import warnings
 from shim import QtCore
+
+
+warnings.filterwarnings('default')
 
 
 def _raise_ki():
@@ -94,6 +99,13 @@ class TestWindowsCtrlC(TestCtrlC):
         self._test_ctrl_c(qtinter.QiSelectorEventLoop())
 
 
+def exec_(loop):
+    if hasattr(loop, 'exec'):
+        loop.exec()
+    else:
+        loop.exec_()
+
+
 class TestModal(unittest.TestCase):
     """Tests related to modal support"""
 
@@ -105,6 +117,93 @@ class TestModal(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.app = None
+
+    def test_non_modal(self):
+        # Running nested Qt event loop without modal wrapper should block
+        # the asyncio event loop.
+        loop = qtinter.QiDefaultEventLoop()
+        t1 = loop.time()
+        t2 = 0
+
+        def cb1():
+            nested = QtCore.QEventLoop()
+            QtCore.QTimer.singleShot(1000, nested.quit)
+            exec_(nested)
+
+        def cb2():
+            nonlocal t2
+            t2 = loop.time()
+            loop.stop()
+
+        loop = qtinter.QiDefaultEventLoop()
+        loop.call_soon(cb1)
+        loop.call_soon(cb2)
+        loop.run_forever()
+        loop.close()
+        t3 = loop.time()
+
+        self.assertTrue(0.8 <= t2 - t1 <= 1.5, t2 - t1)
+        self.assertTrue(0 <= t3 - t2 <= 0.1, t3 - t2)
+
+    def test_exec_modal_nested(self):
+        # exec_modal() of QEventLoop.exec should keep the asyncio event loop
+        # running.
+        loop = qtinter.QiDefaultEventLoop()
+        t1 = loop.time()
+        t2 = 0
+        var = 0
+
+        def cb1():
+            nested = QtCore.QEventLoop()
+            QtCore.QTimer.singleShot(1000, nested.quit)
+            loop.exec_modal(lambda: exec_(nested))
+
+        def cb2():
+            nonlocal t2
+            t2 = loop.time()
+            # QtCore.QCoreApplication.exit()
+            loop.stop()  # will only stop after nested loop exits
+            loop.call_soon(cb3)  # should not call
+
+        def cb3():
+            nonlocal var
+            var = 1
+
+        loop.call_soon(cb1)
+        loop.call_soon(cb2)
+        loop.run_forever()
+        loop.close()
+        t3 = loop.time()
+
+        self.assertTrue(0 <= t2 - t1 <= 0.1, t2 - t1)
+        self.assertTrue(0.8 <= t3 - t2 <= 1.5, t2 - t1)
+        self.assertEqual(var, 0)
+
+    def test_modal_wrapper(self):
+        # qtinter.modal() wrapper should keep event loop running.
+        async def counter(nested):
+            for i in range(5):
+                await asyncio.sleep(0.1)
+            nested.quit()
+            return 123
+
+        async def coro():
+            nested = QtCore.QEventLoop()
+            task = asyncio.create_task(counter(nested))
+            if hasattr(nested, 'exec'):
+                await qtinter.modal(nested.exec)()
+            else:
+                await qtinter.modal(nested.exec_)()
+            return await task
+
+        loop = qtinter.QiDefaultEventLoop()
+        t1 = loop.time()
+        result = loop.run_until_complete(coro())
+        t2 = loop.time()
+        loop.close()
+
+        self.assertEqual(result, 123)
+        self.assertTrue(0.4 < t2 - t1 < 1.0, t2 - t1)
 
     # def test_pause_resume(self):
     #     # If a callback raised SystemExit and is handled, rerunning the

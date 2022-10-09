@@ -410,8 +410,6 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
                 modal_fn = self.__modal_fn
                 self.__modal_fn = None
                 modal_fn()
-                # TODO: check if we can stop a Qt loop when there are nested
-                # TODO: loop running.
                 return
 
             # To be consistent with asyncio behavior, check the _stopping
@@ -547,6 +545,11 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
           - If stop() is called from interleaved code (a Qt slot) when the
             loop is RUNNING, treat as if called via call_soon_threadsafe():
             wake up the selector, which will run one iteration and stop.
+
+        Note that if a nested Qt event loop is running, the (parent) loop
+        will stop only after the nested Qt event loop exits.  This is
+        because a nested loop must be launched from a slot of the parent
+        loop, and a parent loop cannot exit before the running slot completes.
 
         If the loop is operating in GUEST mode:
 
