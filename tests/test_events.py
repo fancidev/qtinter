@@ -9,7 +9,7 @@ import warnings
 from shim import QtCore
 
 
-warnings.filterwarnings('default')
+# warnings.filterwarnings('default')
 
 
 def _raise_ki():
@@ -99,13 +99,14 @@ class TestWindowsCtrlC(TestCtrlC):
         self._test_ctrl_c(qtinter.QiSelectorEventLoop())
 
 
-def exec_(loop):
+def exec_qt_loop(loop):
     if hasattr(loop, 'exec'):
         loop.exec()
     else:
         loop.exec_()
 
 
+@unittest.skip('disable')
 class TestModal(unittest.TestCase):
     """Tests related to modal support"""
 
@@ -128,7 +129,7 @@ class TestModal(unittest.TestCase):
         def cb1():
             nested = QtCore.QEventLoop()
             QtCore.QTimer.singleShot(1000, nested.quit)
-            exec_(nested)
+            exec_qt_loop(nested)
 
         def cb2():
             nonlocal t2
