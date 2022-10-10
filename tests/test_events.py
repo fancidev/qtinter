@@ -201,9 +201,11 @@ class TestModal(unittest.TestCase):
         result = loop.run_until_complete(coro())
         t2 = loop.time()
         loop.close()
+        t3 = loop.time()
 
         self.assertEqual(result, 123)
         self.assertTrue(0.4 < t2 - t1 < 1.5, t2 - t1)
+        self.assertTrue(0 <= t3 - t2 < 1.0, t3 - t2)
 
     # def test_pause_resume(self):
     #     # If a callback raised SystemExit and is handled, rerunning the
