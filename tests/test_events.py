@@ -135,7 +135,6 @@ class TestModal(unittest.TestCase):
             t2 = loop.time()
             loop.stop()
 
-        loop = qtinter.QiDefaultEventLoop()
         loop.call_soon(cb1)
         loop.call_soon(cb2)
         loop.run_forever()
