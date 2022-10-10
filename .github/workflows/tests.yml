@@ -42,7 +42,7 @@ jobs:
       - name: Install Python packages
         run: pip install coverage
       - name: Run unit tests
-        run: coverage run --source=src --append --branch -m unittest discover -s tests
+        run: coverage run --source=src --append --branch -m unittest discover -s tests -v
         env:
           TEST_QT_MODULE: ${{ matrix.qt-binding }}
           PYTHONPATH: src
