@@ -9,7 +9,7 @@ import warnings
 from shim import QtCore
 
 
-# warnings.filterwarnings('default')
+warnings.filterwarnings('default')
 
 
 def _raise_ki():
