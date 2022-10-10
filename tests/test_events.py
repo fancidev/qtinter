@@ -144,7 +144,6 @@ class TestModal(unittest.TestCase):
         self.assertTrue(0.8 <= t2 - t1 <= 1.5, t2 - t1)
         self.assertTrue(0 <= t3 - t2 <= 0.1, t3 - t2)
 
-    @unittest.skip('disable')
     def test_exec_modal_nested(self):
         # exec_modal() of QEventLoop.exec should keep the asyncio event loop
         # running.
@@ -179,7 +178,6 @@ class TestModal(unittest.TestCase):
         self.assertTrue(0.8 <= t3 - t2 <= 1.5, t2 - t1)
         self.assertEqual(var, 0)
 
-    @unittest.skip('disable')
     def test_modal_wrapper(self):
         # qtinter.modal() wrapper should keep event loop running.
         async def counter(nested):
