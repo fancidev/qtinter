@@ -155,7 +155,7 @@ class TestModal(unittest.TestCase):
         def cb1():
             nested = QtCore.QEventLoop()
             QtCore.QTimer.singleShot(1000, nested.quit)
-            loop.exec_modal(lambda: exec_(nested))
+            loop.exec_modal(lambda: exec_qt_loop(nested))
 
         def cb2():
             nonlocal t2
@@ -189,10 +189,7 @@ class TestModal(unittest.TestCase):
         async def coro():
             nested = QtCore.QEventLoop()
             task = asyncio.create_task(counter(nested))
-            if hasattr(nested, 'exec'):
-                await qtinter.modal(nested.exec)()
-            else:
-                await qtinter.modal(nested.exec_)()
+            await qtinter.modal(exec_qt_loop)(nested)
             return await task
 
         loop = qtinter.QiDefaultEventLoop()
