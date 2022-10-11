@@ -520,7 +520,7 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
                         f"Qt event loop exited with code '{exit_code}'")
         except BaseException:
             # TODO: improve diagnosis
-            print(traceback.format_exc(), file=sys.stderr)
+            # print(traceback.format_exc(), file=sys.stderr)
             raise
         finally:
             self.__run_once_error = None
