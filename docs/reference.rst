@@ -199,13 +199,22 @@ All `event loop objects`_ below are derived from the abstract base class
       :exc:`SystemExit`, *fn* will be called the next time the loop
       is run.
 
-   .. method:: run_task(coro: typing.Coroutine, *, name: typing.Optional[str] = None) -> asyncio.Task
+   .. method:: run_task(coro: typing.Coroutine, *, \
+                        name: typing.Optional[str] = None, \
+                        allow_task_nesting: bool = False) -> asyncio.Task
 
       Create an :external:class:`asyncio.Task` wrapping the coroutine
       *coro* and execute it immediately until the first ``yield``,
       ``return`` or ``raise``, whichever comes first.  The remainder
       of the coroutine is scheduled for later execution.  Return the
       :external:class:`asyncio.Task` object.
+
+      If *allow_task_nesting* is ``True``, this method is allowed to
+      be called from within a running task --- the running task is
+      'suspended' before executing the first step of *coro* and
+      'resumed' after that step completes.  If *allow_task_nesting*
+      is ``False`` (the default), this method can only be called from
+      a callback or from interleaved code.
 
       *In Python 3.8 and above*: Added the *name* parameter.
 

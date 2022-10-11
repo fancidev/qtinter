@@ -35,7 +35,7 @@ class TestRunTask(unittest.TestCase):
             output.append(1)
             return 'finished'
 
-        async def as_test_entry():
+        async def qi_test_entry():
             output = []
             task = self.loop.create_task(coro(output))
             self.assertFalse(task.done())
@@ -44,7 +44,7 @@ class TestRunTask(unittest.TestCase):
             self.assertEqual(output, [1])
             return value
 
-        result = self.loop.run_until_complete(as_test_entry())
+        result = self.loop.run_until_complete(qi_test_entry())
         self.assertEqual(result, 'finished')
 
     def test_no_yield(self):
@@ -52,13 +52,13 @@ class TestRunTask(unittest.TestCase):
         async def coro():
             return get_call_stack()
 
-        async def as_test_entry():
-            task = self.loop.run_task(coro())
+        async def qi_test_entry():
+            task = self.loop.run_task(coro(), allow_task_nesting=True)
             self.assertTrue(task.done())
             return task.result()
 
-        result = self.loop.run_until_complete(as_test_entry())
-        self.assertIn('as_test_entry', result)
+        result = self.loop.run_until_complete(qi_test_entry())
+        self.assertIn('qi_test_entry', result)
 
     def test_one_yield(self):
         # coroutine with one yield should be eagerly executed
@@ -67,15 +67,15 @@ class TestRunTask(unittest.TestCase):
             await asyncio.sleep(0)
             return get_call_stack()
 
-        async def as_test_entry():
+        async def qi_test_entry():
             output = []
-            task = self.loop.run_task(coro(output))
+            task = self.loop.run_task(coro(output), allow_task_nesting=True)
             self.assertEqual(output, [1])
             self.assertFalse(task.done())
             return await task
 
-        result = self.loop.run_until_complete(as_test_entry())
-        self.assertNotIn('as_test_entry', result)
+        result = self.loop.run_until_complete(qi_test_entry())
+        self.assertNotIn('qi_test_entry', result)
 
     def test_interleaved(self):
         # run_task interleaved with create_task should work correctly
@@ -91,12 +91,12 @@ class TestRunTask(unittest.TestCase):
             nonlocal var
             var /= 8
 
-        async def as_test_entry():
+        async def qi_test_entry():
             task2 = self.loop.create_task(coro2())
-            task1 = self.loop.run_task(coro1())
+            task1 = self.loop.run_task(coro1(), allow_task_nesting=True)
             await asyncio.gather(task1, task2)
 
-        self.loop.run_until_complete(as_test_entry())
+        self.loop.run_until_complete(qi_test_entry())
         self.assertEqual(var, 9)
 
     def test_current_task_before_yield(self):

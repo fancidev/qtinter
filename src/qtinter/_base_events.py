@@ -244,10 +244,6 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
         # started, so that they can be restored after the loop is stopped.
         self.__old_agen_hooks: Optional[tuple] = None
 
-        # If True, run_task() is allowed to be called from within a running
-        # task.  This flag is experimental and should be set to False.
-        self.__allow_task_nesting = True
-
         # If not None, specifies a function to be called right after
         # _run_once() completes.  This is designed to support nested
         # Qt event loops; see qtinter.modal() for usage.
@@ -269,7 +265,10 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
             raise RuntimeError('cannot call set_mode when the loop is stopping')
         self.__mode = mode
 
-    def run_task(self, coro, *, name=None):
+    def run_task(self, coro, *, name=None, allow_task_nesting=False):
+        # If allow_task_nesting is True, run_task() is allowed to be called
+        # from within a running task.  This flag is experimental and should
+        # be set to False in production code.
         ntodo = len(self._ready)
         if name is None:
             task = self.create_task(coro)
@@ -281,7 +280,7 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
         assert len(self._ready) == ntodo + 1
         handle = self._ready.pop()
 
-        if self.__allow_task_nesting:
+        if allow_task_nesting:
             # asyncio does not allow nested task execution.  Work around
             # this by 'suspending' the current task before running the
             # nested task and 'resuming' it after the nested task completes
