@@ -174,7 +174,7 @@ class TestModal(unittest.TestCase):
         loop.close()
         t3 = loop.time()
 
-        self.assertTrue(0 <= t2 - t1 <= 0.1, t2 - t1)
+        self.assertTrue(0 <= t2 - t1 <= 0.2, t2 - t1)
         self.assertTrue(0.8 <= t3 - t2 <= 1.5, t2 - t1)
         self.assertEqual(var, 0)
 
