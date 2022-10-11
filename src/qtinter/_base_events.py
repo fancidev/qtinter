@@ -244,10 +244,9 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
         # started, so that they can be restored after the loop is stopped.
         self.__old_agen_hooks: Optional[tuple] = None
 
-        # If __call_soon_eagerly is True, _call_soon does not schedule the
-        # callback but instead invoke it immediately.  This flag is used by
-        # run_task to eagerly execute the first step of a task.
-        self.__call_soon_eagerly = False
+        # If True, run_task() is allowed to be called from within a running
+        # task.  This flag is experimental and should be set to False.
+        self.__allow_task_nesting = True
 
         # If not None, specifies a function to be called right after
         # _run_once() completes.  This is designed to support nested
@@ -271,16 +270,40 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
         self.__mode = mode
 
     def run_task(self, coro, *, name=None):
+        ntodo = len(self._ready)
+        if name is None:
+            task = self.create_task(coro)
+        else:
+            task = self.create_task(coro, name=name)
+
+        # create_task must have scheduled exactly one callback to the end of
+        # the _ready queue, which executes the first __step of the task.
+        assert len(self._ready) == ntodo + 1
+        handle = self._ready.pop()
+
+        if self.__allow_task_nesting:
+            # asyncio does not allow nested task execution.  Work around
+            # this by 'suspending' the current task before running the
+            # nested task and 'resuming' it after the nested task completes
+            # one step.
+            current_task = asyncio.tasks.current_task(self)
+        else:
+            # Assume no nesting.  handle._run() will raise error if there is.
+            current_task = None
+
+        if current_task is not None:
+            asyncio.tasks._leave_task(self, current_task)
         try:
-            self.__call_soon_eagerly = True
-            if name is None:
-                return self.create_task(coro)
-            else:
-                return self.create_task(coro, name=name)
+            # The following call only propagates SystemExit and
+            # KeyboardInterrupt.
+            handle._run()
         finally:
-            # This flag is normally reset by _call_soon, but also reset here
-            # in case _call_soon is not called due to exception.
-            self.__call_soon_eagerly = False
+            if current_task is not None:
+                asyncio.tasks._enter_task(self, current_task)
+
+        # Return the task object (which encapsulates the remainder of the
+        # coroutine).
+        return task
 
     def exec_modal(self, modal_fn: Callable[[], Any]) -> None:
         """Schedule modal_fn to be called immediately after the current
@@ -612,42 +635,22 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
 
     # _timer_handle_cancelled: see BaseEventLoop
 
-    def call_soon(self, *args, **kwargs):
-        # If called from interleaving code when the loop is SELECTING,
+    def call_soon(self, callback, *args, context=None):
+        # If called from interleaved code when the loop is SELECTING,
         # treat as if called by call_soon_threadsafe().
         if self.is_running() and not self.__processing:
             self._write_to_self()
+        return super().call_soon(callback, *args, context=context)
 
-        # Eager execution if called from run_task().
-        handle = super().call_soon(*args, **kwargs)
-        if self.__call_soon_eagerly:
-            self.__call_soon_eagerly = False
-            # asyncio does not support recursive task execution, so 'suspend'
-            # the current task before running the child task and 'resume' it
-            # after the child task completes one step.
-            current_task = asyncio.tasks.current_task(self)
-            if current_task is not None:
-                asyncio.tasks._leave_task(self, current_task)
-            try:
-                # only propagates SystemExit and KeyboardInterrupt
-                handle._run()
-            finally:
-                # Cancel the handle because it is already in the _ready queue
-                handle.cancel()
-                # Resume the parent task if any.
-                if current_task is not None:
-                    asyncio.tasks._enter_task(self, current_task)
-        return handle
-
-    def call_later(self, *args, **kwargs):
+    def call_later(self, delay, callback, *args, context=None):
         if self.is_running() and not self.__processing:
             self._write_to_self()
-        return super().call_later(*args, **kwargs)
+        return super().call_later(delay, callback, *args, context=context)
 
-    def call_at(self, *args, **kwargs):
+    def call_at(self, when, callback, *args, context=None):
         if self.is_running() and not self.__processing:
             self._write_to_self()
-        return super().call_at(*args, **kwargs)
+        return super().call_at(when, callback, *args, context=context)
 
     # time: see BaseEventLoop
     # create_future: see BaseEventLoop
