@@ -4,32 +4,30 @@ Examples
 ========
 
 This page shows a few examples that demonstrate the usage of :mod:`qtinter`.
-
-The source code is listed for each example.  Lines that demonstrate the usage
-of :mod:`qtinter`'s API are highlighted.
-
-.. contents::
-   :depth: 1
-   :local:
+For each example, the source code is listed, and the lines that demonstrate
+the usage of :mod:`qtinter`'s API are highlighted.
 
 
-.. _hello-world-example:
+.. _lcd-clock-example:
 
-Hello World
------------
+LCD Clock
+---------
 
-This is a minimal example that uses :func:`asyncio.sleep` to draw an
-animation in a Qt app.
+This basic example displays an LCD-style digital clock.
 
-.. image:: hello_world.gif
+.. image:: _static/lcd_clock.gif
+
+The example demonstrates the use of :func:`using_asyncio_from_qt` to access
+asyncio functionality from a Qt application.  It also demonstrates the use
+of :func:`asyncslot` to transform a coroutine function into a Qt callback.
 
 Source code:
 
 .. toggle::
 
-   .. literalinclude:: ../examples/hello_world.py
+   .. literalinclude:: ../examples/lcd_clock.py
       :language: python
-      :emphasize-lines: 4,15,33
+      :emphasize-lines: 5,15,31
       :linenos:
 
 

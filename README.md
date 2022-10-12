@@ -23,26 +23,37 @@ To use asyncio-based libraries in Qt for Python, enclose `app.exec()`
 inside context manager `qtinter.using_asyncio_from_qt()`, and optionally
 connect Qt signals to coroutine functions using `qtinter.asyncslot()`.
 
-Minimal example (taken from `examples/sleep.py`):
+Minimal example (taken from `examples/lcd_clock.py`):
 
 ```Python
-import asyncio
-import qtinter  # <-- import module
-from PyQt6 import QtWidgets
+"""Display LCD-style digital clock"""
 
-async def sleep():
-    button.setEnabled(False)
-    await asyncio.sleep(1)
-    button.setEnabled(True)
+import asyncio
+import datetime
+import qtinter  # <-- import module
+from PyQt6 import QtCore, QtWidgets
+
+class MyWidget(QtWidgets.QLCDNumber):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("qtinter - LCD Clock Example")
+        self.setNumDigits(8)
+        timer = QtCore.QTimer(self)
+        timer.timeout.connect(qtinter.asyncslot(self.tick))  # <-- connect signal
+        timer.setSingleShot(True)
+        timer.start(0)
+
+    async def tick(self):
+        while True:
+            time_str = datetime.datetime.now().strftime("%H:%M:%S")
+            self.display(time_str)
+            await asyncio.sleep(0.5)
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication([])
-
-    button = QtWidgets.QPushButton()
-    button.setText('Sleep for one second')
-    button.clicked.connect(qtinter.asyncslot(sleep))  # <-- wrap coroutine function
-    button.show()
-
+    window = MyWidget()
+    window.resize(300, 50)
+    window.show()
     with qtinter.using_asyncio_from_qt():  # <-- enclose in context manager
         app.exec()
 ```
