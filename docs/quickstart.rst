@@ -72,8 +72,8 @@ wrapping them with :func:`qtinter.asyncslot`:
 
 And that's it!
 
-To see these in action, check out the :ref:`hello-world-example` and the
-:ref:`http-client-example`.
+To see these in action, check out the :ref:`hello-world-example` example
+and the :ref:`http-client-example` example.
 For usage details, see :ref:`using-using-asyncio-from-qt` and
 :ref:`using-asyncslot`.
 
@@ -108,8 +108,8 @@ Step 3 --- (optionally) wait for Qt signals by wrapping them with
 
 And that's it!
 
-To see these in action, check out the :ref:`read-out-example` and the
-:ref:`where-am-i-example`.
+To see these in action, check out the :ref:`read-out-example` example
+and the :ref:`where-am-i-example` example.
 For usage details, see :ref:`using-using-qt-from-asyncio` and
 :ref:`using-asyncsignal`.
 

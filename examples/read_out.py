@@ -2,9 +2,10 @@
 
 import asyncio
 import getopt
+import os
 import qtinter
 import sys
-from PyQt6 import QtGui, QtTextToSpeech
+from PyQt6 import QtCore, QtTextToSpeech
 
 
 async def read_out(engine: QtTextToSpeech.QTextToSpeech, echo=False):
@@ -23,7 +24,11 @@ async def read_out(engine: QtTextToSpeech.QTextToSpeech, echo=False):
 
 
 def main():
-    app = QtGui.QGuiApplication([])
+    if sys.platform == 'darwin':
+        # QtTextToSpeech requires QEventDispatcherCoreFoundation on macOS.
+        # Set QT_EVENT_DISPATCHER_CORE_FOUNDATION or use QtGui.QGuiApplication.
+        os.environ['QT_EVENT_DISPATCHER_CORE_FOUNDATION'] = '1'
+    app = QtCore.QCoreApplication([])
 
     engine = QtTextToSpeech.QTextToSpeech()
     locales = dict((l.name(), l) for l in engine.availableLocales())

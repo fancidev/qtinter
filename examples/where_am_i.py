@@ -1,19 +1,17 @@
 """Report current geolocation"""
 
 import asyncio
+import os
 import qtinter
-from PyQt6 import QtGui, QtPositioning
+import sys
+from PyQt6 import QtCore, QtPositioning
 
 
 async def get_location() -> str:
     """Return the current location as a string."""
 
-    app = QtGui.QGuiApplication.instance()
-    if not isinstance(app, QtGui.QGuiApplication):
-        raise RuntimeError(
-            "QtPositioning requires QGuiApplication or QApplication instance")
-
-    # A QGeoPositionInfoSource object uses a parent to control its lifetime.
+    # A QGeoPositionInfoSource object needs a parent to control its lifetime.
+    app = QtCore.QCoreApplication.instance()
     source = QtPositioning.QGeoPositionInfoSource.createDefaultSource(app)
     if source is None:
         raise RuntimeError("No QGeoPositionInfoSource is available")
@@ -42,7 +40,11 @@ async def get_location() -> str:
 
 
 def main():
-    app = QtGui.QGuiApplication([])
+    if sys.platform == 'darwin':
+        # QtPositioning requires QEventDispatcherCoreFoundation on macOS.
+        # Set QT_EVENT_DISPATCHER_CORE_FOUNDATION or use QtGui.QGuiApplication.
+        os.environ['QT_EVENT_DISPATCHER_CORE_FOUNDATION'] = '1'
+    app = QtCore.QCoreApplication([])
     with qtinter.using_qt_from_asyncio():
         print(asyncio.run(get_location()))
 

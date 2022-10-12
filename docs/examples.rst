@@ -15,8 +15,8 @@ of :mod:`qtinter`'s API are highlighted.
 
 .. _hello-world-example:
 
-Hello World Example
--------------------
+Hello World
+-----------
 
 This is a minimal example that uses :func:`asyncio.sleep` to draw an
 animation in a Qt app.
@@ -35,8 +35,8 @@ Source code:
 
 .. _http-client-example:
 
-Http Client Example
--------------------
+Http Client
+-----------
 
 This example shows how to download a web page asynchronously using the
 ``httpx`` module and optionally cancel the download.
@@ -55,8 +55,8 @@ Source code:
 
 .. _read-out-example:
 
-Read Out Example
-----------------
+Read Out
+--------
 
 .. _say: https://ss64.com/osx/say.html
 
@@ -89,27 +89,20 @@ The example demonstrates the use of :func:`qtinter.using_qt_from_asyncio`
 to use a Qt component (`QtTextToSpeech`_) in asyncio-driven code, and the
 use of :func:`qtinter.asyncsignal` to wait for a Qt signal.
 
-.. note::
-
-   On macOS, the program 'steals' the focus from the terminal window to
-   a hidden desktop window on start-up.  Click in the terminal window to
-   regain focus and input text.  This is a behavior of the
-   ``QtGui.QGuiApplication`` class and not specific to :mod:`qtinter`.
-
 Source code:
 
 .. toggle::
 
    .. literalinclude:: ../examples/read_out.py
       :language: python
-      :emphasize-lines: 5,21,72
+      :emphasize-lines: 6,22,77
       :linenos:
 
 
 .. _where-am-i-example:
 
-Where am I Example
-------------------
+Where am I
+----------
 
 This example implements a command line utility that prints the current
 geolocation.
@@ -130,10 +123,10 @@ use of :func:`qtinter.asyncsignal` to wait for a Qt signal.
 In addition, the example demonstrates two coding patterns:
 
 #. Use :external:meth:`asyncio.loop.call_soon` to start the operation of
-   a Qt object *after* connecting to its signals (line 22).
+   a Qt object *after* connecting to its signals (line 20).
 
 #. Use :func:`asyncio.wait` to wait for the first of multiple Qt
-   signals (lines 29-30).
+   signals (lines 27-28).
 
 Source code:
 
@@ -141,6 +134,6 @@ Source code:
 
    .. literalinclude:: ../examples/where_am_i.py
       :language: python
-      :emphasize-lines: 4,25,26,46
+      :emphasize-lines: 5,23,24,48
       :linenos:
 
