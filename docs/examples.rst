@@ -27,7 +27,7 @@ Source code:
 
    .. literalinclude:: ../examples/lcd_clock.py
       :language: python
-      :emphasize-lines: 5,15,31
+      :emphasize-lines: 5,25,29
       :linenos:
 
 
@@ -39,7 +39,7 @@ Http Client
 This example shows how to download a web page asynchronously using the
 ``httpx`` module and optionally cancel the download.
 
-.. image:: http_client.gif
+.. image:: _static/http_client.gif
 
 Source code:
 
