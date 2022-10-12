@@ -9,15 +9,15 @@
 `qtinter` is a Python module that brings together asyncio and Qt
 for Python, allowing you to use one from the other seamlessly.
 
-## Quickstart
+Read the [full documentation](https://qtinter.readthedocs.io) or check out the quickstart below.
 
-### Installation
+## Installation
 
 ```commandline
 $ pip install qtinter
 ```
 
-### Using asyncio from Qt
+## Using asyncio from Qt
 
 To use asyncio-based libraries in Qt for Python, enclose `app.exec()`
 inside context manager `qtinter.using_asyncio_from_qt()`, and optionally
@@ -58,7 +58,7 @@ if __name__ == "__main__":
         app.exec()
 ```
 
-### Using Qt from asyncio
+## Using Qt from asyncio
 
 To use Qt components from asyncio-based code, enclose the asyncio
 entry-point inside context manager `qtinter.using_qt_from_asyncio()`,
@@ -88,7 +88,7 @@ if __name__ == "__main__":
             print(color)
 ```
 
-### Using modal dialogs
+## Using modal dialogs
 
 To execute a modal dialog without blocking the asyncio event loop and
 without the hazard of potential re-entrance, wrap the dialog entry-point
@@ -124,11 +124,6 @@ if __name__ == "__main__":
     with qtinter.using_qt_from_asyncio():
         asyncio.run(main())
 ```
-
-
-## Documentation
-
-See full documentation at [qtinter.readthedocs.io](https://qtinter.readthedocs.io).
 
 
 ## Requirements
