@@ -265,10 +265,9 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
             raise RuntimeError('cannot call set_mode when the loop is stopping')
         self.__mode = mode
 
-    def run_task(self, coro, *, name=None, allow_task_nesting=False):
+    def run_task(self, coro, *, name=None, allow_task_nesting=True):
         # If allow_task_nesting is True, run_task() is allowed to be called
-        # from within a running task.  This flag is experimental and should
-        # be set to False in production code.
+        # from within a running task.
         ntodo = len(self._ready)
         if name is None:
             task = self.create_task(coro)

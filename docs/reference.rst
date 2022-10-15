@@ -201,7 +201,7 @@ All `event loop objects`_ below are derived from the abstract base class
 
    .. method:: run_task(coro: typing.Coroutine, *, \
                         name: typing.Optional[str] = None, \
-                        allow_task_nesting: bool = False) -> asyncio.Task
+                        allow_task_nesting: bool = True) -> asyncio.Task
 
       Create an :external:class:`asyncio.Task` wrapping the coroutine
       *coro* and execute it immediately until the first ``yield``,
@@ -209,12 +209,12 @@ All `event loop objects`_ below are derived from the abstract base class
       of the coroutine is scheduled for later execution.  Return the
       :external:class:`asyncio.Task` object.
 
-      If *allow_task_nesting* is ``True``, this method is allowed to
-      be called from within a running task --- the running task is
-      'suspended' before executing the first step of *coro* and
+      If *allow_task_nesting* is ``True`` (the default), this method
+      is allowed to be called from within a running task --- the task
+      is 'suspended' before executing the first step of *coro* and
       'resumed' after that step completes.  If *allow_task_nesting*
-      is ``False`` (the default), this method can only be called from
-      a callback or from interleaved code.
+      is ``False``, this method can only be called from a callback or
+      from interleaved code.
 
       *In Python 3.8 and above*: Added the *name* parameter.
 
