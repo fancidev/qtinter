@@ -77,6 +77,7 @@ def asyncslot(fn: CoroutineFunction):  # noqa
         task = loop.run_task(coro)  # TODO: set name
         _running_tasks.add(task)
         task.add_done_callback(_running_tasks.discard)
+        return task
 
     # fn may have been decorated with Slot() or pyqtSlot().  "Carry over"
     # the decoration if so.

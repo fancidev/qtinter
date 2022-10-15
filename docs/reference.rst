@@ -111,7 +111,7 @@ Helper functions
    with the argument as the sole parameter.
 
 .. function:: asyncslot(fn: typing.Callable[..., typing.Coroutine]) \
-              -> typing.Callable[..., None]
+              -> typing.Callable[..., asyncio.Task]
 
    Return a callable object wrapping coroutine function *fn* so that
    it can be connected to a Qt signal.
@@ -121,6 +121,7 @@ Helper functions
    wrapped in an :class:`asyncio.Task` and executed immediately until
    the first ``yield``, ``return`` or ``raise``, whichever comes first.
    The remainder of the coroutine is scheduled for later execution.
+   The :class:`asyncio.Task` object is returned.
 
    A :class:`QiBaseEventLoop` must be running when the returned
    callable object is invoked.
