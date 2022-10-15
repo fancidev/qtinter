@@ -134,3 +134,63 @@ and anything that modifies the selector (proactor).  When any of these
 happens, we physically or logically wake up the selector to simulate
 a call to :meth:`asyncio.loop.call_soon_threadsafe`.
 
+
+.. _eager-execution:
+
+Eager execution
+---------------
+
+When the wrapper function returned by :func:`asyncslot` is called, it
+calls :meth:`QiBaseEventLoop.run_task`, which creates a task wrapping
+the coroutine and *eagerly executes* the first *step* of the task.
+
+This *eager execution* feature would lead to task nesting if the wrapper
+function is called from a coroutine.  Scenarios that lead to the wrapper
+function being called from a coroutine include:
+
+- directly calling or awaiting the wrapper;
+
+- emitting a signal to which the wrapper is connected by a direct connection;
+
+- starting a nested Qt event loop (without using :func:`modal`) on which
+  a signal connected to the wrapper is emitted.
+
+asyncio does not allow task nesting.  Yet some of the above scenarios are
+valid and cannot be systematically avoided.  To make :func:`asyncslot`
+useful in practice, :class:`QiBaseEventLoop` extends asyncio's semantics
+to support a particular form of task nesting, namely:
+
+   If :meth:`QiBaseEventLoop.run_task` is called when there is an active
+   task running, that task is automatically 'suspended' when the call
+   begins and 'resumed' after the call returns.
+
+This extension only applies to :meth:`QiBaseEventLoop.run_task` and is
+therefore "opt-in":  Code that does not call :func:`asyncslot` or
+:meth:`QiBaseEventLoop.run_task` retains full compliance with asyncio's
+semantics.
+
+.. note::
+
+   An alternative implementation of :meth:`QiBaseEventLoop.run_task`
+   that is free of task nesting by construction is to replicate the
+   :ref:`using-asyncslot-without` pattern by executing the first step
+   of the coroutine in the caller's context instead of in its own task
+   context.
+
+   A problem with this alternative is that there is no natural
+   way to retrieve the task object that wraps the remainder of the
+   coroutine:
+
+   - It cannot be retrieved within the first step of the coroutine
+     because a task object for the remainder is not created yet; and
+
+   - If returned directly to the caller, it offers no advantage
+     over the :ref:`using-asyncslot-without` pattern if the task
+     object is required.
+
+   In addition, that part of a coroutine may run out of a task context
+   (if invoked from a callback) is just surprising.
+
+   Due to these problems, we choose the current implementation in favor
+   of this alternative.
+
