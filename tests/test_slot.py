@@ -490,6 +490,94 @@ class TestSlot(unittest.TestCase):
                                   'static_decorated_amethod.2'])
 
 
+class Sender(QtCore.QObject):
+    if hasattr(QtCore, "pyqtSignal"):
+        signal = QtCore.pyqtSignal(int)
+    else:
+        signal = QtCore.Signal(int)
+
+
+class Receiver:
+    def __init__(self, output):
+        self.output = output
+
+    async def original_slot(self, v):
+        self.output[0] += v
+
+    @asyncslot
+    async def decorated_slot(self, v):
+        self.output[0] *= v
+
+
+class TestSlotLifetime(unittest.TestCase):
+
+    def setUp(self) -> None:
+        if QtCore.QCoreApplication.instance() is not None:
+            self.app = QtCore.QCoreApplication.instance()
+        else:
+            self.app = QtCore.QCoreApplication([])
+
+    def tearDown(self) -> None:
+        self.app = None
+
+    def test_weak_reference(self):
+        # Connection with bounded decorated method holds weak reference.
+        output = [1]
+        sender = Sender()
+        receiver = Receiver(output)
+        with using_asyncio_from_qt():
+            sender.signal.connect(receiver.decorated_slot)
+            sender.signal.emit(3)
+            self.assertEqual(output[0], 3)
+            receiver = None
+            sender.signal.emit(5)
+            # expecting no change, because connection should have been deleted
+            self.assertEqual(output[0], 3)
+
+    def test_strong_reference(self):
+        # Wrapping a bounded method holds strong reference to the receiver
+        # object.
+        output = [1]
+        sender = Sender()
+        receiver = Receiver(output)
+        with using_asyncio_from_qt():
+            sender.signal.connect(asyncslot(receiver.original_slot))
+            sender.signal.emit(3)
+            self.assertEqual(output[0], 4)
+            receiver = None
+            sender.signal.emit(5)
+            # expecting change, because connection is still alive
+            self.assertEqual(output[0], 9)
+
+    def test_await(self):
+        # asyncslot returns a Task object and so can be awaited.
+
+        counter = 0
+
+        @asyncslot
+        async def work():
+            await asyncio.sleep(0.1)
+            return 1
+
+        async def entry():
+            nonlocal counter
+            for _ in range(5):
+                await work()
+                counter += 1
+            loop.quit()
+
+        QtCore.QTimer.singleShot(0, asyncslot(entry))
+
+        with using_asyncio_from_qt():
+            loop = QtCore.QEventLoop()
+            if hasattr(loop, 'exec'):
+                loop.exec()
+            else:
+                loop.exec_()
+
+        self.assertEqual(counter, 5)
+
+
 if __name__ == '__main__':
     # TODO: insert sync callback to check invocation order
     unittest.main()
