@@ -35,6 +35,11 @@ class MyWidget(QtWidgets.QWidget):
 
         self.task: Optional[asyncio.Task] = None
 
+    def closeEvent(self, event):
+        if self.task is not None and not self.task.done():
+            self.task.cancel()
+        event.accept()
+
     @qtinter.asyncslot
     async def _start(self):
         self.task = asyncio.current_task()
@@ -53,6 +58,7 @@ class MyWidget(QtWidgets.QWidget):
         t0 = time.time()
         while True:
             t = time.time()
+            print(f"\r{self!r} {t - t0:.2f}", end="")
             self.lcdNumber.display(format(t - t0, ".1f"))
             await asyncio.sleep(0.05)
 
