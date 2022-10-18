@@ -32,9 +32,8 @@ To perform real work, the coroutine object returned by the coroutine
 function must be wrapped in an :class:`asyncio.Task` to be scheduled
 for execution.
 
-We show below three coding patterns to do this.  We demonstrate these
-patterns in the context of a simple *Stopwatch* app that looks like
-below:
+We show below three coding patterns to do this.  For demonstration,
+we make a simple *Stopwatch* app that looks like the following:
 
 .. image:: _static/stopwatch.gif
 
@@ -80,6 +79,16 @@ points are:
          self.task = asyncio.create_task(self._tick())
          self.task.add_done_callback(self._stopped)
 
+  .. note::
+
+     Code code that disables the START button cannot be moved into
+     ``_tick()`` because it must be executed immediately when the
+     button is clicked.
+
+     Consequently, code that restores the UI states cannot be moved
+     into ``_tick()`` because the task might be cancelled before it
+     starts running.  The solution is to install a "done callback".
+
 - The STOP button is connected to a plain slot (``_stop``) that
   attempts to stop the coroutine by calling :meth:`asyncio.Task.cancel`.
 
@@ -96,16 +105,27 @@ points are:
          self.startButton.setEnabled(True)
          self.stopButton.setEnabled(False)
 
+- The ``closeEvent`` method is overridden to stop the task when the
+  window is closed.
+
+  .. code-block:: python
+
+     def closeEvent(self, event):
+         if self.task is not None and not self.task.done():
+             self.task.cancel()
+         event.accept()
+
+  .. note::
+
+     **Always cancel a task if it is no longer needed.**
+
+     If you don't cancel the task explicitly, the task will keep
+     running in the background until :func:`using_asyncio_from_qt`
+     exits, unless it is garbage collected earlier.
+
 Although the code is slightly verbose, its semantics are well-known,
 thus saving you (and the future reader) the effort to learn the details
 of another API, such as :func:`asyncslot`.
-
-.. note::
-
-   Installing a "done callback" in ``_start()`` is necessary because
-   the task might be cancelled before it starts running.  Also, code
-   that disables the START button cannot be moved into ``_tick()``
-   because it must be executed immediately when the button is clicked.
 
 
 .. _using-asyncslot-decorator:
@@ -153,6 +173,25 @@ The *Stopwatch 2* example demonstrates this pattern.  The key points are:
      def _stop(self):
          self.task.cancel()
 
+- The ``closeEvent`` method is overridden to stop the task when the
+  window is closed.
+
+  .. code-block:: python
+
+     def closeEvent(self, event):
+         if self.task is not None and not self.task.done():
+             self.task.cancel()
+         event.accept()
+
+  .. note::
+
+     **Always cancel a task if it is no longer needed.**
+
+     :func:`asyncslot` holds a strong reference to all running
+     tasks it starts.  If you don't cancel the task explicitly,
+     the task will keep running until :func:`using_asyncio_from_qt`
+     exits.
+
 This pattern has the advantage that start-up and clean-up code is
 put together in a structured way, making the code easier to read
 and reason about.
@@ -192,7 +231,7 @@ This pattern is similar to the previous one, except that the coroutine
 function is not decorated by :class:`asyncslot` upon definition but
 wrapped by :func:`asyncslot` when being connected to the signal.
 
-The *Stopwatch 2* example demonstrates this pattern.  Key points are:
+The *Stopwatch 3* example demonstrates this pattern.  Key points are:
 
 - ``_start`` is identically defined as in the previous pattern,
   except that it is not decorated by :class:`asyncslot` so remains a
