@@ -57,11 +57,11 @@ jobs:
         env:
           QTINTERBINDING: ${{ matrix.qt-binding }}
           PYTHONPATH: src
-      - name: Test examples
-        run: python tests/example_tests.py
-        env:
-          QTINTERBINDING: ${{ matrix.qt-binding }}
-          PYTHONPATH: src
+      #- name: Test examples
+      #  run: python tests/example_tests.py
+      #  env:
+      #    QTINTERBINDING: ${{ matrix.qt-binding }}
+      #    PYTHONPATH: src
       - name: Generate coverage report
         run: coverage lcov
       - name: Upload coverage report
