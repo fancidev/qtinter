@@ -1,5 +1,6 @@
 """ bindings.py - resolve Python/Qt binding at run-time """
 
+import importlib
 import os
 import sys
 
@@ -41,6 +42,13 @@ elif binding == 'PySide6':
 
 else:
     raise ImportError(f"unsupported QTINTERBINDING value '{binding}'")
+
+
+def __getattr__(name: str):
+    # Support e.g. from qtinter.bindings import QtWidgets
+    if name.startswith('__'):
+        raise AttributeError
+    return importlib.import_module(f"{binding}.{name}")
 
 
 class _QiObjectImpl(QtCore.QObject):
