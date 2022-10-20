@@ -7,14 +7,18 @@ __all__ = 'asyncsignal',
 
 
 async def asyncsignal(signal):
-    # signal must be pyqtSignal or Signal
-    from .bindings import QtCore
+    # signal must be pyqtSignal or Signal, which automatic closes
+    # the connection when the receiver object is garbage collected.
+    # We do not call disconnect() explicitly because the signal
+    # sender might be gone when we attempt to disconnect, such as
+    # for the 'destroyed' signal.
+    from .bindings import QtCore, _QiSlotObject
 
     fut = asyncio.Future()
-    disconnected = False
+    slot = _QiSlotObject()
 
     def handler(*args):
-        nonlocal disconnected
+        nonlocal slot
         if not fut.done():
             # PyQt5/6 keeps a temporary reference to the signal arguments;
             # we must make a copy of them to avoid accessing freed memory.
@@ -31,14 +35,15 @@ async def asyncsignal(signal):
                 fut.set_result(result[0])
             else:
                 fut.set_result(result)
-        if not disconnected:
-            signal.disconnect(handler)
-            disconnected = True
+        if slot is not None:
+            slot.set_callback(None)
+            slot = None
 
-    signal.connect(handler)
+    slot.set_callback(handler)
+    signal.connect(slot.invoke_callback)
     try:
         return await fut
     finally:
-        if not disconnected:
-            signal.disconnect(handler)
-            disconnected = True
+        if slot is not None:
+            slot.set_callback(None)
+            slot = None

@@ -67,3 +67,20 @@ class _QiObjectImpl(QtCore.QObject):
 
     def invoke_callbacks(self):
         self.qi_signal.emit()
+
+
+class _QiSlotObject(QtCore.QObject):
+    """Object that relays a generic slot.
+
+    The connection is automatically closed when this object is deleted.
+    """
+    def __init__(self):
+        super().__init__()
+        self._callback = None
+
+    def set_callback(self, callback):
+        self._callback = callback
+
+    def invoke_callback(self, *args):
+        if self._callback is not None:
+            self._callback(*args)
