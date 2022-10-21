@@ -83,7 +83,7 @@ Context managers
 Helper functions
 ----------------
 
-.. function:: asyncsignal(signal, *, copy_args=True) -> typing.Any
+.. function:: asyncsignal(signal) -> typing.Any
    :async:
 
    Wait until *signal* is emitted and return the signal arguments.
@@ -93,22 +93,20 @@ Helper functions
    .. _PySide2.QtCore.Signal: https://doc.qt.io/qtforpython-5/PySide2/QtCore/Signal.html
    .. _PySide6.QtCore.Signal: https://doc.qt.io/qtforpython/PySide6/QtCore/Signal.html#PySide6.QtCore.PySide6.QtCore.Signal
 
-   *signal* must be either a Qt signal exposed by the Qt binding in use,
-   i.e. one of `PyQt5.QtCore.pyqtSignal`_, `PyQt6.QtCore.pyqtSignal`_,
-   `PySide2.QtCore.Signal`_ or `PySide6.QtCore.Signal`_, or a 'signal-like'
-   object providing ``connect()`` and ``disconnect()`` methods with Qt
-   signal's semantics.  :class:`asyncsignal` always calls ``connect()``
-   with a single argument.
+   *signal* must be a bound Qt signal, i.e. one of
+   `PyQt5.QtCore.pyqtSignal`_, `PyQt6.QtCore.pyqtSignal`_,
+   `PySide2.QtCore.Signal`_ or `PySide6.QtCore.Signal`_.
 
    If the signal has no arguments, return ``None``.  If the signal has
-   only one argument, return that argument.  If the signal has two or
+   just one argument, return that argument.  If the signal has two or
    more arguments, return those arguments in a :class:`tuple`.
 
-   If *copy_args* is ``True`` (the default), a copy of each signal argument
-   is returned instead of the argument itself.  Copying is necessary
-   if the signal argument's lifetime is valid only for the duration of
-   the callback.  The copy is made by calling the argument's class
-   with the argument as the sole parameter.
+   .. note::
+
+      This function will wait indefinitely if the signal is never
+      emitted or if the sender object is deleted.  To avoid this,
+      keep a strong reference to the sender object, or listen to
+      its ``destroyed`` signal.
 
 .. function:: asyncslot(fn: typing.Callable[..., typing.Coroutine]) \
               -> typing.Callable[..., asyncio.Task]
