@@ -108,6 +108,32 @@ class TestSignal(unittest.TestCase):
         with qtinter.using_qt_from_asyncio():
             self.assertEqual(asyncio.run(coro()), 123)
 
+    def test_copy_args(self):
+        # asyncsignal must copy the signal arguments, because some arguments
+        # are temporary objects that go out of scope when the slot returns.
+        # If not copied, SIGSEGV will be raised.
+        from qtinter.bindings import QtPositioning
+
+        source = QtPositioning.QGeoPositionInfoSource.createDefaultSource(
+            self.app)
+
+        async def emit():
+            # Emit signal from a different thread to make Qt send a temporary
+            # copy of the argument via queued connection.
+            await asyncio.get_running_loop().run_in_executor(
+                None,
+                source.positionUpdated.emit,
+                QtPositioning.QGeoPositionInfo())
+
+        async def coro():
+            asyncio.get_running_loop().call_soon(asyncio.create_task, emit())
+            position: QtPositioning.QGeoPositionInfo = \
+                await qtinter.asyncsignal(source.positionUpdated)
+            return position.coordinate().toString()
+
+        with qtinter.using_qt_from_asyncio():
+            self.assertEqual(asyncio.run(coro()), "")
+
 
 if __name__ == "__main__":
     unittest.main()
