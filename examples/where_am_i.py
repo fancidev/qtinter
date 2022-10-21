@@ -4,9 +4,7 @@ import asyncio
 import os
 import qtinter
 import sys
-
-# Replace qtinter.bindings with PyQt5, PyQt6, PySide2 or PySide6 below
-from qtinter.bindings import QtCore, QtPositioning
+from PyQt6 import QtCore, QtPositioning
 
 
 async def get_location() -> str:
