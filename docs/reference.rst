@@ -101,6 +101,13 @@ Helper functions
    just one argument, return that argument.  If the signal has two or
    more arguments, return those arguments in a :class:`tuple`.
 
+   .. _proxyAuthenticationRequired: https://doc.qt.io/qt-6/qwebsocket.html#proxyAuthenticationRequired
+
+   .. note::
+
+      Signals that require immediate response from the slot cannot be used
+      with this function.  An example is `proxyAuthenticationRequired`_.
+
    .. note::
 
       This function will wait indefinitely if the signal is never
