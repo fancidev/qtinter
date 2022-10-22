@@ -23,14 +23,11 @@ class MySignalObject(QtCore.QObject):
     ready1 = QtCore.Signal(bool)
 
 
-class MySlotMixin:
-    pass
-
-
 qt_slot_supports_descriptor = not QtCore.__name__.startswith('PyQt')
+is_pyqt = QtCore.__name__.startswith('PyQt')
 
 
-class MySlotObject(QtCore.QObject):
+class MySlotMixin:
     secret = 'Cls'
 
     def __init__(self):
@@ -120,7 +117,6 @@ class MySlotObject(QtCore.QObject):
         def class_slot_method(cls):
             visit('class_slot_method', cls)
 
-
     # -------------------------------------------------------------------------
     # Static method
     # -------------------------------------------------------------------------
@@ -153,6 +149,10 @@ class MySlotObject(QtCore.QObject):
         @QtCore.Slot()
         def static_slot_method():
             visit('static_slot_method')
+
+
+class MySlotObject(MySlotMixin, QtCore.QObject):
+    pass
 
 
 def func():
@@ -203,7 +203,8 @@ async def decorated_slot_afunc():
 qc = QtCore.Qt.ConnectionType.QueuedConnection
 
 
-class TestSlot(unittest.TestCase):
+class TestSlotOnFreeFunction(unittest.TestCase):
+    # Tests for asyncslot wrapping or decorating free function.
 
     def setUp(self) -> None:
         if QtCore.QCoreApplication.instance() is not None:
@@ -212,7 +213,6 @@ class TestSlot(unittest.TestCase):
             self.app = QtCore.QCoreApplication([])
 
         self.qt_loop = QtCore.QEventLoop()
-        self.receiver = MySlotObject()
         self.sender = MySignalObject()
         self.signal = self.sender.ready1
         self.connection = None
@@ -222,7 +222,6 @@ class TestSlot(unittest.TestCase):
             self.signal.disconnect()
             self.connection = None
         self.sender = None
-        self.receiver = None
         self.qt_loop = None
         self.app = None
 
@@ -325,6 +324,42 @@ class TestSlot(unittest.TestCase):
         result = self._run_once()
         self.assertEqual(result, ['slot_decorated_afunc.1',
                                   'slot_decorated_afunc.2'])
+
+
+class TestSlotOnQObject(unittest.TestCase):
+
+    def setUp(self) -> None:
+        if QtCore.QCoreApplication.instance() is not None:
+            self.app = QtCore.QCoreApplication.instance()
+        else:
+            self.app = QtCore.QCoreApplication([])
+
+        self.qt_loop = QtCore.QEventLoop()
+        self.receiver = MySlotObject()
+        self.sender = MySignalObject()
+        self.signal = self.sender.ready1
+        self.connection = None
+
+    def tearDown(self) -> None:
+        if self.connection is not None:
+            self.signal.disconnect()
+            self.connection = None
+        self.sender = None
+        self.receiver = None
+        self.qt_loop = None
+        self.app = None
+
+    def _run_once(self):
+        QtCore.QTimer.singleShot(0, self.qt_loop.quit)
+        self.signal.emit(True)
+
+        called.clear()
+        with using_asyncio_from_qt():
+            if hasattr(self.qt_loop, 'exec'):
+                self.qt_loop.exec()
+            else:
+                self.qt_loop.exec_()
+        return called.copy()
 
     # -------------------------------------------------------------------------
     # Test non-async method
@@ -490,6 +525,24 @@ class TestSlot(unittest.TestCase):
                                   'static_decorated_amethod.2'])
 
 
+class TestSlotOnNonQObject(TestSlotOnQObject):
+    def setUp(self) -> None:
+        super().setUp()
+        self.receiver = MySlotMixin()
+
+    @unittest.skipIf(is_pyqt, "not supported by PyQt")
+    def test_slot_method(self):
+        super().test_slot_method()
+
+    @unittest.skipIf(is_pyqt, "not supported by PyQt")
+    def test_slot_decorated_amethod(self):
+        super().test_slot_decorated_amethod()
+
+    @unittest.skipIf(is_pyqt, "not supported by PyQt")
+    def test_decorated_slot_amethod(self):
+        super().test_decorated_slot_amethod()
+
+
 class Sender(QtCore.QObject):
     if hasattr(QtCore, "pyqtSignal"):
         signal = QtCore.pyqtSignal(int)
@@ -520,7 +573,7 @@ class TestSlotLifetime(unittest.TestCase):
     def tearDown(self) -> None:
         self.app = None
 
-    def test_weak_reference(self):
+    def test_weak_reference_decorated(self):
         # Connection with bounded decorated method holds weak reference.
         output = [1]
         sender = Sender()
@@ -534,7 +587,8 @@ class TestSlotLifetime(unittest.TestCase):
             # expecting no change, because connection should have been deleted
             self.assertEqual(output[0], 3)
 
-    def test_strong_reference(self):
+    @unittest.skip("skip")
+    def test_weak_reference_wrapped(self):
         # Wrapping a bounded method holds strong reference to the receiver
         # object.
         output = [1]
@@ -542,6 +596,24 @@ class TestSlotLifetime(unittest.TestCase):
         receiver = Receiver(output)
         with using_asyncio_from_qt():
             sender.signal.connect(asyncslot(receiver.original_slot))
+            sender.signal.emit(3)
+            self.assertEqual(output[0], 4)
+            receiver = None
+            sender.signal.emit(5)
+            # expecting change, because connection is still alive
+            self.assertEqual(output[0], 4)
+
+    @unittest.skip("skip")
+    def test_strong_reference(self):
+        # Wrapping a lambda keeps an otherwise deleted receiver alive.
+        async def f(*args):
+            return await receiver.original_slot(*args)
+
+        output = [1]
+        sender = Sender()
+        receiver = Receiver(output)
+        with using_asyncio_from_qt():
+            sender.signal.connect(asyncslot(f))
             sender.signal.emit(3)
             self.assertEqual(output[0], 4)
             receiver = None
