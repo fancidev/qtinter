@@ -130,11 +130,17 @@ def asyncslot(fn: CoroutineFunction):
         # fn is a method object.  Return a method object whose lifetime
         # is equal to that of the wrapped method, so that a connection
         # will be automatically disconnected if the wrapped object goes
-        # out of scope.  Inherit from QObject because PyQt requires
-        # methods decorated with @pyqtSlot() to derive from QObject.
+        # out of scope.
         from .bindings import QtCore
 
-        class _AsyncSlotWrapper(_AsyncSlotMixin, QtCore.QObject):
+        # PyQt5/6 requires decorated slot to be hosted in QObject.
+        # PySide2/6 requires decorated slot to be hosted in plain object.
+        if QtCore.__name__.startswith("PyQt"):
+            BaseClass = QtCore.QObject
+        else:
+            BaseClass = object
+
+        class _AsyncSlotWrapper(_AsyncSlotMixin, BaseClass):
             # Subclass in order to modify function's __dict__.
             def handle(self, *args):
                 return super()._handle(*args)
