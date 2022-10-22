@@ -6,6 +6,16 @@ from shim import QtCore
 from qtinter import asyncslot, using_asyncio_from_qt
 
 
+is_pyqt = QtCore.__name__.startswith('PyQt')
+
+if is_pyqt:
+    Signal = QtCore.pyqtSignal
+    Slot = QtCore.pyqtSlot
+else:
+    Signal = QtCore.Signal
+    Slot = QtCore.Slot
+
+
 called = []
 
 
@@ -24,7 +34,6 @@ class MySignalObject(QtCore.QObject):
 
 
 qt_slot_supports_descriptor = not QtCore.__name__.startswith('PyQt')
-is_pyqt = QtCore.__name__.startswith('PyQt')
 
 
 class MySlotMixin:
@@ -647,6 +656,105 @@ class TestSlotLifetime(unittest.TestCase):
                 loop.exec_()
 
         self.assertEqual(counter, 5)
+
+
+class Control(QtCore.QObject):
+    valueChanged = Signal((int,), (str,))
+
+
+class Widget(QtCore.QObject):
+    def __init__(self):
+        super().__init__()
+        self.control1 = Control(self)
+        self.control1.setObjectName("control1")
+        self.control2 = Control(self)
+        self.control2.setObjectName("control2")
+        self.control3 = Control(self)
+        self.control3.setObjectName("control3")
+        self.control4 = Control(self)
+        self.control4.setObjectName("control4")
+        self.metaObject().connectSlotsByName(self)
+        self.values = []
+
+    def on_control1_valueChanged(self, newValue):
+        self.values.append("control1")
+        self.values.append(newValue)
+
+    @Slot(int)
+    def on_control2_valueChanged(self, newValue):
+        self.values.append("control2")
+        self.values.append(newValue)
+
+    @asyncslot
+    async def on_control3_valueChanged(self, newValue):
+        self.values.append("control3")
+        self.values.append(newValue)
+
+    @asyncslot
+    @Slot(str)
+    async def on_control4_valueChanged(self, newValue):
+        self.values.append("control4")
+        self.values.append(newValue)
+
+
+class TestSlotSelection(unittest.TestCase):
+    def setUp(self) -> None:
+        if QtCore.QCoreApplication.instance() is not None:
+            self.app = QtCore.QCoreApplication.instance()
+        else:
+            self.app = QtCore.QCoreApplication([])
+
+    def tearDown(self) -> None:
+        self.app = None
+
+    def test_decorated(self):
+        values1 = []
+        values2 = []
+        values3 = []
+        values4 = []
+
+        def callback():
+            w = Widget()
+
+            w.values.clear()
+            w.control1.valueChanged[int].emit(12)
+            w.control1.valueChanged[str].emit('ha')
+            values1[:] = w.values
+
+            w.values.clear()
+            w.control2.valueChanged[int].emit(12)
+            w.control2.valueChanged[str].emit('ha')
+            values2[:] = w.values
+
+            w.values.clear()
+            w.control3.valueChanged[int].emit(12)
+            w.control3.valueChanged[str].emit('ha')
+            values3[:] = w.values
+
+            w.values.clear()
+            w.control4.valueChanged[int].emit(12)
+            w.control4.valueChanged[str].emit('ha')
+            values4[:] = w.values
+
+            self.app.quit()
+
+        with using_asyncio_from_qt():
+            QtCore.QTimer.singleShot(0, callback)
+            if hasattr(self.app, "exec"):
+                self.app.exec()
+            else:
+                self.app.exec_()
+
+        if is_pyqt:
+            self.assertEqual(values1, ["control1", 12, "control1", "ha"])
+        else:
+            self.assertEqual(values1, [])
+        self.assertEqual(values2, ["control2", 12])
+        if is_pyqt:
+            self.assertEqual(values3, ["control3", 12, "control3", "ha"])
+        else:
+            self.assertEqual(values3, [])
+        self.assertEqual(values4, ["control4", "ha"])
 
 
 if __name__ == '__main__':
