@@ -3,34 +3,23 @@
 import asyncio
 import functools
 import inspect
-from typing import Callable, Coroutine, Set
+import weakref
+from typing import Callable, Coroutine, Dict, Set
 from ._base_events import QiBaseEventLoop
 
 
 __all__ = 'asyncslot',
 
 
-# Global variable to store strong reference to tasks created by asyncslot()
-# so that they don't get garbage collected during execution.
-_running_tasks: Set[asyncio.Task] = set()
+def _is_coroutine_function(fn):
+    if isinstance(fn, functools.partial):
+        fn = fn.func
+    return inspect.iscoroutinefunction(fn)
 
 
-CoroutineFunction = Callable[..., Coroutine]
-
-
-def asyncslot(fn: CoroutineFunction):  # noqa
-    """ Wrap a coroutine function to make it usable as a Qt slot. """
-
-    # TODO: support decoration on @classmethod or @staticmethod by returning
-    # TODO: a wrapper method descriptor.
-    if not inspect.iscoroutinefunction(fn):
-        raise TypeError(f'asyncslot cannot be applied to {fn!r} because '
-                        f'it is not a coroutine function')
-
-    # Because the wrapper's signature is (*args), PySide/PyQt will always
-    # call the wrapper with the signal's (full) parameter list instead of
-    # the slot's parameter list if it is shorter.  We work around this by
-    # "truncating" the input parameter list if needed.
+def _get_positional_parameter_count(fn: Callable):
+    """Return the number of positional parameters of fn.  Raise TypeError
+    if fn has any keyword-only parameter."""
     sig = inspect.signature(fn)
     params = sig.parameters
 
@@ -53,37 +42,112 @@ def asyncslot(fn: CoroutineFunction):  # noqa
                 raise TypeError(f"asyncslot cannot be applied to {fn!r} "
                                 f"because it contains keyword-only argument "
                                 f"'{p.name} without default")
-        elif p.kind == p.VAR_KEYWORD:
+        else:
+            assert p.kind == p.VAR_KEYWORD
             pass  # **kwargs will always be empty
-        else:
-            assert False, f"unexpected parameter kind '{p.kind}'"
+    return param_count
 
-    @functools.wraps(fn)
-    def asyncslot_wrapper(*args):
-        loop = asyncio.events._get_running_loop()
-        if loop is None:
-            raise RuntimeError('cannot call asyncslot without a running loop')
 
-        if not isinstance(loop, QiBaseEventLoop):
-            raise RuntimeError(f"asyncslot is not compatible with the "
-                               f"running event loop '{loop!r}'")
+# Global variable to store strong reference to tasks created by asyncslot()
+# so that they don't get garbage collected during execution.
+_running_tasks: Set[asyncio.Task] = set()
 
-        # Truncate arguments if slot expects fewer than signal provides
-        if 0 <= param_count < len(args):
-            coro = fn(*args[:param_count])
-        else:
-            coro = fn(*args)
+CoroutineFunction = Callable[..., Coroutine]
 
-        task = loop.run_task(coro)  # TODO: set name
-        _running_tasks.add(task)
-        task.add_done_callback(_running_tasks.discard)
-        return task
 
-    # fn may have been decorated with Slot() or pyqtSlot().  "Carry over"
-    # the decoration if so.
-    if hasattr(fn, '_slots'):  # PySide2, PySide6
-        asyncslot_wrapper._slots = fn._slots  # noqa
-    if hasattr(fn, '__pyqtSignature__'):  # PyQt5, PyQt6
-        asyncslot_wrapper.__pyqtSignature__ = fn.__pyqtSignature__
+def _run_coroutine_function(fn, param_count, args):
+    """Call coroutine function fn with no more than param_count *args
+    and run the returned coroutine.  Return the Task object."""
+    loop = asyncio.events._get_running_loop()
+    if loop is None:
+        raise RuntimeError('cannot call asyncslot without a running loop')
 
-    return asyncslot_wrapper
+    if not isinstance(loop, QiBaseEventLoop):
+        raise RuntimeError(f"asyncslot is not compatible with the "
+                           f"running event loop '{loop!r}'")
+
+    # Truncate arguments if slot expects fewer than signal provides
+    if 0 <= param_count < len(args):
+        coro = fn(*args[:param_count])
+    else:
+        coro = fn(*args)
+
+    task = loop.run_task(coro)  # TODO: set name
+    _running_tasks.add(task)
+    task.add_done_callback(_running_tasks.discard)
+    return task
+
+
+# Keep strong reference to created async slots that wrap method objects.
+# The reference is released when the __self__ object of the wrapped method
+# is deleted.
+_async_slots: Dict[int, "_AsyncSlotMixin"] = dict()
+_async_slot_counter = 0
+
+
+class _AsyncSlotMixin:
+    def __init__(self, method, param_count):
+        super().__init__()
+        self.weak_method = weakref.WeakMethod(method)
+        self.param_count = param_count
+        self.method_name = repr(method)
+
+        global _async_slot_counter
+        _async_slot_counter += 1
+        _async_slots[_async_slot_counter] = self
+        # TODO: test if fn.__self__ does not support weakref
+        weakref.finalize(method.__self__, _async_slots.pop, _async_slot_counter)
+
+    def _handle(self, *args):
+        fn = self.weak_method()
+        assert fn is not None, \
+            f"method {self.method_name} is unexpectedly garbage collected"
+        return _run_coroutine_function(fn, self.param_count, args)
+
+
+def asyncslot(fn: CoroutineFunction):
+    """ Wrap a coroutine function to make it usable as a Qt slot. """
+
+    # TODO: support decoration on @classmethod or @staticmethod by returning
+    # TODO: a wrapper method descriptor.
+    if not _is_coroutine_function(fn):
+        raise TypeError(f'asyncslot cannot be applied to {fn!r} because '
+                        f'it is not a coroutine function')
+
+    # Because the wrapper's signature is (*args), PySide/PyQt will always
+    # call the wrapper with the signal's (full) parameter list instead of
+    # the slot's parameter list if it is shorter.  We work around this by
+    # "truncating" the input parameter list if needed.
+    param_count = _get_positional_parameter_count(fn)
+
+    # fn may have been decorated with Slot() or pyqtSlot():
+    # - Slot() adds '_slots' to the function's __dict__.
+    # - pyqtSlot() adds '__pyqtSignature__' to the function's __dict__.
+    # In either case, functools.wraps() or functools.update_wrapper()
+    # will update the wrapper's __dict__ with these attributes.
+
+    if hasattr(fn, "__self__"):
+        # fn is a method object.  Return a method object whose lifetime
+        # is equal to that of the wrapped method, so that a connection
+        # will be automatically disconnected if the wrapped object goes
+        # out of scope.  Inherit from QObject because PyQt requires
+        # methods decorated with @pyqtSlot() to derive from QObject.
+        from .bindings import QtCore
+
+        class _AsyncSlotWrapper(_AsyncSlotMixin, QtCore.QObject):
+            # Subclass in order to modify function's __dict__.
+            def handle(self, *args):
+                return super()._handle(*args)
+
+            functools.update_wrapper(handle, fn)
+            handle.__dict__.pop("__wrapped__")  # avoid strong reference
+
+        return _AsyncSlotWrapper(fn, param_count).handle
+
+    else:
+        # fn is not a method object.  Keep a strong reference in this case.
+        @functools.wraps(fn)
+        def asyncslot_wrapper(*args):
+            return _run_coroutine_function(fn, param_count, args)
+
+        return asyncslot_wrapper

@@ -587,7 +587,6 @@ class TestSlotLifetime(unittest.TestCase):
             # expecting no change, because connection should have been deleted
             self.assertEqual(output[0], 3)
 
-    @unittest.skip("skip")
     def test_weak_reference_wrapped(self):
         # Wrapping a bounded method holds strong reference to the receiver
         # object.
@@ -603,17 +602,17 @@ class TestSlotLifetime(unittest.TestCase):
             # expecting change, because connection is still alive
             self.assertEqual(output[0], 4)
 
-    @unittest.skip("skip")
     def test_strong_reference(self):
-        # Wrapping a lambda keeps an otherwise deleted receiver alive.
-        async def f(*args):
-            return await receiver.original_slot(*args)
+        # Wrapping a method in partial keeps the receiver object alive.
+        # This test also tests that functools.partial() is supported.
+        import functools
 
         output = [1]
         sender = Sender()
         receiver = Receiver(output)
         with using_asyncio_from_qt():
-            sender.signal.connect(asyncslot(f))
+            sender.signal.connect(
+                asyncslot(functools.partial(receiver.original_slot)))
             sender.signal.emit(3)
             self.assertEqual(output[0], 4)
             receiver = None
