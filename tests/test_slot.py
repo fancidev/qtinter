@@ -628,6 +628,28 @@ class TestSlotLifetime(unittest.TestCase):
             # expecting change, because connection is still alive
             self.assertEqual(output[0], 4)
 
+    def test_weak_reference_wrapped_2(self):
+        # Keeping a (strong) reference to wrapped asyncslot keeps the
+        # underlying method alive (similar to keeping a strong reference
+        # to the underlying method).
+        output = [1]
+        sender = Sender()
+        receiver = Receiver(output)
+        with using_asyncio_from_qt():
+            the_slot = asyncslot(receiver.original_slot)
+            sender.signal.connect(the_slot)
+            # TODO: test disconnect(the_slot)
+            sender.signal.emit(3)
+            self.assertEqual(output[0], 4)
+            receiver = None
+            sender.signal.emit(5)
+            # The slot should still be invoked because the_slot keeps it alive.
+            self.assertEqual(output[0], 9)
+            the_slot = None
+            sender.signal.emit(6)
+            # The slot should no longer be called
+            self.assertEqual(output[0], 9)
+
     def test_strong_reference(self):
         # Wrapping a method in partial keeps the receiver object alive.
         # This test also tests that functools.partial() is supported.

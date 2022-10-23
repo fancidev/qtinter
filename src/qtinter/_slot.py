@@ -78,28 +78,39 @@ def _run_coroutine_function(fn, param_count, args):
     return task
 
 
-# Keep strong reference to created async slots that wrap method objects.
-# The reference is released when the __self__ object of the wrapped method
-# is deleted.
+# Keep strong reference to async slots that have no external strong references
+# but whose wrapped method object is still alive.  These objects are deleted
+# when the wrapped method is deleted.
 _async_slots: Dict[int, "_AsyncSlotMixin"] = dict()
-_async_slot_counter = 0
 
 
 class _AsyncSlotMixin:
     def __init__(self, method, param_count):
         super().__init__()
+        # Make self.method available to finalizer even if weak_method fails.
+        self.method = None
         # The following call raises TypeError if method.__self__ does not
         # support weak reference.  This is the same as PySide's behavior.
         # Note that PyQt raises SystemError in this case.
         self.weak_method = weakref.WeakMethod(method)
+        # Keep a strong reference to method until there are no external
+        # strong references to this wrapper object.
+        self.method = method
         self.param_count = param_count
         self.method_name = repr(method)
 
-        global _async_slot_counter
-        _async_slot_counter += 1
-        _async_slots[_async_slot_counter] = self
-        # TODO: test if fn.__self__ does not support weakref
-        weakref.finalize(method.__self__, _async_slots.pop, _async_slot_counter)
+    def __del__(self):
+        # This finalizer is called when there are no external strong
+        # references to this wrapper object.  Resurrect this object
+        # by registering it in _async_slots, and then switch to a
+        # weak reference to the underlying method object.
+        #
+        # Note: the finalizer is guaranteed to be called only once;
+        # see PEP 442.  But the below code does not rely on this.
+        if self.method is not None:
+            _async_slots[id(self)] = self
+            weakref.finalize(self.method.__self__, _async_slots.pop, id(self))
+            self.method = None
 
     def _handle(self, *args):
         fn = self.weak_method()
@@ -109,7 +120,19 @@ class _AsyncSlotMixin:
 
 
 def asyncslot(fn: CoroutineFunction):
-    """ Wrap a coroutine function to make it usable as a Qt slot. """
+    """Wrap coroutine function to make it usable as a Qt slot.
+
+    If fn is a bound method object, the returned wrapper will also be a
+    bound method object.  This wrapper satisfies two properties:
+
+    1. If a strong reference to the wrapper is held by external code,
+       fn is kept alive (and so is the wrapper).
+
+    2. If no strong reference to the wrapper is held by external code,
+       the wrapper is kept alive until fn is garbage collected.  This
+       will automatically disconnect any connection connected to the
+       wrapper.
+    """
 
     # TODO: support decoration on @classmethod or @staticmethod by returning
     # TODO: a wrapper method descriptor.
