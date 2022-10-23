@@ -681,12 +681,12 @@ class TestSlotLifetime(unittest.TestCase):
         sender = Sender()
         receiver = StrongReceiver(output)
         with using_asyncio_from_qt():
-            with self.assertRaises(TypeError):
+            with self.assertRaises(SystemError if is_pyqt else TypeError):
                 sender.signal.connect(receiver.method)
+            with self.assertRaises(SystemError if is_pyqt else TypeError):
+                sender.signal.connect(receiver.decorated_amethod)
             with self.assertRaises(TypeError):
                 sender.signal.connect(asyncslot(receiver.amethod))
-            with self.assertRaises(TypeError):
-                sender.signal.connect(receiver.decorated_amethod)
 
 
 class Control(QtCore.QObject):
