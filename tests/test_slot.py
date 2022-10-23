@@ -571,6 +571,23 @@ class Receiver:
         self.output[0] *= v
 
 
+class StrongReceiver:
+    __slots__ = 'output',
+
+    def __init__(self, output):
+        self.output = output
+
+    def method(self, v):
+        self.output[0] -= v
+
+    async def amethod(self, v):
+        self.output[0] += v
+
+    @asyncslot
+    async def decorated_amethod(self, v):
+        self.output[0] *= v
+
+
 class TestSlotLifetime(unittest.TestCase):
 
     def setUp(self) -> None:
@@ -656,6 +673,20 @@ class TestSlotLifetime(unittest.TestCase):
                 loop.exec_()
 
         self.assertEqual(counter, 5)
+
+    def test_strong_receiver(self):
+        # Test connecting to a bounded method of an object that does not
+        # support weak reference.
+        output = [1]
+        sender = Sender()
+        receiver = StrongReceiver(output)
+        with using_asyncio_from_qt():
+            with self.assertRaises(TypeError):
+                sender.signal.connect(receiver.method)
+            with self.assertRaises(TypeError):
+                sender.signal.connect(asyncslot(receiver.amethod))
+            with self.assertRaises(TypeError):
+                sender.signal.connect(receiver.decorated_amethod)
 
 
 class Control(QtCore.QObject):

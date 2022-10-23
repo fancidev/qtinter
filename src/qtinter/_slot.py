@@ -88,6 +88,8 @@ _async_slot_counter = 0
 class _AsyncSlotMixin:
     def __init__(self, method, param_count):
         super().__init__()
+        # The following call raises TypeError if method.__self__ does not
+        # support weak reference.  This agrees with PyQt/PySide's behavior.
         self.weak_method = weakref.WeakMethod(method)
         self.param_count = param_count
         self.method_name = repr(method)
