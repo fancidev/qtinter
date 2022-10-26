@@ -810,6 +810,14 @@ class TestSlotSelection(unittest.TestCase):
         self.assertEqual(values4, ["control4", "ha"])
 
 
+class TestSlotArgumentType(unittest.TestCase):
+    def test_bad_argument_type(self):
+        with self.assertRaises(TypeError):
+            asyncslot(123)
+        with self.assertRaises(TypeError):
+            asyncslot(afunc())
+
+
 if __name__ == '__main__':
     # TODO: insert sync callback to check invocation order
     unittest.main()

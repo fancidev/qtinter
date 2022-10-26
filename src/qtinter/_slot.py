@@ -11,10 +11,18 @@ from ._base_events import QiBaseEventLoop
 __all__ = 'asyncslot',
 
 
-def _is_coroutine_function(fn):
-    if isinstance(fn, functools.partial):
-        fn = fn.func
-    return inspect.iscoroutinefunction(fn)
+def _iscoroutinefunction(fn):
+    """Extend asyncio.iscoroutinefunction to handle more cases."""
+    # TODO: unwrap functions.partialmethod
+    unwrapped = True
+    while unwrapped:
+        if isinstance(fn, functools.partial):
+            fn = fn.func
+        elif inspect.ismethod(fn):
+            fn = fn.__func__
+        else:
+            unwrapped = False
+    return asyncio.iscoroutinefunction(fn)
 
 
 def _get_positional_parameter_count(fn: Callable):
@@ -136,7 +144,7 @@ def asyncslot(fn: CoroutineFunction):
 
     # TODO: support decoration on @classmethod or @staticmethod by returning
     # TODO: a wrapper method descriptor.
-    if not _is_coroutine_function(fn):
+    if not _iscoroutinefunction(fn):
         raise TypeError(f'asyncslot cannot be applied to {fn!r} because '
                         f'it is not a coroutine function')
 
