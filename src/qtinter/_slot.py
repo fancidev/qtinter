@@ -8,12 +8,19 @@ from typing import Callable, Coroutine, Dict, Set
 from ._base_events import QiBaseEventLoop
 
 
-__all__ = 'asyncslot',
+__all__ = 'asyncslot', 'nocheck',
+
+
+class nocheck:
+    """Used to disable typecheck of argument for asyncslot."""
+    __slots__ = "arg",
+
+    def __init__(self, arg):
+        self.arg = arg
 
 
 def _iscoroutinefunction(fn):
     """Extend asyncio.iscoroutinefunction to handle more cases."""
-    # TODO: unwrap functions.partialmethod
     unwrapped = True
     while unwrapped:
         if isinstance(fn, functools.partial):
@@ -144,7 +151,9 @@ def asyncslot(fn: CoroutineFunction):
 
     # TODO: support decoration on @classmethod or @staticmethod by returning
     # TODO: a wrapper method descriptor.
-    if not _iscoroutinefunction(fn):
+    if isinstance(fn, nocheck):
+        fn = fn.arg
+    elif not _iscoroutinefunction(fn):
         raise TypeError(f'asyncslot cannot be applied to {fn!r} because '
                         f'it is not a coroutine function')
 

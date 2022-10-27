@@ -3,7 +3,7 @@
 import asyncio
 import unittest
 from shim import QtCore
-from qtinter import asyncslot, using_asyncio_from_qt
+from qtinter import asyncslot, nocheck, using_asyncio_from_qt
 
 
 is_pyqt = QtCore.__name__.startswith('PyQt')
@@ -333,6 +333,19 @@ class TestSlotOnFreeFunction(unittest.TestCase):
         result = self._run_once()
         self.assertEqual(result, ['slot_decorated_afunc.1',
                                   'slot_decorated_afunc.2'])
+
+    # -------------------------------------------------------------------------
+    # Test wrapped free function that's not apparently a coroutine function
+    # -------------------------------------------------------------------------
+
+    def test_wrapped_afunc_indirect(self):
+        with self.assertRaises(TypeError):
+            asyncslot(lambda: afunc())
+
+        self.connection = self.signal.connect(
+            asyncslot(nocheck(lambda: afunc())), qc)
+        result = self._run_once()
+        self.assertEqual(result, ['afunc.1', 'afunc.2'])
 
 
 class TestSlotOnQObject(unittest.TestCase):
@@ -808,14 +821,6 @@ class TestSlotSelection(unittest.TestCase):
         else:
             self.assertEqual(values3, [])
         self.assertEqual(values4, ["control4", "ha"])
-
-
-class TestSlotArgumentType(unittest.TestCase):
-    def test_bad_argument_type(self):
-        with self.assertRaises(TypeError):
-            asyncslot(123)
-        with self.assertRaises(TypeError):
-            asyncslot(afunc())
 
 
 if __name__ == '__main__':
