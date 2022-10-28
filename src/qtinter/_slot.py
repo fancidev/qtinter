@@ -8,28 +8,7 @@ from typing import Callable, Coroutine, Dict, Set
 from ._base_events import QiBaseEventLoop
 
 
-__all__ = 'asyncslot', 'nocheck',
-
-
-class nocheck:
-    """Used to disable typecheck of argument for asyncslot."""
-    __slots__ = "arg",
-
-    def __init__(self, arg):
-        self.arg = arg
-
-
-def _iscoroutinefunction(fn):
-    """Extend asyncio.iscoroutinefunction to handle more cases."""
-    unwrapped = True
-    while unwrapped:
-        if isinstance(fn, functools.partial):
-            fn = fn.func
-        elif inspect.ismethod(fn):
-            fn = fn.__func__
-        else:
-            unwrapped = False
-    return asyncio.iscoroutinefunction(fn)
+__all__ = 'asyncslot',
 
 
 def _get_positional_parameter_count(fn: Callable):
@@ -148,14 +127,9 @@ def asyncslot(fn: CoroutineFunction):
        will automatically disconnect any connection connected to the
        wrapper.
     """
-
-    # TODO: support decoration on @classmethod or @staticmethod by returning
-    # TODO: a wrapper method descriptor.
-    if isinstance(fn, nocheck):
-        fn = fn.arg
-    elif not _iscoroutinefunction(fn):
-        raise TypeError(f'asyncslot cannot be applied to {fn!r} because '
-                        f'it is not a coroutine function')
+    if not callable(fn):
+        raise TypeError(f'asyncslot expects a coroutine function, '
+                        f'but got non-callable object {fn!r}')
 
     # Because the wrapper's signature is (*args), PySide/PyQt will always
     # call the wrapper with the signal's (full) parameter list instead of
