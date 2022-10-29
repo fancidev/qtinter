@@ -175,17 +175,45 @@ class TestFreeFunction(TestMixin, unittest.TestCase):
         exec("async def f(a, b, /): pass", globals(), local_vars)
         self._test_excess_arguments(local_vars["f"])
 
-    def test_excess_keyword_only_arguments(self):
-        async def f(*, a):
-            pass
+    def test_keyword_only_arguments_without_default(self):
+        async def f(*, a): pass
+        async def g(*args, a): pass
         with self.assertRaises(TypeError):
             asyncslot(f)
+        with self.assertRaises(TypeError):
+            asyncslot(g)
+
+    def test_keyword_only_arguments_with_default(self):
+        async def f(*, a=10):
+            called.append(a)
+
+        async def g(*args, a=20):
+            called.append(len(args))
+            called.append(a)
+
+        self.assertEqual(self._test_slot(asyncslot(f)), [10])
+        self.assertEqual(self._test_slot(asyncslot(g)), [1, 20])
 
     def test_var_keyword_arguments(self):
         async def f(**kwargs):
             called.append(len(kwargs))
 
         self.assertEqual(self._test_slot(asyncslot(f)), [0])
+
+    # -------------------------------------------------------------------------
+    # Test running asyncslot without a loop or with an incompatible loop
+    # -------------------------------------------------------------------------
+
+    def test_no_loop(self):
+        async def f(): pass
+        with self.assertRaisesRegex(RuntimeError, 'without'):
+            asyncslot(f)()
+
+    def test_incompatible_loop(self):
+        async def f():
+            asyncslot(f)()
+        with self.assertRaisesRegex(RuntimeError, 'compatible'):
+            asyncio.run(f())
 
 
 # =============================================================================
