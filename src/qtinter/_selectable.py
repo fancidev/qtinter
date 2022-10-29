@@ -1,38 +1,39 @@
 """Define the communication interface between event loop and selector."""
 
+from abc import ABC, abstractmethod
 from typing import Any, Optional
 
 
 __all__ = '_QiNotifier', '_QiSelectable',
 
 
-class _QiNotifier:
+class _QiNotifier(ABC):
     """An object responsible for the communication between a QiBaseEventLoop
     object and a _QiSelectable object."""
 
+    @abstractmethod
     def no_result(self) -> Any:
         """Called by the selectable object if no result is immediately
         available for a select() call.  Its return value is returned
         to the caller."""
-        raise NotImplementedError
 
+    @abstractmethod
     def notify(self) -> None:
         """Called by the selectable object (in a separate thread) to
         notify that result is available from the last select() call."""
-        raise NotImplementedError
 
+    @abstractmethod
     def wakeup(self) -> None:
         """Called by the selectable object wake up an in-progress select()
         in the worker thread."""
-        raise NotImplementedError
 
+    @abstractmethod
     def close(self) -> None:
         """Called by the event loop to close the notifier object.  After
         this call, no more notifications will be received."""
-        raise NotImplementedError
 
 
-class _QiSelectable:
+class _QiSelectable(ABC):
     """Protocol for a 'selector' that supports non-blocking select and
     notification.
 
@@ -54,6 +55,7 @@ class _QiSelectable:
       - CLOSED --- [end]
     """
 
+    @abstractmethod
     def set_notifier(self, notifier: Optional[_QiNotifier]) -> None:
         """Set the notifier.
 
@@ -61,8 +63,8 @@ class _QiSelectable:
         to become IDLE before returning.  In this case, the previous
         installed notifier (if any) is still signaled.
         """
-        raise NotImplementedError
 
+    @abstractmethod
     def select(self, timeout: Optional[float] = None):
         """
         If timeout is zero or some IO is readily available, return the
@@ -76,4 +78,3 @@ class _QiSelectable:
         If timeout is not zero, IO is not ready and notifier is None,
         perform normal (blocking) select.
         """
-        raise NotImplementedError
