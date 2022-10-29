@@ -32,10 +32,10 @@ def _get_positional_parameter_count(fn: Callable):
         elif p.kind == p.VAR_POSITIONAL:
             param_count = -1
         elif p.kind == p.KEYWORD_ONLY:
-            if p.default is not p.empty:
+            if p.default is p.empty:
                 raise TypeError(f"asyncslot cannot be applied to {fn!r} "
                                 f"because it contains keyword-only argument "
-                                f"'{p.name} without default")
+                                f"'{p.name}' without default")
         else:
             assert p.kind == p.VAR_KEYWORD
             pass  # **kwargs will always be empty

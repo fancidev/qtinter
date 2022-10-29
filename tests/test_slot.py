@@ -1,6 +1,7 @@
 """ test_slot.py - test the asyncslot() function """
 
 import asyncio
+import sys
 import unittest
 from shim import QtCore
 from qtinter import asyncslot, using_asyncio_from_qt
@@ -107,14 +108,6 @@ async def decorated_slot_afunc():
 class TestFreeFunction(TestMixin, unittest.TestCase):
 
     # -------------------------------------------------------------------------
-    # Test invalid arguments to asyncslot
-    # -------------------------------------------------------------------------
-
-    def test_invalid_arguments(self):
-        with self.assertRaises(TypeError):
-            asyncslot(afunc())
-
-    # -------------------------------------------------------------------------
     # Test async free function without Slot decoration
     # -------------------------------------------------------------------------
 
@@ -149,6 +142,50 @@ class TestFreeFunction(TestMixin, unittest.TestCase):
     def test_wrapped_afunc_indirect(self):
         self.assertEqual(self._test_slot(asyncslot(lambda: afunc())),
                          ['afunc.1', 'afunc.2'])
+
+    # -------------------------------------------------------------------------
+    # Test invalid arguments to asyncslot
+    # -------------------------------------------------------------------------
+
+    def test_invalid_argument_type(self):
+        with self.assertRaises(TypeError):
+            asyncslot(afunc())
+
+    def _test_excess_arguments(self, f):
+        # Slot requires more arguments than signal provides
+        error = None
+
+        def g(*args, **kwargs):
+            nonlocal error
+            try:
+                asyncslot(f)(*args, **kwargs)
+            except BaseException as exc:
+                error = exc
+
+        self._test_slot(g)
+        self.assertIsInstance(error, TypeError)
+
+    def test_excess_regular_arguments(self):
+        async def f(a, b): pass
+        self._test_excess_arguments(f)
+
+    @unittest.skipIf(sys.version_info < (3, 8), "requires Python >= 3.8")
+    def test_excess_positional_arguments(self):
+        local_vars = dict()
+        exec("async def f(a, b, /): pass", globals(), local_vars)
+        self._test_excess_arguments(local_vars["f"])
+
+    def test_excess_keyword_only_arguments(self):
+        async def f(*, a):
+            pass
+        with self.assertRaises(TypeError):
+            asyncslot(f)
+
+    def test_var_keyword_arguments(self):
+        async def f(**kwargs):
+            called.append(len(kwargs))
+
+        self.assertEqual(self._test_slot(asyncslot(f)), [0])
 
 
 # =============================================================================
