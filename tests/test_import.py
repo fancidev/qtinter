@@ -36,8 +36,8 @@ class TestImport(unittest.TestCase):
             QTINTERBINDING="Whatever")
         try:
             self.assertEqual(result.rc, 0)
-            self.assertEqual(str(result.out, encoding="utf-8"),
-                             f"{os.getenv('QTINTERBINDING')}.QtCore\n")
+            self.assertEqual(str(result.out, encoding="utf-8").rstrip(),
+                             f"{os.getenv('QTINTERBINDING')}.QtCore")
         except BaseException:
             result.fail(cmd)
             raise
@@ -62,8 +62,8 @@ class TestImport(unittest.TestCase):
             PYTHONPATH="src",
             COVERAGE_PROCESS_START=".coveragerc")
         self.assertEqual(result.rc, 0)
-        stdout = str(result.out, encoding="utf-8")
-        self.assertEqual(stdout, f"{os.getenv('QTINTERBINDING')}.QtCore\n")
+        stdout = str(result.out, encoding="utf-8").rstrip()
+        self.assertEqual(stdout, f"{os.getenv('QTINTERBINDING')}.QtCore")
 
     def test_bad_env_variable(self):
         # When QTINTERBINDING is set to a bad value, ImportError should be
