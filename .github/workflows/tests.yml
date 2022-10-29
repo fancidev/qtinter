@@ -46,13 +46,14 @@ jobs:
       - name: Install Python packages
         run: pip install coverage
       - name: Run unit tests
-        run: coverage run --source=src --append --branch -m unittest discover -s tests -v
+        run: coverage run -m unittest discover -s tests -v
         env:
+          QTINTERBINDING: ${{ matrix.qt-binding }}
           TEST_QT_MODULE: ${{ matrix.qt-binding }}
           PYTHONPATH: src
       - name: Run GUI tests
         if: ${{ matrix.platform != 'ubuntu-latest' }}
-        run: coverage run --source=src --append --branch tests/gui_test_clicked.py
+        run: coverage run tests/gui_test_clicked.py
         env:
           TEST_QT_MODULE: ${{ matrix.qt-binding }}
           PYTHONPATH: src
@@ -66,6 +67,8 @@ jobs:
       #  env:
       #    QTINTERBINDING: ${{ matrix.qt-binding }}
       #    PYTHONPATH: src
+      - name: Combine coverage data
+        run: coverage combine
       - name: Generate coverage report
         run: coverage lcov
       - name: Upload coverage report

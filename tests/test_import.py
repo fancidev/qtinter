@@ -16,6 +16,7 @@ class TestImport(unittest.TestCase):
             os.path.join("tests", "import2.py"),
             __cwd=folder,
             PYTHONPATH="src",
+            COVERAGE_PROCESS_START=".coveragerc",
             QTINTERBINDING="")
         self.assertEqual(result.rc, 1)
         stderr = str(result.err, encoding="utf-8")
@@ -30,6 +31,7 @@ class TestImport(unittest.TestCase):
             os.getenv("QTINTERBINDING"),
             __cwd=folder,
             PYTHONPATH="src",
+            COVERAGE_PROCESS_START=".coveragerc",
             QTINTERBINDING="Whatever")
         self.assertEqual(result.rc, 0)
         self.assertEqual(str(result.out, encoding="utf-8"),
@@ -41,7 +43,8 @@ class TestImport(unittest.TestCase):
         result, cmd = run_python_until_end(
             os.path.join("tests", "import3.py"),
             __cwd=folder,
-            PYTHONPATH="src")
+            PYTHONPATH="src",
+            COVERAGE_PROCESS_START=".coveragerc")
         self.assertEqual(result.rc, 1)
         stderr = str(result.err, encoding="utf-8")
         self.assertIn(
@@ -52,7 +55,8 @@ class TestImport(unittest.TestCase):
         result, cmd = run_python_until_end(
             os.path.join("tests", "import2.py"),
             __cwd=folder,
-            PYTHONPATH="src")
+            PYTHONPATH="src",
+            COVERAGE_PROCESS_START=".coveragerc")
         self.assertEqual(result.rc, 0)
         stdout = str(result.out, encoding="utf-8")
         self.assertEqual(stdout, f"{os.getenv('QTINTERBINDING')}.QtCore\n")
@@ -64,6 +68,7 @@ class TestImport(unittest.TestCase):
             os.path.join("tests", "import2.py"),
             __cwd=folder,
             PYTHONPATH="src",
+            COVERAGE_PROCESS_START=".coveragerc",
             QTINTERBINDING="Whatever")
         self.assertEqual(result.rc, 1)
         stderr = str(result.err, encoding="utf-8")
