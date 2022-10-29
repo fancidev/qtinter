@@ -25,7 +25,8 @@ class TestImport(unittest.TestCase):
 
     def test_unique_package(self):
         # When a unique binding is imported, that binding is used and
-        # QTINTERBINDING is ignored.
+        # QTINTERBINDING is ignored.  It's also OK to import qtinter
+        # before importing the binding (i.e. binding resolution is lazy).
         result, cmd = run_python_until_end(
             os.path.join("tests", "import1.py"),
             os.getenv("QTINTERBINDING"),
@@ -33,10 +34,13 @@ class TestImport(unittest.TestCase):
             PYTHONPATH="src",
             COVERAGE_PROCESS_START=".coveragerc",
             QTINTERBINDING="Whatever")
-        self.assertEqual(result.rc, 0)
-        self.assertEqual(str(result.out, encoding="utf-8"),
-                         f"{os.getenv('QTINTERBINDING')}.QtCore\n")
-        # result.fail(cmd)
+        try:
+            self.assertEqual(result.rc, 0)
+            self.assertEqual(str(result.out, encoding="utf-8"),
+                             f"{os.getenv('QTINTERBINDING')}.QtCore\n")
+        except BaseException:
+            result.fail(cmd)
+            raise
 
     def test_multiple_package(self):
         # When two or more bindings are imported, raise ImportError.
