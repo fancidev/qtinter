@@ -64,3 +64,10 @@ if sys.platform == 'win32':
 else:
     from ._unix_events import *
     __all__ += _unix_events.__all__
+
+
+def new_event_loop():
+    return QiDefaultEventLoop()
+
+
+__all__ += ('new_event_loop',)

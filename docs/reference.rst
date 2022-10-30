@@ -30,7 +30,7 @@ current coding pattern:
 
 `Loop factory`_ to create `event loop objects`_ directly:
 
-* :func:`default_loop_factory` creates an asyncio-compatible
+* :func:`new_event_loop` creates an asyncio-compatible
   event loop object that runs on top of a Qt event loop.
 
 
@@ -75,7 +75,7 @@ Context managers
       This context manager modifies the global (per-interpreter) asyncio
       event loop policy.  Do not use this context manager if your code
       uses different types of event loops from multiple threads.
-      Instead, call :func:`default_loop_factory` to create an
+      Instead, call :func:`new_event_loop` to create an
       event loop object and run coroutines on that loop object, e.g. by
       passing it to :class:`asyncio.Runner` (available since Python 3.11).
       
@@ -131,6 +131,12 @@ Helper functions
    A :class:`QiBaseEventLoop` must be running when the returned
    callable object is invoked.
 
+   .. note::
+
+      If *fn* is a (bound) method object, the returned wrapper will also
+      be a method object whose lifetime is equal to that of *fn*, except
+      that a strong reference to the wrapper object also keeps *fn* alive.
+
 .. function:: modal(fn: typing.Callable[..., typing.Any]) -> \
               typing.Callable[..., typing.Coroutine]
 
@@ -161,7 +167,7 @@ Helper functions
 Loop factory
 ------------
 
-.. function:: default_loop_factory() -> asyncio.AbstractEventLoop
+.. function:: new_event_loop() -> asyncio.AbstractEventLoop
 
    Return a new instance of an asyncio-compatible event loop object that
    runs on top of a Qt event loop.
