@@ -203,6 +203,32 @@ class TestModal(unittest.TestCase):
         self.assertTrue(0.4 < t2 - t1 < 1.5, t2 - t1)
         self.assertTrue(0 <= t3 - t2 < 1.0, t3 - t2)
 
+    def test_modal_alien_loop(self):
+        # Calling qtinter.modal on a plain asyncio loop raises RuntimeError.
+        def f():
+            pass
+
+        async def coro():
+            await qtinter.modal(f)()
+
+        with self.assertRaisesRegex(RuntimeError, 'requires QiBaseEventLoop'):
+            asyncio.run(coro())
+
+    def test_modal_exception(self):
+        # qtinter.modal should propagate the exception raised.
+        class MyError(RuntimeError):
+            pass
+
+        def f():
+            raise MyError
+
+        async def coro():
+            await qtinter.modal(f)()
+
+        with qtinter.using_qt_from_asyncio():
+            with self.assertRaises(MyError):
+                asyncio.run(coro())
+
     # def test_pause_resume(self):
     #     # If a callback raised SystemExit and is handled, rerunning the
     #     # loop should pick up from where it left off without polling or
