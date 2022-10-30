@@ -294,5 +294,41 @@ class TestModal(unittest.TestCase):
     #     self.assertEqual(var, 35)
 
 
+class TestRunner(unittest.TestCase):
+    def setUp(self):
+        if QtCore.QCoreApplication.instance() is not None:
+            self.app = QtCore.QCoreApplication.instance()
+        else:
+            self.app = QtCore.QCoreApplication([])
+
+    def tearDown(self):
+        self.app = None
+
+    def test_new_event_loop(self):
+        async def stop():
+            result.set_result(123)
+
+        async def coro():
+            QtCore.QTimer.singleShot(0, qtinter.asyncslot(stop))
+            await result
+
+        loop = qtinter.new_event_loop()
+        result = loop.create_future()
+        loop.run_until_complete(coro())
+        loop.close()
+        self.assertEqual(result.result(), 123)
+
+    @unittest.skipIf(sys.version_info < (3, 11), "requires Python >= 3.11")
+    def test_runner(self):
+        async def coro():
+            future = asyncio.Future()
+            QtCore.QTimer.singleShot(
+                0, lambda: future.set_result(123))
+            return await future
+
+        with asyncio.Runner(loop_factory=qtinter.new_event_loop) as runner:
+            self.assertEqual(runner.run(coro()), 123)
+
+
 if __name__ == '__main__':
     unittest.main()
