@@ -52,7 +52,7 @@ class _QiProactor(asyncio.IocpProactor):
         self.__wakeup()
         self.__notifier = notifier
 
-    def _poll(self, timeout=None):
+    def _poll(self, timeout=None):  # pragma: no cover
         # _poll is called by super().select() and super().close().
         #
         # If the last call to select() raised QiYield, the caller
