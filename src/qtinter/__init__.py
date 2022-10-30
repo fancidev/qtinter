@@ -38,6 +38,9 @@ QiBaseEventLoop              _base_events
 """
 import sys
 
+if sys.version_info < (3, 7):  # pragma: no cover
+    raise ImportError('qtinter requires Python 3.7 or higher')
+
 from ._base_events import *
 from ._selector_events import *
 from ._proactor_events import *

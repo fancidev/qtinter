@@ -483,10 +483,7 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
     # Compatibility with Python 3.7
     # =========================================================================
 
-    if sys.version_info < (3, 7):
-        raise RuntimeError('qtinter requires Python 3.7 or higher')
-
-    elif sys.version_info < (3, 8):
+    if sys.version_info < (3, 8):
         _check_running = asyncio.BaseEventLoop._check_runnung
 
     # =========================================================================
