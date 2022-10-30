@@ -29,7 +29,7 @@ class TestImport(unittest.TestCase):
         # before importing the binding (i.e. binding resolution is lazy).
         result, cmd = run_python_until_end(
             os.path.join("tests", "import1.py"),
-            os.getenv("QTINTERBINDING"),
+            os.getenv("TEST_QT_MODULE"),
             __cwd=folder,
             PYTHONPATH="src",
             COVERAGE_PROCESS_START=".coveragerc",
@@ -37,7 +37,7 @@ class TestImport(unittest.TestCase):
         try:
             self.assertEqual(result.rc, 0)
             self.assertEqual(str(result.out, encoding="utf-8").rstrip(),
-                             f"{os.getenv('QTINTERBINDING')}.QtCore")
+                             f"{os.getenv('TEST_QT_MODULE')}.QtCore")
         except BaseException:
             result.fail(cmd)
             raise
@@ -48,7 +48,8 @@ class TestImport(unittest.TestCase):
             os.path.join("tests", "import3.py"),
             __cwd=folder,
             PYTHONPATH="src",
-            COVERAGE_PROCESS_START=".coveragerc")
+            COVERAGE_PROCESS_START=".coveragerc",
+            QTINTERBINDING=os.getenv("TEST_QT_MODULE"))
         self.assertEqual(result.rc, 1)
         stderr = str(result.err, encoding="utf-8")
         self.assertIn(
@@ -60,10 +61,11 @@ class TestImport(unittest.TestCase):
             os.path.join("tests", "import2.py"),
             __cwd=folder,
             PYTHONPATH="src",
-            COVERAGE_PROCESS_START=".coveragerc")
+            COVERAGE_PROCESS_START=".coveragerc",
+            QTINTERBINDING=os.getenv("TEST_QT_MODULE"))
         self.assertEqual(result.rc, 0)
         stdout = str(result.out, encoding="utf-8").rstrip()
-        self.assertEqual(stdout, f"{os.getenv('QTINTERBINDING')}.QtCore")
+        self.assertEqual(stdout, f"{os.getenv('TEST_QT_MODULE')}.QtCore")
 
     def test_bad_env_variable(self):
         # When QTINTERBINDING is set to a bad value, ImportError should be

@@ -18,7 +18,7 @@ else:
 
 
 class SenderObject(QtCore.QObject):
-    signal = QtCore.Signal(bool)
+    signal = Signal(bool)
 
 
 called = []

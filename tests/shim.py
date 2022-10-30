@@ -1,9 +1,9 @@
-""" shim.py - utility functions for testing """
+"""Test helper to import binding"""
 
 import os
 
 
-__all__ = 'QtCore',
+__all__ = ()
 
 
 qt_module_name = os.getenv("TEST_QT_MODULE", "")
@@ -13,13 +13,9 @@ if qt_module_name == "":
 
 if qt_module_name == "PyQt5":
     from PyQt5 import QtCore, QtWidgets
-    QtCore.Signal = QtCore.pyqtSignal
-    QtCore.Slot = QtCore.pyqtSlot
 
 elif qt_module_name == "PyQt6":
     from PyQt6 import QtCore, QtWidgets
-    QtCore.Signal = QtCore.pyqtSignal
-    QtCore.Slot = QtCore.pyqtSlot
 
 elif qt_module_name == "PySide2":
     from PySide2 import QtCore, QtWidgets

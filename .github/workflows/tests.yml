@@ -48,7 +48,6 @@ jobs:
       - name: Run unit tests
         run: coverage run -m unittest discover -s tests -v
         env:
-          QTINTERBINDING: ${{ matrix.qt-binding }}
           TEST_QT_MODULE: ${{ matrix.qt-binding }}
           PYTHONPATH: src
       - name: Run GUI tests
