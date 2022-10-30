@@ -81,6 +81,18 @@ class TestImport(unittest.TestCase):
         self.assertIn(
             "ImportError: unsupported QTINTERBINDING value 'Whatever'", stderr)
 
+    def test_wrong_platform_import(self):
+        # Importing the submodule of wrong platform raises ImportError.
+        result, cmd = run_python_until_end(
+            os.path.join("tests", "import4.py"),
+            __cwd=folder,
+            PYTHONPATH="src",
+            COVERAGE_PROCESS_START=".coveragerc",
+            QTINTERBINDING=os.getenv("TEST_QT_MODULE"))
+        self.assertEqual(result.rc, 1)
+        stderr = str(result.err, encoding="utf-8")
+        self.assertIn("ImportError", stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
