@@ -51,22 +51,26 @@ def __getattr__(name: str):
     return importlib.import_module(f"{binding}.{name}")
 
 
-class _QiObjectImpl(QtCore.QObject):
-    if hasattr(QtCore, "pyqtSignal"):
-        qi_signal = QtCore.pyqtSignal()
-    else:
-        qi_signal = QtCore.Signal()
+class _QiObjectImpl:
+    """Helper object to invoke callbacks on the Qt event loop."""
+
+    def __init__(self):
+        # "Reuse" QtCore.QTimer.timeout as a parameterless signal.
+        # Previous attempts to create a custom QObject with a custom signal
+        # caused weird error with test_application_exited_during_loop under
+        # (Python 3.7, macOS, PySide6).
+        self._timer = QtCore.QTimer()
 
     def add_callback(self, callback):
         # Make queued connection to avoid re-entrance.
-        self.qi_signal.connect(
+        self._timer.timeout.connect(
             callback, QtCore.Qt.ConnectionType.QueuedConnection)
 
     def remove_callback(self, callback):
-        self.qi_signal.disconnect(callback)
+        self._timer.timeout.disconnect(callback)
 
     def invoke_callbacks(self):
-        self.qi_signal.emit()
+        self._timer.timeout.emit()
 
 
 class _QiSlotObject(QtCore.QObject):
