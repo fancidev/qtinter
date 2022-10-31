@@ -74,10 +74,11 @@ Context managers
 
       This context manager modifies the global (per-interpreter) asyncio
       event loop policy.  Do not use this context manager if your code
-      uses different types of event loops from multiple threads.
+      uses event loops from multiple threads.
       Instead, call :func:`new_event_loop` to create an
-      event loop object and run coroutines on that loop object, e.g. by
-      passing it to :class:`asyncio.Runner` (available since Python 3.11).
+      event loop object and call its methods directly.
+      Since Python 3.11, use :class:`asyncio.Runner` and pass
+      :class:`new_event_loop` as its *loop_factory* parameter.
       
 
 Helper functions

@@ -9,7 +9,7 @@ for Python, allowing you to use one from the other seamlessly.
 
 :mod:`qtinter` strives to be **simple** and **reliable**:
 
-* *Simple*: You only need to add **a few lines** of code to use asyncio
+* *Simple*: You only need to add **two lines of code** to use asyncio
   from Qt and vice versa.  **No refactoring** of your existing codebase
   is required.
 

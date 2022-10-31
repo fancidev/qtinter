@@ -1,7 +1,7 @@
 .. currentmodule:: qtinter
 
-Usage Guide
-===========
+Developer Guide
+===============
 
 This page explains how to use :mod:`qtinter`.
 
@@ -20,26 +20,47 @@ Using :func:`using_qt_from_asyncio`
 
 .. _using-asyncslot:
 
-Connecting coroutines to Qt signals
------------------------------------
+Using :func:`asyncslot`
+-----------------------
 
-Even inside :func:`using_asyncio_from_qt` or :func:`using_qt_from_asyncio`,
-a :term:`coroutine function` (whether decorated with ``Slot``/``pyqtSlot``
-or not) cannot be *directly* used as a Qt slot, because calling it merely
-returns a coroutine object rather than performing real work.
+:func:`asyncslot` is a helper function that wraps a :term:`coroutine
+function` into a normal function, which may then be connected to
+a Qt signal.
 
-To perform real work, the coroutine object returned by the coroutine
-function must be wrapped in an :class:`asyncio.Task` to be scheduled
-for execution.
+It is useless to connect a coroutine function (decorated with
+``Slot``/``pyqtSlot`` or not) *directly* to a Qt signal because calling
+it merely returns a coroutine object rather than performing real work.
 
-We show below three coding patterns to do this.  For demonstration,
-we make a simple *Stopwatch* app that looks like the following:
+By wrapping a coroutine function with :func:`asyncslot` and connecting
+the resulting wrapper to a Qt signal, the coroutine function will be
+called with the signal arguments when the signal is emitted.  The
+returned coroutine object is then wrapped in an :class:`asyncio.Task`
+and executed immediately until the first ``yield``, ``return`` or ``raise``,
+whichever comes first.  The remainder of the coroutine is scheduled for
+later execution.
+
+The recommended pattern for using :func:`asyncslot` is as follows:
+
+1. Write the coroutine function that implements the business logic.
+   In this function, store the running :class:`asyncio.Task` instance
+   for cancellation later.
+
+2. Connect the coroutine function to a Qt signal by wrapping it with
+   :func:`asyncslot`.
+
+3. Cancel the running task when a 'cancel signal' is emitted.
+
+4. Cancel the running task when it is no longer needed (e.g. when the
+   window is closed).
+
+We demonstrate this pattern using a simple *Stopwatch* example, which
+looks like the following:
 
 .. image:: _static/stopwatch.gif
 
-The app has a START button, a STOP button and an LCD display to show
-the time elapsed.  The 'core' of the app runs a coroutine (``_tick``)
-to update the LCD display:
+This sample application has a START button, a STOP button and an
+LCD display to display the time elapsed.  The 'core' of the app
+is a coroutine (``_tick``) that updates the LCD display constantly:
 
 .. code-block:: python
 
@@ -50,233 +71,158 @@ to update the LCD display:
            self.lcdNumber.display(format(t - t0, ".1f"))
            await asyncio.sleep(0.05)
 
-The three patterns differ in how they connect the button signals to
-this coroutine.
+The steps of the pattern are implemented as follows:
+
+1. Implement the logic of the stopwatch in a coroutine function
+   (``_start``).  Store the running :class:`asyncio.Task` instance
+   on entry.
+
+   .. code-block:: python
+
+      async def _start(self):
+          self.task = asyncio.current_task()
+          self.startButton.setEnabled(False)
+          self.stopButton.setEnabled(True)
+          try:
+              await self._tick()
+          finally:
+              self.startButton.setEnabled(True)
+              self.stopButton.setEnabled(False)
+
+2. Connect the START button to this coroutine function (``_start``)
+   by wrapping it with :class:`asyncslot`.
+
+   .. code-block:: python
+
+      def __init__(self):
+          ...
+          self.startButton.clicked.connect(qtinter.asyncslot(self._start))
+          ...
+
+3. Cannect the STOP button to a plain slot (``_stop``) to cancel
+   the running task.
+
+   .. code-block:: python
+
+      def _stop(self):
+          self.task.cancel()
+
+4. Cancel the running task (if any) when the widget is closed.
+
+   .. code-block:: python
+
+      def closeEvent(self, event):
+          if self.task is not None and not self.task.done():
+              self.task.cancel()
+          event.accept()
+
+**Always cancel a task when it is no longer needed.**
+:func:`asyncslot` keeps a strong reference to all running tasks
+it starts.  If you don't cancel a task explicitly, the task will
+keep running until the :func:`using_asyncio_from_qt` exits.
+
+*Remark*. It is possible to *decorate* a coroutine function with
+:class:`asyncslot` and connect the decorated function directly
+to a Qt signal.  However, this approach is not recommended because
+**a decorated coroutine function is transformed into a regular function**
+--- this leads to subtle semantic differences and is confusing.
+
+.. note::
+
+   :func:`asyncslot` relies on two extensions of asyncio's semantics
+   to work:
+
+   1. *Eager task execution*.
+      The first *step* of a task created by :func:`asyncslot` is executed
+      immediately rather than scheduled for later execution.  This extension
+      is made to support a common pattern where some work is done immediately
+      in response to a signal, such as updating UI states in the above example.
+
+   2. *Nested task execution*.
+      If a coroutine function wrapped by :func:`asyncslot` is called
+      from a coroutine (e.g. as the result of a signal being emitted),
+      the coroutine's task is 'suspended' when the call begins and
+      'resumed' after the call returns.
+      This extension is made to make :func:`asyncslot` more flexible
+      in practice.
+
+   See :ref:`eager-execution` for details about these semantic extensions.
 
 
 .. _using-asyncslot-without:
 
-Pattern 1: use asyncio's API directly
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+If you prefer to stick to asyncio's API and semantics, it is also perfectly
+possible to schedule coroutines without using :func:`asyncslot`.  Reusing
+the *Stopwatch* example above, this involves the following key steps:
 
-If you are comfortable with asyncio's API, you may use that to
-schedule and manipulate coroutines directly.  No additional API
-is required.
+1. Connect the START button to a plain slot (``_start``). 
+   In this slot, update the UI states, schedule the coroutine using
+   :func:`asyncio.create_task`, and hook the task's "done callback"
+   to a clean-up routine (``_stopped``).
 
-The *Stopwatch 1* example demonstrates this pattern.  The key
-points are:
+   .. code-block:: python
 
-- The START button is connected to a plain slot (``_start``). 
-  This slot updates the UI states, schedules the coroutine via
-  :func:`asyncio.create_task`, and hooks the "done callback"
-  of the task to a clean-up routine.
+      def __init__(self):
+          ...
+          self.startButton.clicked.connect(self._start)
+          ...
 
-  .. code-block:: python
+      def _start(self):
+          self.startButton.setEnabled(False)
+          self.stopButton.setEnabled(True)
+          self.task = asyncio.create_task(self._tick())
+          self.task.add_done_callback(self._stopped)
 
-     def _start(self):
-         self.startButton.setEnabled(False)
-         self.stopButton.setEnabled(True)
-         self.task = asyncio.create_task(self._tick())
-         self.task.add_done_callback(self._stopped)
+   .. note::
 
-  .. note::
+      Code that disables the START button cannot be moved into
+      ``_tick()``, because it must be executed immediately when the
+      button is clicked.
 
-     Code code that disables the START button cannot be moved into
-     ``_tick()`` because it must be executed immediately when the
-     button is clicked.
+      Consequently, code that restores the UI states cannot be moved
+      into ``_tick()``, because the task might be cancelled before it
+      starts running.  The solution is to install a "done callback".
 
-     Consequently, code that restores the UI states cannot be moved
-     into ``_tick()`` because the task might be cancelled before it
-     starts running.  The solution is to install a "done callback".
+2. Restore UI states in the done callback (``_stopped``).
 
-- The STOP button is connected to a plain slot (``_stop``) that
-  attempts to stop the coroutine by calling :meth:`asyncio.Task.cancel`.
+   .. code-block:: python
 
-  .. code-block:: python
+      def _stopped(self, task: asyncio.Task):
+          self.startButton.setEnabled(True)
+          self.stopButton.setEnabled(False)
 
-     def _stop(self):
-         self.task.cancel()
+#. (Same as before) Connect the STOP button to a plain slot (``_stop``)
+   to cancel the running task.
 
-- The clean-up routine (``_stopped``) restore the UI states.
+   .. code-block:: python
 
-  .. code-block:: python
+      def _stop(self):
+          self.task.cancel()
 
-     def _stopped(self, task: asyncio.Task):
-         self.startButton.setEnabled(True)
-         self.stopButton.setEnabled(False)
+4. (Same as before) Cancel the running task (if any) when the widget
+   is closed.
 
-- The ``closeEvent`` method is overridden to stop the task when the
-  window is closed.
+   .. code-block:: python
 
-  .. code-block:: python
+      def closeEvent(self, event):
+          if self.task is not None and not self.task.done():
+              self.task.cancel()
+          event.accept()
 
-     def closeEvent(self, event):
-         if self.task is not None and not self.task.done():
-             self.task.cancel()
-         event.accept()
-
-  .. note::
-
-     **Always cancel a task if it is no longer needed.**
-
-     If you don't cancel the task explicitly, the task will keep
-     running in the background until :func:`using_asyncio_from_qt`
-     exits, unless it is garbage collected earlier.
-
-Although the code is slightly verbose, its semantics are well-known,
-thus saving you (and the future reader) the effort to learn the details
-of another API, such as :func:`asyncslot`.
-
-
-.. _using-asyncslot-decorator:
-
-Pattern 2: use :class:`asyncslot` as a decorator
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-If you are unfamiliar with asyncio's API or prefer Qt's coding style,
-you may *decorate* a coroutine function with :class:`asyncslot` and
-connect the decorated function to a Qt signal.
-
-*A coroutine function decorated with* :class:`asyncslot` *becomes a regular
-function*.  When the decorated function is called, the original coroutine
-function is called with the same arguments to return a coroutine object.
-The coroutine object is then wrapped in an :class:`asyncio.Task` and
-executed immediately until the first ``yield``, ``return`` or ``raise``,
-whichever comes first.  The remainder of the coroutine is scheduled for
-later execution.
-
-The *Stopwatch 2* example demonstrates this pattern.  The key points are:
-
-- The START button is connected to a coroutine function (``_start``)
-  decorated with :class:`asyncslot`.  When invoked, the coroutine
-  stores the running task (for cancellation later), updates UI states,
-  performs the real work, and restores UI states before it returns.
-
-  .. code-block:: python
-
-     @qtinter.asyncslot
-     async def _start(self):
-         self.task = asyncio.current_task()
-         self.startButton.setEnabled(False)
-         self.stopButton.setEnabled(True)
-         try:
-             await self._tick()
-         finally:
-             self.startButton.setEnabled(True)
-             self.stopButton.setEnabled(False)
-
-- The STOP button is connected to a plain slot (``_stop``) that
-  attempts to stop the coroutine by calling :meth:`asyncio.Task.cancel`.
-
-  .. code-block:: python
-
-     def _stop(self):
-         self.task.cancel()
-
-- The ``closeEvent`` method is overridden to stop the task when the
-  window is closed.
-
-  .. code-block:: python
-
-     def closeEvent(self, event):
-         if self.task is not None and not self.task.done():
-             self.task.cancel()
-         event.accept()
-
-  .. note::
-
-     **Always cancel a task if it is no longer needed.**
-
-     :func:`asyncslot` holds a strong reference to all running
-     tasks it starts.  If you don't cancel the task explicitly,
-     the task will keep running until :func:`using_asyncio_from_qt`
-     exits.
-
-This pattern has the advantage that start-up and clean-up code is
-put together in a structured way, making the code easier to read
-and reason about.
-
-This is made possible by a key semantic feature of :func:`asyncslot`
-that is different from :func:`asyncio.create_task`: the first *step*
-of a task created by :func:`asyncslot` is executed immediately rather
-than scheduled for later execution.  This feature is designed to work
-with a common coding pattern where some work is done immediately in
-response to a signal, such as updating UI states in the above example.
-
-The main drawback of using :class:`asyncslot` as a decorator is that
-it may be surprising to the casual reader that a decorated coroutine
-function is in fact a regular function.  For example, calling the
-decorated function immediately executes the coroutine without the need
-to await it.  In addition, awaiting the returned :class:`asyncio.Task`
-has similar effect as awaiting a true coroutine, but there are subtle
-differences between their semantics which may surprise an unprepared
-caller.
-
-.. note::
-
-  If a coroutine function decorated with :func:`asyncslot` is called
-  from a coroutine (directly or indirectly), the coroutine's task is
-  'suspended' when the call begins and 'resumed' after the call returns.
-  This extension to asyncio's semantics is created to make
-  :func:`asyncslot` more useful in practice; see :ref:`eager-execution`
-  for details.
-
-
-.. _using-asyncslot-wrapper:
-
-Pattern 3: use :func:`asyncslot` as a wrapper
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-This pattern is similar to the previous one, except that the coroutine
-function is not decorated by :class:`asyncslot` upon definition but
-wrapped by :func:`asyncslot` when being connected to the signal.
-
-The *Stopwatch 3* example demonstrates this pattern.  Key points are:
-
-- ``_start`` is identically defined as in the previous pattern,
-  except that it is not decorated by :class:`asyncslot` so remains a
-  true coroutine function.
-
-- ``_start`` is connected to the ``clicked`` signal of the START
-  button by wrapping it in :func:`asyncslot`.
-
-  .. code-block:: python
-
-     def __init__(self):
-         ...
-         self.startButton.clicked.connect(qtinter.asyncslot(self._start))
-         ...
-
-- The rest code is identical to the previous pattern.
-
-This pattern offers the same semantics as the decorator pattern, with
-the additional benefit that a coroutine function remains async, which
-avoids surprises.  The code is also more compact, especially if the
-coroutine function is already defined.
-
-One subtlety with the wrapper pattern should be noted:  When a bound
-method wrapped by :func:`asyncslot` is connected to a Qt signal, a
-strong reference to the receiver object is held by the connection,
-which may keep the receiver object alive longer than expected if a
-reference cycle is created.
-
-In contrast, when a bound method *decorated* with :class:`asyncslot`
-is connected to a Qt signal, a weak reference to the receiver object
-is held by the connection, and the connection is automatically destroyed
-when the receiver object is deleted.
-
-This difference should be taken into account when choosing to wrap
-or to decorate a coroutine function with :class:`asyncslot`.
+Again, **always cancel a task when it is no longer needed.**
+Otherwise the task may keep running in the background until
+:func:`using_asyncio_from_qt` exits (or gets garbage-collected
+at an arbitrary point).
 
 
 .. _using-asyncsignal:
 
-Awaiting Qt signals from a coroutine
-------------------------------------
+Using :func:`asyncsignal`
+-------------------------
 
 
 .. _using-modal:
 
-Executing a nested Qt event loop
---------------------------------
+Using :func:`modal`
+-------------------
 
