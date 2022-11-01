@@ -5,7 +5,6 @@ import enum
 import signal
 import sys
 import threading
-import traceback
 from asyncio import events
 from typing import Any, Callable, Optional
 from ._selectable import *
@@ -320,6 +319,9 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
 
         if self.__modal_fn is not None:
             raise RuntimeError('A modal_fn is already scheduled and pending')
+
+        if self.__mode == QiLoopMode.NATIVE:
+            raise RuntimeError('exec_modal() is not supported in NATIVE mode')
 
         self.__modal_fn = modal_fn
 
