@@ -36,7 +36,7 @@ class MyWidget(QtWidgets.QWidget):
         self.task: Optional[asyncio.Task] = None
 
     def closeEvent(self, event):
-        if self.task is not None and not self.task.done():
+        if self.task is not None:
             self.task.cancel()
         event.accept()
 
@@ -52,6 +52,7 @@ class MyWidget(QtWidgets.QWidget):
     def _stopped(self, task: asyncio.Task):
         self.startButton.setEnabled(True)
         self.stopButton.setEnabled(False)
+        self.task = None
 
     async def _tick(self):
         t0 = time.time()

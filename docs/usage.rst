@@ -73,7 +73,11 @@ The steps of the pattern are implemented as follows:
 
 1. Code the stopwatch logic in a coroutine function (``_start``) and
    connect it to the START button by wrapping it with :func:`asyncslot`.
-   Store the running :class:`asyncio.Task` instance on entry.
+
+   On entry, store the running :class:`asyncio.Task` instance for
+   cancellation later, and update the UI states.  Before exit,
+   restore the UI states, and reset the task instance to break the
+   reference cycle.
 
    .. code-block:: python
 
@@ -91,8 +95,9 @@ The steps of the pattern are implemented as follows:
           finally:
               self.startButton.setEnabled(True)
               self.stopButton.setEnabled(False)
+              self.task = None
 
-2. Connect the STOP button to a plain slot (``_stop``) to cancel
+2. Connect the STOP button to a plain slot (``_stop``) that cancels
    the running task.
 
    .. code-block:: python
@@ -105,12 +110,12 @@ The steps of the pattern are implemented as follows:
       def _stop(self):
           self.task.cancel()
 
-3. Cancel the running task (if any) when the widget is closed.
+3. Cancel the running task (if one exists) when the widget is closed.
 
    .. code-block:: python
 
       def closeEvent(self, event):
-          if self.task is not None and not self.task.done():
+          if self.task is not None:
               self.task.cancel()
           event.accept()
 
@@ -128,7 +133,7 @@ which brings subtle semantic differences and causes confusion.
 .. note::
 
    :func:`asyncslot` makes two extensions to asyncio's semantics
-   to work smoothly:
+   in order to work smoothly:
 
    1. *Eager task execution*.
       The first "step" of a task created by :func:`asyncslot` is
@@ -140,9 +145,9 @@ which brings subtle semantic differences and causes confusion.
    2. *Nested task execution*.
       If a coroutine function wrapped by :func:`asyncslot` is called
       from a coroutine (e.g. as the result of a signal being emitted),
-      the coroutine's task is 'suspended' when the call begins and
-      'resumed' after the call returns.  This extension makes
-      :func:`asyncslot` easier to use in practice.
+      the calling task is "suspended" when the call begins and
+      "resumed" after the call returns.  This extension makes
+      :func:`asyncslot` easier to use in a number of scenarios.
 
    For details on these semantic extensions, see :ref:`eager-execution`.
 
@@ -157,7 +162,8 @@ the key steps are:
 1. Connect the START button to a plain slot (``_start``). 
    In this slot, update the UI states, schedule the coroutine using
    :func:`asyncio.create_task`, and hook the task's "done callback"
-   to a clean-up routine (``_stopped``) to restore the UI states.
+   to a clean-up routine (``_stopped``) to restore the UI states
+   and reset the reference to the task.
 
    .. code-block:: python
 
@@ -175,6 +181,7 @@ the key steps are:
       def _stopped(self, task: asyncio.Task):
           self.startButton.setEnabled(True)
           self.stopButton.setEnabled(False)
+          self.task = None
 
    .. note::
 
@@ -199,13 +206,13 @@ the key steps are:
       def _stop(self):
           self.task.cancel()
 
-3. (Same as before) Cancel the running task (if any) when the widget
+3. (Same as before) Cancel the running task (if one exists) when the widget
    is closed.
 
    .. code-block:: python
 
       def closeEvent(self, event):
-          if self.task is not None and not self.task.done():
+          if self.task is not None:
               self.task.cancel()
           event.accept()
 

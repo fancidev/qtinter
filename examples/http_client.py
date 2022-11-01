@@ -4,7 +4,7 @@ import asyncio
 import qtinter
 import sys
 import time
-from PyQt6 import QtCore, QtWidgets
+from PySide6 import QtCore, QtWidgets
 from typing import Optional
 import requests
 import http.server
@@ -105,9 +105,12 @@ class MyWidget(QtWidgets.QWidget):
                           .format(*self._server.server_address))
 
     def closeEvent(self, event):
-        # Handle the closeEvent to shut down the local HTTP server so that
-        # the program exits (cleanly).  The shutdown() call blocks; you
-        # might observe a short freeze of the progress bar.
+        # Cancel the running download task if one exists.
+        if self._async_task is not None:
+            self._async_task.cancel()
+
+        # Shut down the local HTTP server.  The shutdown() call blocks;
+        # you may observe a short freeze of the progress bar.
         self._server.shutdown()
         event.accept()
 
@@ -163,20 +166,18 @@ class MyWidget(QtWidgets.QWidget):
         except asyncio.CancelledError:
             # Catching a CancelledError indicates the task is cancelled.
             # This can happen either because the user clicked the 'Cancel'
-            # button, or because the window is closed.  In the latter case
-            # Qt's event loop exits and qtinter.using_asyncio_from_qt()
-            # shuts down qtinter's event loop after cancelling all pending
-            # tasks.
+            # button, or because the window is closed.
             if self.isVisible():
-                # If the window is still open, the task must have been
-                # cancelled by clicking the 'Cancel' button.  This is
-                # because qtinter only cancels pending tasks _after_ the
-                # Qt event loop exits, and the Qt event loop exits only
-                # after all windows are closed.
-                QtWidgets.QMessageBox.information(
+                # Cancelled by the CANCEL button -- display a message box.
+                # Use qtinter.modal() to avoid blocking the asyncio event
+                # loop because QMessageBox.information() creates a nested
+                # Qt event loop.
+                await qtinter.modal(QtWidgets.QMessageBox.information)(
                     self, "Note", "Download cancelled by user!")
             else:
-                # Do nothing if user closed the window.
+                # Cancelled by window close -- do nothing.  By now the Qt
+                # event loop may have terminated already, and the underlying
+                # QiBaseEventLoop may be operating in NATIVE mode.
                 pass
 
         finally:
