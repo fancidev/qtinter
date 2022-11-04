@@ -25,3 +25,13 @@ elif qt_module_name == "PySide6":
 
 else:
     raise ImportError(f"unsupported TEST_QT_MODULE value: '{qt_module_name}'")
+
+
+is_pyqt = QtCore.__name__.startswith('PyQt')
+
+if is_pyqt:
+    Signal = QtCore.pyqtSignal
+    Slot = QtCore.pyqtSlot
+else:
+    Signal = QtCore.Signal
+    Slot = QtCore.Slot

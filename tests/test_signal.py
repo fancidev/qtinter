@@ -1,7 +1,13 @@
 import asyncio
 import qtinter
 import unittest
-from shim import QtCore
+from shim import QtCore, Signal
+
+
+class SenderObject(QtCore.QObject):
+    signal0 = Signal()
+    signal1 = Signal(object)
+    signal2 = Signal(str, object)
 
 
 class TestSignal(unittest.TestCase):
@@ -15,7 +21,8 @@ class TestSignal(unittest.TestCase):
     def tearDown(self) -> None:
         self.app = None
 
-    def test_timer(self):
+    def test_builtin_signal(self):
+        # Test asyncsignal() with built-in signal QTimer.timeout
         timer = QtCore.QTimer()
         timer.setInterval(100)
         timer.start()
@@ -26,6 +33,38 @@ class TestSignal(unittest.TestCase):
 
         with qtinter.using_qt_from_asyncio():
             self.assertEqual(asyncio.run(coro()), 123)
+
+    def test_signal_with_no_argument(self):
+        sender = SenderObject()
+
+        async def coro():
+            asyncio.get_running_loop().call_soon(sender.signal0.emit)
+            return await qtinter.asyncsignal(sender.signal0)
+
+        with qtinter.using_qt_from_asyncio():
+            self.assertEqual(asyncio.run(coro()), None)
+
+    def test_signal_with_one_argument(self):
+        sender = SenderObject()
+        arg = object()
+
+        async def coro():
+            asyncio.get_running_loop().call_soon(sender.signal1.emit, arg)
+            return await qtinter.asyncsignal(sender.signal1)
+
+        with qtinter.using_qt_from_asyncio():
+            self.assertIs(asyncio.run(coro()), arg)
+
+    def test_signal_with_two_arguments(self):
+        sender = SenderObject()
+
+        async def coro():
+            asyncio.get_running_loop().call_soon(
+                sender.signal2.emit, "Hello", (1.5, "metre"))
+            return await qtinter.asyncsignal(sender.signal2)
+
+        with qtinter.using_qt_from_asyncio():
+            self.assertEqual(asyncio.run(coro()), ("Hello", (1.5, "metre")))
 
     def test_cancellation(self):
         # asyncsignal should be able to be cancelled
@@ -46,10 +85,8 @@ class TestSignal(unittest.TestCase):
             with self.assertRaises(asyncio.CancelledError):
                 asyncio.run(main())
 
-    @unittest.skip("not supported yet")
     def test_sender_gone(self):
-        # If the sender is garbage collected, asyncsignal should
-        # raise CancelledError.
+        # If the sender is garbage collected, asyncsignal should hang forever.
         timer = QtCore.QTimer()
         timer.setInterval(100)
         timer.start()
@@ -61,35 +98,11 @@ class TestSignal(unittest.TestCase):
         async def coro():
             asyncio.get_running_loop().call_soon(delete_timer)
             await qtinter.asyncsignal(timer.timeout)
-            return 123
-
-        with qtinter.using_qt_from_asyncio():
-            with self.assertRaises(asyncio.CancelledError):
-                asyncio.run(coro())
-
-    def test_sender_gone_timeout(self):
-        # Timeout on sender gone should work.
-        timer = QtCore.QTimer()
-        timer.setInterval(100)
-        timer.start()
-
-        def delete_timer():
-            nonlocal timer
-            timer = None
-
-        async def coro():
-            asyncio.get_running_loop().call_soon(delete_timer)
-            await qtinter.asyncsignal(timer.timeout)
-            return 123
-
-        async def main():
-            await asyncio.wait_for(coro(), 1.0)
 
         with qtinter.using_qt_from_asyncio():
             with self.assertRaises(asyncio.TimeoutError):
-                asyncio.run(main())
+                asyncio.run(asyncio.wait_for(coro(), 0.5))
 
-    # @unittest.skip("not supported yet")
     def test_destroyed(self):
         # Should be able to catch destroyed signal
         timer = QtCore.QTimer()

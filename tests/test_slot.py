@@ -3,18 +3,8 @@
 import asyncio
 import sys
 import unittest
-from shim import QtCore
+from shim import QtCore, Signal, Slot, is_pyqt
 from qtinter import asyncslot, using_asyncio_from_qt
-
-
-is_pyqt = QtCore.__name__.startswith('PyQt')
-
-if is_pyqt:
-    Signal = QtCore.pyqtSignal
-    Slot = QtCore.pyqtSlot
-else:
-    Signal = QtCore.Signal
-    Slot = QtCore.Slot
 
 
 class SenderObject(QtCore.QObject):
