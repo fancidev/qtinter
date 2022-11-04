@@ -42,7 +42,7 @@ jobs:
       - name: Run Qt binding tests
         run: python tests/binding_tests.py
         env:
-          QTINTERBINDING: ${{ matrix.qt-binding }}
+          TEST_QT_MODULE: ${{ matrix.qt-binding }}
       - name: Install Python packages
         run: pip install coverage
       - name: Run unit tests

@@ -7,12 +7,10 @@ import threading
 import time
 import unittest
 import warnings
-from test.support.script_helper import run_python_until_end
-from shim import QtCore
+from shim import QtCore, run_test_script
 
 
 warnings.filterwarnings('default')
-folder = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
 
 def _raise_ki():
@@ -334,46 +332,30 @@ class TestRunner(unittest.TestCase):
 
     def test_no_application(self):
         # Running qtinter loop without QCoreApplication raises RuntimeError.
-        result, cmd = run_python_until_end(
-            os.path.join("tests", "runner1.py"),
-            __cwd=folder,
-            PYTHONPATH="src",
-            COVERAGE_PROCESS_START=".coveragerc",
+        rc, out, err = run_test_script(
+            "runner1.py",
             QTINTERBINDING=os.getenv("TEST_QT_MODULE"))
-        self.assertEqual(result.rc, 1)
-        stderr = str(result.err, encoding="utf-8")
-        self.assertIn("RuntimeError: An instance of QCoreApplication", stderr)
+        self.assertEqual(rc, 1)
+        self.assertIn("RuntimeError: An instance of QCoreApplication", err)
 
     def test_application_exited_before_loop(self):
         # Running qtinter after QCoreApplication.exit() raises RuntimeError
-        result, cmd = run_python_until_end(
-            os.path.join("tests", "runner2.py"),
-            __cwd=folder,
-            PYTHONPATH="src",
-            COVERAGE_PROCESS_START=".coveragerc",
+        rc, out, err = run_test_script(
+            "runner2.py",
             QTINTERBINDING=os.getenv("TEST_QT_MODULE"))
-        self.assertEqual(result.rc, 1)
-        # result.fail(cmd)
-        stderr = str(result.err, encoding="utf-8")
-        self.assertIn("RuntimeError: Qt event loop exited with code '-1'",
-                      stderr)
+        self.assertEqual(rc, 1)
+        self.assertIn("RuntimeError: Qt event loop exited with code '-1'", err)
 
     def test_application_exited_during_loop(self):
         # If QCoreApplication.quit() is called from a coroutine or callback
         # within using_qt_from_asyncio, a RuntimeError will be raised when
         # cleaning up the loop because the clean-up procedure runs the loop
         # but it can no longer be run.
-        result, cmd = run_python_until_end(
-            os.path.join("tests", "runner3.py"),
-            __cwd=folder,
-            PYTHONPATH="src",
-            COVERAGE_PROCESS_START=".coveragerc",
+        rc, out, err = run_test_script(
+            "runner3.py",
             QTINTERBINDING=os.getenv("TEST_QT_MODULE"))
-        self.assertEqual(result.rc, 1)
-        # result.fail(cmd)
-        stderr = str(result.err, encoding="utf-8")
-        self.assertIn("RuntimeError: Qt event loop exited with code '-1'",
-                      stderr)
+        self.assertEqual(rc, 1)
+        self.assertIn("RuntimeError: Qt event loop exited with code '-1'", err)
 
     def test_incompatible_using_asyncio_from_qt(self):
         with qtinter.using_asyncio_from_qt():

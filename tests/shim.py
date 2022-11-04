@@ -1,4 +1,5 @@
-"""Test helper to import binding"""
+"""Test helper to import Qt binding defined by TEST_QT_MODULE environment
+variable.  This script does not use qtinter functionality."""
 
 import os
 
@@ -35,3 +36,23 @@ if is_pyqt:
 else:
     Signal = QtCore.Signal
     Slot = QtCore.Slot
+
+
+def run_test_script(filename, *args, **env):
+    from test.support.script_helper import run_python_until_end
+    folder = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+
+    env = {
+        "__cwd": folder,
+        "PYTHONPATH": "src",
+        "COVERAGE_PROCESS_START": ".coveragerc",
+        **env
+    }
+
+    result, cmd = run_python_until_end(
+        os.path.join("tests", filename), *args, **env)
+    return (
+        result.rc,
+        str(result.out, encoding="utf-8"),
+        str(result.err, encoding="utf-8"),
+    )

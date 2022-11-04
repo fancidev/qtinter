@@ -1,21 +1,10 @@
 """Test PyQt5/PyQt6/PySide2/PySide6 behavior"""
 
-import importlib
-import os
 import sys
 import unittest
+from shim import QtCore, Signal, Slot, is_pyqt
 
 
-binding_name = os.getenv("QTINTERBINDING", "")
-is_pyqt = binding_name.startswith("PyQt")
-
-QtCore = importlib.import_module(f"{binding_name}.QtCore")
-if is_pyqt:
-    Signal = QtCore.pyqtSignal
-    Slot = QtCore.pyqtSlot
-else:
-    Signal = QtCore.Signal
-    Slot = QtCore.Slot
 qc = QtCore.Qt.ConnectionType.QueuedConnection
 
 

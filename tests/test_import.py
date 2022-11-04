@@ -2,96 +2,64 @@
 
 import os
 import unittest
-from test.support.script_helper import run_python_until_end
-
-
-folder = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+from shim import run_test_script
 
 
 class TestImport(unittest.TestCase):
     def test_no_package(self):
         # If no binding is imported and QTINTERBINDING is not defined,
         # raise import error.
-        result, cmd = run_python_until_end(
-            os.path.join("tests", "import2.py"),
-            __cwd=folder,
-            PYTHONPATH="src",
-            COVERAGE_PROCESS_START=".coveragerc",
+        rc, out, err = run_test_script(
+            "import2.py",
             QTINTERBINDING="")
-        self.assertEqual(result.rc, 1)
-        stderr = str(result.err, encoding="utf-8")
+        self.assertEqual(rc, 1)
         self.assertIn("ImportError: no Qt binding is imported "
-                      "and QTINTERBINDING is not set", stderr)
+                      "and QTINTERBINDING is not set", err)
 
     def test_unique_package(self):
         # When a unique binding is imported, that binding is used and
         # QTINTERBINDING is ignored.  It's also OK to import qtinter
         # before importing the binding (i.e. binding resolution is lazy).
-        result, cmd = run_python_until_end(
-            os.path.join("tests", "import1.py"),
+        rc, out, err = run_test_script(
+            "import1.py",
             os.getenv("TEST_QT_MODULE"),
-            __cwd=folder,
-            PYTHONPATH="src",
-            COVERAGE_PROCESS_START=".coveragerc",
             QTINTERBINDING="Whatever")
-        try:
-            self.assertEqual(result.rc, 0)
-            self.assertEqual(str(result.out, encoding="utf-8").rstrip(),
-                             f"{os.getenv('TEST_QT_MODULE')}.QtCore")
-        except BaseException:
-            result.fail(cmd)
-            raise
+        self.assertEqual(rc, 0)
+        self.assertEqual(out.rstrip(), f"{os.getenv('TEST_QT_MODULE')}.QtCore")
 
     def test_multiple_package(self):
         # When two or more bindings are imported, raise ImportError.
-        result, cmd = run_python_until_end(
-            os.path.join("tests", "import3.py"),
-            __cwd=folder,
-            PYTHONPATH="src",
-            COVERAGE_PROCESS_START=".coveragerc",
+        rc, out, err = run_test_script(
+            "import3.py",
             QTINTERBINDING=os.getenv("TEST_QT_MODULE"))
-        self.assertEqual(result.rc, 1)
-        stderr = str(result.err, encoding="utf-8")
-        self.assertIn(
-            "ImportError: more than one Qt bindings are imported", stderr)
+        self.assertEqual(rc, 1)
+        self.assertIn("ImportError: more than one Qt bindings are imported",
+                      err)
 
     def test_good_env_variable(self):
         # When QTINTERBINDING is set to a good value, it should be used.
-        result, cmd = run_python_until_end(
-            os.path.join("tests", "import2.py"),
-            __cwd=folder,
-            PYTHONPATH="src",
-            COVERAGE_PROCESS_START=".coveragerc",
+        rc, out, err = run_test_script(
+            "import2.py",
             QTINTERBINDING=os.getenv("TEST_QT_MODULE"))
-        self.assertEqual(result.rc, 0)
-        stdout = str(result.out, encoding="utf-8").rstrip()
-        self.assertEqual(stdout, f"{os.getenv('TEST_QT_MODULE')}.QtCore")
+        self.assertEqual(rc, 0)
+        self.assertEqual(out.rstrip(), f"{os.getenv('TEST_QT_MODULE')}.QtCore")
 
     def test_bad_env_variable(self):
-        # When QTINTERBINDING is set to a bad value, ImportError should be
-        # raised.
-        result, cmd = run_python_until_end(
-            os.path.join("tests", "import2.py"),
-            __cwd=folder,
-            PYTHONPATH="src",
-            COVERAGE_PROCESS_START=".coveragerc",
+        # Invalid QTINTERBINDING should raise ImportError.
+        rc, out, err = run_test_script(
+            "import2.py",
             QTINTERBINDING="Whatever")
-        self.assertEqual(result.rc, 1)
-        stderr = str(result.err, encoding="utf-8")
+        self.assertEqual(rc, 1)
         self.assertIn(
-            "ImportError: unsupported QTINTERBINDING value 'Whatever'", stderr)
+            "ImportError: unsupported QTINTERBINDING value 'Whatever'", err)
 
     def test_wrong_platform_import(self):
         # Importing the submodule of wrong platform raises ImportError.
-        result, cmd = run_python_until_end(
-            os.path.join("tests", "import4.py"),
-            __cwd=folder,
-            PYTHONPATH="src",
-            COVERAGE_PROCESS_START=".coveragerc",
+        rc, out, err = run_test_script(
+            "import4.py",
             QTINTERBINDING=os.getenv("TEST_QT_MODULE"))
-        self.assertEqual(result.rc, 1)
-        stderr = str(result.err, encoding="utf-8")
-        self.assertIn("ImportError", stderr)
+        self.assertEqual(rc, 1)
+        self.assertIn("ImportError", err)
 
 
 if __name__ == "__main__":
