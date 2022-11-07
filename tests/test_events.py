@@ -357,7 +357,7 @@ class TestRunner(unittest.TestCase):
         self.assertEqual(rc, 1)
         self.assertIn("RuntimeError: Qt event loop exited with code '-1'", err)
 
-    def test_incompatible_using_asyncio_from_qt(self):
+    def test_incompatible_loop_mode(self):
         with qtinter.using_asyncio_from_qt():
             loop = asyncio.get_running_loop()
             self.assertIsInstance(loop, qtinter.QiBaseEventLoop)
@@ -365,6 +365,117 @@ class TestRunner(unittest.TestCase):
                     RuntimeError,
                     "cannot be called for a loop operating in GUEST mode"):
                 loop.run_forever()
+
+
+class TestAsyncioFromQt(unittest.TestCase):
+    def setUp(self):
+        if QtCore.QCoreApplication.instance() is not None:
+            self.app = QtCore.QCoreApplication.instance()
+        else:
+            self.app = QtCore.QCoreApplication([])
+
+    def tearDown(self):
+        self.app = None
+
+    def test_optional_arguments(self):
+        loop = QtCore.QEventLoop()
+
+        async def coro():
+            await asyncio.sleep(0)
+            loop.quit()
+
+        QtCore.QTimer.singleShot(0, qtinter.asyncslot(coro))
+
+        with qtinter.using_asyncio_from_qt(
+                loop_factory=qtinter.QiSelectorEventLoop, debug=True):
+            exec_qt_loop(loop)
+
+    def test_stop_from_callback(self):
+        # Stopping an asyncio event loop has effect after completing the
+        # current iteration.
+        loop = QtCore.QEventLoop()
+        var = 0
+
+        def step1():
+            nonlocal var
+            asyncio.get_running_loop().call_soon(step3)
+            asyncio.get_running_loop().stop()
+            var = 1
+
+        def step2():
+            nonlocal var
+            QtCore.QTimer.singleShot(100, loop.quit)
+            var = 2
+
+        def step3():  # called by clean-up routine
+            nonlocal var
+            var = 3
+
+        with qtinter.using_asyncio_from_qt():
+            asyncio.get_running_loop().call_soon(step1)
+            asyncio.get_running_loop().call_soon(step2)
+            loop = QtCore.QEventLoop()
+            exec_qt_loop(loop)
+            self.assertEqual(var, 2)  # step3 is not run in main loop
+
+        self.assertEqual(var, 3)  # step3 is run in clean-up routine
+
+    def test_stop_from_interleaved_code(self):
+        # Stopping a QiBaseEventLoop from interleaved code takes immediate
+        # effect.
+        loop = QtCore.QEventLoop()
+        msg = None
+
+        def step():
+            nonlocal msg
+            asyncio.get_running_loop().stop()
+            try:
+                asyncio.get_running_loop()
+            except RuntimeError as exc:
+                msg = str(exc)
+            finally:
+                loop.quit()
+
+        QtCore.QTimer.singleShot(0, step)
+        with qtinter.using_asyncio_from_qt():
+            exec_qt_loop(loop)
+
+        self.assertIn("no running event loop", msg)
+
+    def test_stop_twice(self):
+        # Stopping a stopped QiBaseEventLoop in GUEST mode is an error.
+        loop = QtCore.QEventLoop()
+        var = 0
+        msg = None
+
+        def step1():
+            nonlocal var
+            asyncio_loop = asyncio.get_running_loop()
+            asyncio_loop.stop()
+            asyncio_loop.call_soon(step2)
+            QtCore.QTimer.singleShot(100, lambda: step3(asyncio_loop))
+            var = 1
+
+        def step2():  # called from clean-up routine
+            nonlocal var
+            var = 2
+
+        def step3(asyncio_loop):
+            nonlocal msg
+            try:
+                asyncio_loop.stop()
+            except RuntimeError as exc:
+                msg = str(exc)
+            loop.quit()
+
+        with qtinter.using_asyncio_from_qt():
+            asyncio.get_running_loop().call_soon(step1)
+            exec_qt_loop(loop)
+            self.assertEqual(var, 1)
+
+        self.assertEqual(var, 2)
+        self.assertIn("stop can only be called when a loop operating in "
+                      "GUEST mode is running", msg)
 
 
 if __name__ == '__main__':

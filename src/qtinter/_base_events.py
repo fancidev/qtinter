@@ -576,14 +576,13 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
           - If stop() is called when the loop is STOPPED, raise an error.
             (The pre-stop idiom is not supported.)
 
-          - If stop() is called from a callback of a RUNNING loop, either
-            in INTEGRATED or EXCLUSIVE mode, the loop will stop after
-            completing the current iteration.
+          - If stop() is called from a callback of a RUNNING loop, the loop
+            will stop after completing the current iteration.
 
           - If stop() is called from interleaving code (a Qt slot) when
-            the loop is RUNNING in INTEGRATED mode, wake up the selector
-            and stop the loop immediately, since there might not be a Qt
-            loop to execute the next iteration.
+            the loop is RUNNING, wake up the selector and stop the loop
+            immediately, as there might not be a Qt loop to execute the
+            next iteration.
 
         If the loop is operating in NATIVE mode:
 
