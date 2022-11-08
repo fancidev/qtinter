@@ -366,6 +366,23 @@ class TestRunner(unittest.TestCase):
                     "cannot be called for a loop operating in GUEST mode"):
                 loop.run_forever()
 
+    def test_change_mode_in_bad_state(self):
+        # Cannot change the loop mode when running, stopping or closed.
+        async def coro():
+            loop.set_mode(qtinter.QiLoopMode.NATIVE)
+
+        loop = qtinter.new_event_loop()
+        with self.assertRaisesRegex(RuntimeError, "loop is already running"):
+            loop.run_until_complete(coro())
+
+        loop.stop()
+        with self.assertRaisesRegex(RuntimeError, "when the loop is stopping"):
+            loop.set_mode(qtinter.QiLoopMode.NATIVE)
+
+        loop.close()
+        with self.assertRaisesRegex(RuntimeError, "loop is closed"):
+            loop.set_mode(qtinter.QiLoopMode.NATIVE)
+
 
 class TestAsyncioFromQt(unittest.TestCase):
     def setUp(self):
@@ -476,6 +493,52 @@ class TestAsyncioFromQt(unittest.TestCase):
         self.assertEqual(var, 2)
         self.assertIn("stop can only be called when a loop operating in "
                       "GUEST mode is running", msg)
+
+    def test_wrong_mode(self):
+        # Cannot call QiBaseEventLoop.start() in NATIVE or OWNER mode.
+        loop = qtinter.new_event_loop()
+        with self.assertRaisesRegex(RuntimeError, "operating in GUEST mode"):
+            loop.start()
+
+        loop.set_mode(qtinter.QiLoopMode.NATIVE)
+        with self.assertRaisesRegex(RuntimeError, "operating in GUEST mode"):
+            loop.start()
+
+        # If we don't close the loop, "import getpass" raises KeyError in
+        # some other test case.  Very weird!
+        loop.close()
+
+
+class TestThreading(unittest.TestCase):
+    # Test that QiBaseEventLoop works in a thread.
+
+    def setUp(self):
+        if QtCore.QCoreApplication.instance() is not None:
+            self.app = QtCore.QCoreApplication.instance()
+        else:
+            self.app = QtCore.QCoreApplication([])
+
+    def tearDown(self):
+        self.app = None
+
+    def test_owner_mode(self):
+        # Simple test of OWNER mode in Python thread.
+        var = 0
+
+        async def coro():
+            nonlocal var
+            await asyncio.sleep(0)
+            var = 1
+
+        def entry():
+            with qtinter.using_qt_from_asyncio():
+                asyncio.run(coro())
+
+        thread = threading.Thread(target=entry)
+        thread.start()
+        thread.join()
+
+        self.assertEqual(var, 1)
 
 
 if __name__ == '__main__':

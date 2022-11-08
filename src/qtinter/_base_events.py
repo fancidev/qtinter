@@ -111,8 +111,6 @@ class _QiNotifierImpl(_QiNotifier):
             try:
                 if signal.getsignal(signal.SIGINT) is _interrupt_handler:
                     signal.signal(signal.SIGINT, signal.default_int_handler)
-            except (ValueError, OSError):
-                pass
             finally:
                 self._interrupt_handler_installed = False
 
@@ -265,8 +263,15 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
         self.__mode = mode
 
     def run_task(self, coro, *, name=None, allow_task_nesting=True):
-        # If allow_task_nesting is True, run_task() is allowed to be called
-        # from within a running task.
+        # If allow_task_nesting is True, run_task() is allowed to be
+        # called from within a running task.  This is achieved by
+        # 'suspending' the calling task before running the nested task
+        # and 'resuming' it after the nested task completes the first step.
+        current_task = asyncio.tasks.current_task(self)
+        if current_task is not None and not allow_task_nesting:
+            raise RuntimeError("cannot call run_task from a running task "
+                               "if allow_task_nesting is False")
+
         ntodo = len(self._ready)
         if name is None:
             task = self.create_task(coro)
@@ -277,16 +282,6 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
         # the _ready queue, which executes the first __step of the task.
         assert len(self._ready) == ntodo + 1
         handle = self._ready.pop()
-
-        if allow_task_nesting:
-            # asyncio does not allow nested task execution.  Work around
-            # this by 'suspending' the current task before running the
-            # nested task and 'resuming' it after the nested task completes
-            # one step.
-            current_task = asyncio.tasks.current_task(self)
-        else:
-            # Assume no nesting.  handle._run() will raise error if there is.
-            current_task = None
 
         if current_task is not None:
             asyncio.tasks._leave_task(self, current_task)

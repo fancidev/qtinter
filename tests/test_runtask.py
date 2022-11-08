@@ -2,6 +2,7 @@ from shim import QtCore
 import asyncio
 import inspect
 import qtinter
+import sys
 import unittest
 
 
@@ -135,6 +136,37 @@ class TestRunTask(unittest.TestCase):
     def test_recursive_error(self):
         # run_task recursively too deeply should raise StackOverflowError
         pass
+
+    @unittest.skipIf(sys.version_info < (3, 8), "requires Python >= 3.8")
+    def test_task_name(self):
+        # run_task should support task name.
+        async def coro(output):
+            output.append(1)
+            await asyncio.sleep(0)
+
+        async def entry():
+            output = []
+            task = self.loop.run_task(coro(output), name="MyTask!")
+            self.assertEqual(task.get_name(), "MyTask!")
+            self.assertEqual(output, [1])
+            self.assertFalse(task.done())
+            return await task
+
+        self.loop.run_until_complete(entry())
+
+    def test_disallow_nesting(self):
+        # If task nesting is disabled, raise RuntimeError
+        # run_task should support task name.
+        async def coro():
+            pass
+
+        async def entry():
+            self.loop.run_task(coro(), allow_task_nesting=False)
+            # return await task
+
+        with self.assertRaisesRegex(
+                RuntimeError, "cannot call run_task from a running task"):
+            self.loop.run_until_complete(entry())
 
 
 class TestRunTaskWithoutRunningLoop(unittest.TestCase):
