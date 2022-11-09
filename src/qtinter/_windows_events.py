@@ -142,20 +142,17 @@ class _QiProactor(asyncio.IocpProactor):
         if self.__notifier is None:
             return _overlapped.GetQueuedCompletionStatus(self._iocp, ms)
 
-        # Perform normal polling if timeout is zero.
-        if ms == 0:
-            return _overlapped.GetQueuedCompletionStatus(self._iocp, ms)
-
-        # Try non-blocking dequeue and return if any result is available.
+        # Try non-blocking dequeue and return if any result is available
+        # or timeout is zero.
         status = _overlapped.GetQueuedCompletionStatus(self._iocp, 0)
-        if status is not None:
+        if status is not None or ms == 0:
             return status
 
         # Launch a thread worker to wait for IO.
         self.__idle.clear()
         try:
             self.__dequeue_future = self.__executor.submit(self.__dequeue, ms)
-        except BaseException:
+        except BaseException:  # pragma: no cover
             # Should submit() raise, we assume no task is spawned.
             self.__idle.set()
             raise

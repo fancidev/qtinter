@@ -84,7 +84,7 @@ class _QiSelector(selectors.BaseSelector):
         self._idle.clear()
         try:
             self._select_future = self._executor.submit(self._select, timeout)
-        except BaseException:
+        except BaseException:  # pragma: no cover
             # Should submit() raise, we assume no task is spawned.
             self._idle.set()
             raise
@@ -161,8 +161,6 @@ class QiBaseSelectorEventLoop(
         if self.__wakeup_fd_installed:
             try:
                 signal.set_wakeup_fd(-1)
-            except (ValueError, OSError):
-                pass
             finally:
                 self.__wakeup_fd_installed = False
         super().close()

@@ -504,8 +504,9 @@ class TestAsyncioFromQt(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "operating in GUEST mode"):
             loop.start()
 
-        # If we don't close the loop, "import getpass" raises KeyError in
-        # some other test case.  Very weird!
+        # Must close the loop, or a KeyError will be raised when importing
+        # a non-imported module in the next test case.  The root cause is
+        # described at https://github.com/python/cpython/issues/91351
         loop.close()
 
 
