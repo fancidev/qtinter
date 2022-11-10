@@ -9,13 +9,12 @@ __all__ = 'asyncsignal',
 async def asyncsignal(signal):
     # signal must be pyqtSignal or Signal, which automatic closes
     # the connection when the receiver object is garbage collected.
-    # We do not call disconnect() explicitly because the signal
-    # sender might be gone when we attempt to disconnect, such as
+    # We do not call disconnect() explicitly because the sender
+    # might be gone when we attempt to disconnect, e.g. if waiting
     # for the 'destroyed' signal.
     from .bindings import QtCore, _QiSlotObject
 
     fut = asyncio.Future()
-    slot = _QiSlotObject()
 
     def handler(*args):
         nonlocal slot
@@ -35,15 +34,11 @@ async def asyncsignal(signal):
                 fut.set_result(result[0])
             else:
                 fut.set_result(result)
-        if slot is not None:
-            slot.set_callback(None)
-            slot = None
+        slot = None
 
-    slot.set_callback(handler)
-    signal.connect(slot.invoke_callback)
+    slot = _QiSlotObject(handler)
+    signal.connect(slot.slot)
     try:
         return await fut
     finally:
-        if slot is not None:
-            slot.set_callback(None)
-            slot = None
+        slot = None  # break cycle in case of exception

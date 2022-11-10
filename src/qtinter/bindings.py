@@ -78,13 +78,9 @@ class _QiSlotObject(QtCore.QObject):
 
     The connection is automatically closed when this object is deleted.
     """
-    def __init__(self):
+    def __init__(self, callback):
         super().__init__()
-        self._callback = None
-
-    def set_callback(self, callback):
         self._callback = callback
 
-    def invoke_callback(self, *args):
-        if self._callback is not None:
-            self._callback(*args)
+    def slot(self, *args):
+        self._callback(*args)
