@@ -70,13 +70,10 @@ class _QiSelector(selectors.BaseSelector):
         if self._notifier is None:
             return self._selector.select(timeout)
 
-        # Perform normal select if timeout is zero.
-        if timeout == 0:
-            return self._selector.select(timeout)
-
-        # Try select with zero timeout, and return if any IO is ready.
+        # Try select with zero timeout, and return if any IO is ready or
+        # timeout is zero.
         event_list = self._selector.select(0)
-        if event_list:
+        if event_list or timeout == 0:
             return event_list
 
         # No IO is ready and caller wants to wait.  select() in a separate
@@ -107,13 +104,15 @@ class _QiSelector(selectors.BaseSelector):
         # the selector must be idle.  In addition, the self pipe is
         # closed before closing the selector, so write_to_self cannot be
         # used at this point.
-        if not self._closed:
-            assert self._idle.is_set(), 'unexpected close'
-            self._executor.shutdown()
-            self._selector.close()
-            self._select_future = None
-            self._notifier = None
-            self._closed = True
+        if self._closed:  # pragma: no cover
+            return
+
+        assert self._idle.is_set(), 'unexpected close'
+        self._executor.shutdown()
+        self._selector.close()
+        self._select_future = None
+        self._notifier = None
+        self._closed = True
 
     def get_key(self, fileobj):
         self._unblock_if_blocked()
@@ -131,7 +130,7 @@ class QiBaseSelectorEventLoop(
     def __init__(self, selector=None):
         if selector is None:
             selector = selectors.DefaultSelector()
-        if isinstance(selector, unittest.mock.Mock):
+        if isinstance(selector, unittest.mock.Mock):  # pragma: no cover
             # Pass through mock object for testing
             qi_selector = selector
         else:

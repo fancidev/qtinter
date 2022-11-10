@@ -295,6 +295,60 @@ class TestModal(unittest.TestCase):
     #     self.assertEqual(var, 35)
 
 
+class TestSelectorEventLoop(unittest.TestCase):
+    def setUp(self):
+        if QtCore.QCoreApplication.instance() is not None:
+            self.app = QtCore.QCoreApplication.instance()
+        else:
+            self.app = QtCore.QCoreApplication([])
+
+    def tearDown(self):
+        self.app = None
+
+    def test_reader_writer(self):
+        reader_flag = b''
+
+        import socket
+        csock, ssock = socket.socketpair()
+
+        def reader_callback():
+            nonlocal reader_flag
+            reader_flag = csock.recv(1)
+
+        def writer_callback():
+            self.assertEqual(len(loop._selector.get_map()), map_len + 1)
+            csock.send(b'w')
+            loop.remove_writer(csock)
+
+        with qtinter.using_asyncio_from_qt(
+                loop_factory=qtinter.QiSelectorEventLoop):
+
+            loop = asyncio.get_running_loop()
+            map_len = len(loop._selector.get_map())  # for branch coverage
+            loop.add_reader(csock, reader_callback)
+            loop.add_writer(csock, writer_callback)
+
+            qt_loop = QtCore.QEventLoop()
+            QtCore.QTimer.singleShot(0, lambda: ssock.send(b'h'))
+            QtCore.QTimer.singleShot(10, qt_loop.quit)
+            exec_qt_loop(qt_loop)
+
+        self.assertEqual(reader_flag, b'h')
+        self.assertEqual(ssock.recv(10), b'w')
+        csock.close()
+        ssock.close()
+
+    def test_close_when_running(self):
+        async def coro():
+            asyncio.get_running_loop().close()
+
+        loop = qtinter.QiSelectorEventLoop()
+        with self.assertRaisesRegex(
+                RuntimeError, "Cannot close a running event loop"):
+            loop.run_until_complete(coro())
+        loop.close()
+
+
 class TestRunner(unittest.TestCase):
     def setUp(self):
         if QtCore.QCoreApplication.instance() is not None:
