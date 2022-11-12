@@ -437,6 +437,24 @@ class TestRunner(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "loop is closed"):
             loop.set_mode(qtinter.QiLoopMode.NATIVE)
 
+    def test_auto_stop(self):
+        # In OWNER mode, closing the underlying Qt event loop automatically
+        # stops the running asyncio event loop, even if it is blocked in
+        # select.
+        def quit():
+            # User code is more likely to call QtCore.QCoreApplication.quit(),
+            # but that doesn't work well with unit testing.  Therefore we use
+            # 'white-box' testing below.
+            loop._QiBaseEventLoop__qt_event_loop.quit()
+
+        QtCore.QTimer.singleShot(100, quit)
+        loop = qtinter.new_event_loop()
+        t0 = loop.time()
+        loop.run_forever()
+        t1 = loop.time()
+        loop.close()
+        self.assertTrue(t1 - t0 < 1, t1 - t0)
+
 
 class TestAsyncioFromQt(unittest.TestCase):
     def setUp(self):

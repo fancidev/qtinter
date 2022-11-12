@@ -611,7 +611,7 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
                 super().stop()
             else:
                 self._write_to_self()
-                super().stop()  # this only sets the flat
+                super().stop()  # this only sets the flag
                 self._qi_loop_cleanup()
 
     # is_running = BaseEventLoop.is_running
