@@ -7,7 +7,7 @@ import threading
 import time
 import unittest
 import warnings
-from shim import QtCore, run_test_script
+from shim import QtCore, run_test_script, is_pyqt
 
 
 warnings.filterwarnings('default')
@@ -494,6 +494,63 @@ class TestRunner(unittest.TestCase):
         self.assertEqual(rc, 1)
         self.assertIn("RuntimeError: Qt event loop exited with code '-1'", err)
 
+    def test_guest_mode_KeyboardInterrupt(self):
+        # In guest mode, a KeyboardInterrupt exception raised by a callback
+        # is propagated into the Qt event loop, which terminates the process
+        # with a non-zero exit code.
+        rc, out, err = run_test_script(
+            "runner4.py",
+            "KeyboardInterrupt",
+            QTINTERBINDING=os.getenv("TEST_QT_MODULE"))
+        if is_pyqt:
+            if sys.platform == 'win32':
+                self.assertEqual(rc, 0xC0000409)
+                self.assertEqual(out, "")
+                self.assertEqual(err, "")
+            else:
+                self.assertEqual(rc, -6)  # SIGABRT
+                self.assertEqual(out, "")
+                self.assertIn("Fatal Python error: Aborted", err)
+                self.assertIn("KeyboardInterrupt", err)
+        else:
+            self.assertEqual(rc, 0)
+            self.assertEqual(out.strip(), "post exec")
+            self.assertIn("KeyboardInterrupt", err)
+
+    def test_guest_mode_SystemExit(self):
+        # In guest mode, a SystemExit exception raised by a callback
+        # is propagated into the Qt event loop, which then terminates
+        # the process with exit code 0.
+        rc, out, err = run_test_script(
+            "runner4.py",
+            "SystemExit",
+            QTINTERBINDING=os.getenv("TEST_QT_MODULE"))
+        self.assertEqual(rc, 0)
+        self.assertEqual(out, "")
+        self.assertEqual(err, "")
+
+    def test_guest_mode_Exception(self):
+        # In guest mode, an Exception raised by a callback (ArithmeticError
+        # in this case) is 'consumed' by the asyncio event loop's exception
+        # handler, which merely logs the error to stderr.
+        rc, out, err = run_test_script(
+            "runner4.py",
+            "ArithmeticError",
+            QTINTERBINDING=os.getenv("TEST_QT_MODULE"))
+        self.assertEqual(rc, 0)
+        self.assertEqual(out.strip(), "post exec")
+        self.assertIn("ArithmeticError", err)
+
+    def test_owner_mode_SystemExit(self):
+        # In owner mode, a SystemExit exception raised by a callback is
+        # propagated to the caller.
+        async def coro():
+            raise SystemExit
+
+        with qtinter.using_qt_from_asyncio():
+            with self.assertRaises(SystemExit):
+                asyncio.run(coro())
+
     def test_incompatible_loop_mode(self):
         with qtinter.using_asyncio_from_qt():
             loop = asyncio.get_running_loop()
@@ -592,9 +649,9 @@ class TestAsyncioFromQt(unittest.TestCase):
 
         self.assertEqual(var, 3)  # step3 is run in clean-up routine
 
-    def test_stop_from_interleaved_code(self):
-        # Stopping a QiBaseEventLoop from interleaved code takes immediate
-        # effect.
+    def test_stop_from_interleaved_code_in_guest_mode(self):
+        # Stopping a QiBaseEventLoop from interleaved code in GUEST mode
+        # takes immediate effect.
         loop = QtCore.QEventLoop()
         msg = None
 
@@ -613,6 +670,17 @@ class TestAsyncioFromQt(unittest.TestCase):
             exec_qt_loop(loop)
 
         self.assertIn("no running event loop", msg)
+
+    def test_stop_from_interleaved_code_in_owner_mode(self):
+        # Stopping a QiBaseEventLoop from interleaved code in OWNER mode
+        # is as if with call_soon_threadsafe.
+        loop = qtinter.new_event_loop()
+        QtCore.QTimer.singleShot(100, loop.stop)
+        t0 = loop.time()
+        loop.run_forever()
+        t1 = loop.time()
+        loop.close()
+        self.assertTrue(t1 - t0 < 1, t1 - t0)
 
     def test_stop_twice(self):
         # Stopping a stopped QiBaseEventLoop in GUEST mode is an error.

@@ -89,7 +89,10 @@ class _QiNotifierImpl(_QiNotifier):
             if self._loop is not None:
                 self._loop._qi_loop_interrupt(exc)
             else:
-                pass  # ignore Ctrl+C for once
+                # In GUEST mode, raising KeyboardInterrupt terminates the
+                # logical asyncio event loop and propagates the exception
+                # into the Qt event loop.
+                raise
         finally:
             _interrupt_event.clear()
 
@@ -464,17 +467,18 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
             self.__run_once_error = exc
             self.__qt_event_loop.exit(1)
         else:
-            # In GUEST mode, stop the loop immediately and raise
-            # the error into the Qt event loop.  For PyQt this will
-            # terminate the process; for PySide this will log an error
-            # and then ignored.
-            # TODO: if KeyboardInterrupt is raised, the object may not
-            # TODO: be in a consistent state to perform cleanup.
+            # In GUEST mode, stop the loop immediately and raise exc
+            # into the Qt event loop.  If exc is SystemExit, the app
+            # will be terminated with exit code 0.  For any other type
+            # of exception, PyQt will terminate the process with a
+            # non-zero exit code, and PySide will log the error to
+            # stderr and then proceed.
+            #
+            # Note: If KeyboardInterrupt is raised (e.g. due to Ctrl+C
+            # being caught during _run_once), the event loop object may
+            # not be in a consistent state to perform cleanup.
             self._qi_loop_cleanup()
             raise exc
-            # TODO: implement consistent behavior under both bindings.
-            # TODO: maybe call some exception handler and let it decide
-            # TODO: what to do?
 
     # =========================================================================
     # Compatibility with Python 3.7
