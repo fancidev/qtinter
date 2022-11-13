@@ -263,36 +263,119 @@ class TestModal(unittest.TestCase):
     #     loop.run_forever()
     #     loop.close()
     #     self.assertEqual(var, 1)
-    #
-    # def test_call_next_outside_callback(self):
-    #     # Calling call_next() outside of a callback should raise RuntimeError
-    #     def fn(): pass
-    #
-    #     loop = qtinter.QiDefaultEventLoop()
-    #     with self.assertRaises(RuntimeError):
-    #         loop.call_next(fn)
-    #     loop.close()
-    #
-    # def test_call_next_from_callback(self):
-    #     # call_next should be invoked immediately
-    #     var = 3
-    #
-    #     def f():
-    #         nonlocal var
-    #         loop.call_next(g)
-    #         var += 4
-    #
-    #     def g():
-    #         nonlocal var
-    #         var *= 5
-    #
-    #     loop = qtinter.QiDefaultEventLoop()
-    #     loop.call_soon(f)
-    #     loop.call_soon(sys.exit)
-    #     with self.assertRaises(SystemExit):
-    #         loop.run_forever()
-    #     loop.close()
-    #     self.assertEqual(var, 35)
+
+    def test_exec_modal_outside_callback(self):
+        # Calling exec_modal() outside a callback should raise RuntimeError
+        def fn(): pass
+
+        loop = qtinter.QiDefaultEventLoop()
+        with self.assertRaisesRegex(
+                RuntimeError, 'must be called from a coroutine or callback'):
+            loop.exec_modal(fn)
+        loop.close()
+
+    def test_exec_modal_from_callback(self):
+        # Calling exec_modal(fn) should execute fn immediately after the
+        # current callback.
+        var = 3
+
+        def f():
+            nonlocal var
+            loop.exec_modal(g)
+            var += 4
+
+        def g():
+            nonlocal var
+            var *= 5
+
+        loop = qtinter.QiDefaultEventLoop()
+        loop.call_soon(f)
+        loop.call_soon(sys.exit)
+        with self.assertRaises(SystemExit):
+            loop.run_forever()
+        loop.close()
+        self.assertEqual(var, 35)
+
+    def test_exec_modal_twice(self):
+        # Calling exec_modal() twice from the same callback is an error.
+        var = 3
+
+        def f():
+            nonlocal var
+            loop.exec_modal(g)
+            with self.assertRaisesRegex(
+                RuntimeError, 'already scheduled and pending'
+            ):
+                loop.exec_modal(g)
+            var += 4
+
+        def g():
+            nonlocal var
+            var *= 5
+
+        loop = qtinter.QiDefaultEventLoop()
+        loop.call_soon(f)
+        loop.call_soon(sys.exit)
+        with self.assertRaises(SystemExit):
+            loop.run_forever()
+        loop.close()
+        self.assertEqual(var, 35)
+
+    def test_exec_modal_recursive(self):
+        # Calling exec_modal() from exec_modal is an error (because the
+        # function is executed out of asyncio loop context).
+        var = 3
+
+        def f():
+            nonlocal var
+            loop.exec_modal(g)
+            var += 4
+
+        def g():
+            nonlocal var
+            with self.assertRaisesRegex(
+                RuntimeError, 'must be called from a coroutine or callback'
+            ):
+                loop.exec_modal(h)
+            var *= 5
+
+        def h():
+            pass
+
+        loop = qtinter.QiDefaultEventLoop()
+        loop.call_soon(f)
+        loop.call_soon(sys.exit)
+        with self.assertRaises(SystemExit):
+            loop.run_forever()
+        loop.close()
+        self.assertEqual(var, 35)
+
+    def test_exec_modal_in_native_mode(self):
+        # exec_modal() is not supported in NATIVE mode.  So, for example, it
+        # cannot be called in clean-up code of using_asyncio_from_qt.
+        var = 0
+
+        def f():
+            nonlocal var
+            var = 1  # should not execute
+
+        async def coro():
+            nonlocal var
+            try:
+                await asyncio.sleep(1000)
+            except asyncio.CancelledError:  # clean-up
+                with self.assertRaisesRegex(
+                    RuntimeError, 'not supported in NATIVE mode'
+                ):
+                    await qtinter.modal(f)()
+                var = 2  # should execute
+
+        with qtinter.using_asyncio_from_qt():
+            task = asyncio.create_task(coro())
+            loop = QtCore.QEventLoop()
+            QtCore.QTimer.singleShot(100, loop.quit)
+            exec_qt_loop(loop)
+        self.assertEqual(var, 2)
 
 
 class TestSelectorEventLoop(unittest.TestCase):
