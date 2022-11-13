@@ -21,3 +21,5 @@ if hasattr(app, "exec"):
     app.exec()
 else:
     app.exec_()
+
+print("post exec")

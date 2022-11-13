@@ -322,7 +322,7 @@ class TestErrorHandling(unittest.TestCase):
                 self.assertIn("Fatal Python error: Aborted", err)
         else:
             self.assertEqual(rc, 0)
-            self.assertEqual(out, "")
+            self.assertEqual(out.strip(), "post exec")
             self.assertIn("RuntimeError", err)
 
     def test_raise_SystemExit_from_slot(self):
@@ -350,7 +350,7 @@ class TestErrorHandling(unittest.TestCase):
                 self.assertIn("Fatal Python error: Aborted", err)
         else:
             self.assertEqual(rc, 0)
-            self.assertEqual(out, "")
+            self.assertEqual(out.strip(), "post exec")
             self.assertIn("KeyboardInterrupt", err)
 
 
