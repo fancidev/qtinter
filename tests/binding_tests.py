@@ -312,9 +312,14 @@ class TestErrorHandling(unittest.TestCase):
         rc, out, err = run_test_script(
             "binding_raise.py", os.getenv("TEST_QT_MODULE"), "RuntimeError")
         if is_pyqt:
-            self.assertEqual(rc, -6)  # SIGABRT
-            self.assertEqual(out, "")
-            self.assertIn("Fatal Python error: Aborted", err)
+            if sys.platform == 'win32':
+                self.assertEqual(rc, 0xC0000409)
+                self.assertEqual(out, "")
+                self.assertEqual(err, "")
+            else:
+                self.assertEqual(rc, -6)  # SIGABRT
+                self.assertEqual(out, "")
+                self.assertIn("Fatal Python error: Aborted", err)
         else:
             self.assertEqual(rc, 0)
             self.assertEqual(out, "")
@@ -335,9 +340,14 @@ class TestErrorHandling(unittest.TestCase):
             os.getenv("TEST_QT_MODULE"),
             "KeyboardInterrupt")
         if is_pyqt:
-            self.assertEqual(rc, -6)  # SIGABRT
-            self.assertEqual(out, "")
-            self.assertIn("Fatal Python error: Aborted", err)
+            if sys.platform == 'win32':
+                self.assertEqual(rc, 0xC0000409)
+                self.assertEqual(out, "")
+                self.assertEqual(err, "")
+            else:
+                self.assertEqual(rc, -6)  # SIGABRT
+                self.assertEqual(out, "")
+                self.assertIn("Fatal Python error: Aborted", err)
         else:
             self.assertEqual(rc, 0)
             self.assertEqual(out, "")
