@@ -1,8 +1,9 @@
 """Test PyQt5/PyQt6/PySide2/PySide6 behavior"""
 
+import os
 import sys
 import unittest
-from shim import QtCore, Signal, Slot, is_pyqt
+from shim import QtCore, Signal, Slot, is_pyqt, run_test_script
 
 
 qc = QtCore.Qt.ConnectionType.QueuedConnection
@@ -302,6 +303,45 @@ class TestSlotSelection(unittest.TestCase):
         self.assertEqual(values2, ["control2", 12])
         self.assertEqual(values3, ["control3", "ha"])
         self.assertEqual(values4, ["control4", 12, "control4", "ha"])
+
+
+class TestErrorHandling(unittest.TestCase):
+    # PyQt aborts on unhandled exception.  PySide just logs to stderr.
+
+    def test_raise_RuntimeError_from_slot(self):
+        rc, out, err = run_test_script(
+            "binding_raise.py", os.getenv("TEST_QT_MODULE"), "RuntimeError")
+        if is_pyqt:
+            self.assertEqual(rc, -6)  # SIGABRT
+            self.assertEqual(out, "")
+            self.assertIn("Fatal Python error: Aborted", err)
+        else:
+            self.assertEqual(rc, 0)
+            self.assertEqual(out, "")
+            self.assertIn("RuntimeError", err)
+
+    def test_raise_SystemExit_from_slot(self):
+        # SystemExit is handled.
+        rc, out, err = run_test_script(
+            "binding_raise.py", os.getenv("TEST_QT_MODULE"), "SystemExit")
+        self.assertEqual(rc, 0)
+        self.assertEqual(out, "")
+        self.assertEqual(err, "")
+
+    def test_raise_KeyboardInterrupt_from_slot(self):
+        # SystemExit is handled.
+        rc, out, err = run_test_script(
+            "binding_raise.py",
+            os.getenv("TEST_QT_MODULE"),
+            "KeyboardInterrupt")
+        if is_pyqt:
+            self.assertEqual(rc, -6)  # SIGABRT
+            self.assertEqual(out, "")
+            self.assertIn("Fatal Python error: Aborted", err)
+        else:
+            self.assertEqual(rc, 0)
+            self.assertEqual(out, "")
+            self.assertIn("KeyboardInterrupt", err)
 
 
 if __name__ == '__main__':
