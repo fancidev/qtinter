@@ -8,6 +8,7 @@ import threading
 from asyncio import events
 from typing import Any, Callable, Optional
 from ._selectable import *
+from ._ki import *
 
 
 __all__ = 'QiBaseEventLoop', 'QiLoopMode',
@@ -17,34 +18,6 @@ class _QiYield(Exception):
     """ Raised by a _QiSelectable to indicate that no IO is readily
     available and that _run_once should yield to the Qt event loop. """
     pass
-
-
-class _InterruptEvent:
-    __slots__ = '_flag',
-
-    def __init__(self):
-        self._flag = False
-
-    def set(self) -> None:
-        self._flag = True
-
-    def is_set(self) -> bool:
-        return self._flag
-
-    def clear(self) -> None:
-        self._flag = False
-
-
-def _interrupt_handler(sig, frame):
-    assert sig == signal.SIGINT
-    # if frame is not None:
-    #     print(frame.f_locals)
-    if frame is not None and '_interrupt_event' in frame.f_locals:
-        _interrupt_event = frame.f_locals['_interrupt_event']
-        if isinstance(_interrupt_event, _InterruptEvent):
-            _interrupt_event.set()
-            return
-    return signal.default_int_handler(sig, frame)
 
 
 class _QiNotifierImpl(_QiNotifier):
@@ -58,43 +31,26 @@ class _QiNotifierImpl(_QiNotifier):
         self._qi_object = qi_object
         self._qi_object.add_callback(self._on_notified)
 
-        # Install a SIGINT handler if no custom handler is installed.
-        self._interrupt_handler_installed = False
-        if signal.getsignal(signal.SIGINT) is signal.default_int_handler:
-            try:
-                signal.signal(signal.SIGINT, _interrupt_handler)
-            except (ValueError, OSError):
-                pass
-            else:
-                self._interrupt_handler_installed = True
+        # Install a SIGINT handler for deferred KeyboardInterrupt.
+        self._signal_handler_installed = enable_deferred_ki()
 
-    def _on_notified(self, _interrupt_event=_InterruptEvent()):
+    @with_deferred_ki
+    def _on_notified(self):
+        if self._loop is None:
+            # TODO: print a warning that notification is received after
+            # TODO: the notifier is closed.
+            return
+
         # If Ctrl+C is pressed while the loop is in a 'non-blocking'
         # select(), the select() will be woken up (due to set_wakeup_fd)
         # and the _notified signal emitted.  KeyboardInterrupt will be
         # raised at the first point where Python byte code is run, i.e.
         # this method.  We wrap the body in try-except to handle this.
         try:
-            if _interrupt_event.is_set():
-                raise KeyboardInterrupt
-            if self._loop is not None:
-                self._loop._qi_loop_iteration()
-            else:
-                # TODO: print a warning that notification is received after
-                # TODO: the notifier is closed.
-                pass
-        except KeyboardInterrupt as exc:
-            # We catch Ctrl+C only once.  If Ctrl+C is pressed again
-            # immediately, the program will crash.
-            if self._loop is not None:
-                self._loop._qi_loop_interrupt(exc)
-            else:
-                # In GUEST mode, raising KeyboardInterrupt terminates the
-                # logical asyncio event loop and propagates the exception
-                # into the Qt event loop.
-                raise
-        finally:
-            _interrupt_event.clear()
+            raise_deferred_ki()
+            self._loop._qi_loop_iteration()
+        except BaseException as exc:
+            self._loop._qi_loop_interrupt(exc)
 
     def no_result(self):
         raise _QiYield
@@ -110,12 +66,9 @@ class _QiNotifierImpl(_QiNotifier):
             self._qi_object.remove_callback(self._on_notified)
             self._qi_object = None
             self._loop = None
-        if self._interrupt_handler_installed:
-            try:
-                if signal.getsignal(signal.SIGINT) is _interrupt_handler:
-                    signal.signal(signal.SIGINT, signal.default_int_handler)
-            finally:
-                self._interrupt_handler_installed = False
+        if self._signal_handler_installed:
+            disable_deferred_ki()
+            self._signal_handler_installed = False
 
 
 def _create_notifier(loop: "QiBaseEventLoop"):
@@ -402,8 +355,10 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
             # TODO: but this should not happen, because 0 timeout is passed
             # TODO: to select() if _stopping is True.
             pass
-        except BaseException as exc:
-            self._qi_loop_interrupt(exc)
+        except BaseException:
+            # Other BaseExceptions, notably KeyboardInterrupt and SystemExit,
+            # are propagated to the caller (_on_notified) to handle.
+            raise
         else:
             # If a modal_fn is scheduled, the iteration is considered
             # interrupted in order to execute modal_fn out of the
