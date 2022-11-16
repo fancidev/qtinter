@@ -76,6 +76,7 @@ class TestCtrlC(unittest.TestCase):
         finally:
             loop.close()
 
+    @unittest.skip("disable")
     def _test_ctrl_c_suppressed_1(self, loop):
         # User should be able to suppress Ctrl+C by installing a no-op handler.
         async def coro():
@@ -89,6 +90,7 @@ class TestCtrlC(unittest.TestCase):
                           _no_op_SIGINT_handler)
             signal.signal(signal.SIGINT, signal.default_int_handler)
 
+    @unittest.skip("disable")
     def _test_ctrl_c_suppressed_2(self, loop):
         # User should be able to suppress Ctrl+C by installing a no-op handler.
         async def coro():
