@@ -303,25 +303,30 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
         self.__notifier = _create_notifier(self)
         self.__notifier.notify()  # schedule initial _run_once
 
-        # Do not set notifier if a TestSelector is used (during testing).
-        if hasattr(self._selector, 'set_notifier'):
+        if not hasattr(self._selector, "set_notifier"):  # pragma: no cover
+            # Do not set notifier if mock selector is used (during testing).
+            pass
+        else:
             self._selector.set_notifier(self.__notifier)
 
         events._set_running_loop(self)  # TODO: what does this do?
 
     def _qi_loop_cleanup(self) -> None:
         """ Stop the logical asyncio event loop. """
-        assert self.is_running(), \
-            "_qi_loop_cleanup() must be called from a running loop"
+        if self.__old_agen_hooks is not None:
+            old_agen_hooks = self.__old_agen_hooks
+            self.__old_agen_hooks = None
+        else:
+            old_agen_hooks = sys.get_asyncgen_hooks()
 
-        old_agen_hooks = self.__old_agen_hooks
-        self.__old_agen_hooks = None
-
-        # Do not set notifier if a TestSelector is used (during testing).
-        if hasattr(self._selector, 'set_notifier'):
-            self._selector.set_notifier(None)
-        self.__notifier.close()
-        self.__notifier = None
+        if self.__notifier is not None:
+            if not hasattr(self._selector, "set_notifier"):  # pragma: no cover
+                # Do not set notifier if mock selector is used (during testing).
+                pass
+            else:
+                self._selector.set_notifier(None)
+            self.__notifier.close()
+            self.__notifier = None
 
         # ---- BEGIN COPIED FROM BaseEventLoop.run_forever
         self._stopping = False

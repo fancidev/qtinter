@@ -711,6 +711,18 @@ class TestRunner(unittest.TestCase):
         loop.stop()
         loop.close()
 
+    def test_double_close(self):
+        # It should be possible to call close() more than once.
+        loop = qtinter.new_event_loop()
+        loop.close()
+        loop.close()
+
+    def test_run_after_close(self):
+        # run_forever after close should fail.
+        loop = qtinter.new_event_loop()
+        loop.close()
+        self.assertRaises(RuntimeError, loop.run_forever)
+
 
 class TestAsyncioFromQt(unittest.TestCase):
     def setUp(self):
