@@ -17,6 +17,10 @@ def _raise_ki():
     return signal.default_int_handler(signal.SIGINT, None)
 
 
+def _no_op_SIGINT_handler(sig, frame):
+    pass
+
+
 class TestCtrlC(unittest.TestCase):
     # A collection of test cases for the behavior of Ctrl+C for a loop
     # operating in host mode.  The expected behavior is to propagate
@@ -34,7 +38,7 @@ class TestCtrlC(unittest.TestCase):
     def tearDown(self) -> None:
         self.app = None
 
-    def _test_ctrl_c(self, loop):
+    def _test_ctrl_c_while_selecting(self, loop):
         def SIGINT_after_delay():
             time.sleep(0.1)
             if sys.version_info < (3, 8):
@@ -51,35 +55,115 @@ class TestCtrlC(unittest.TestCase):
         finally:
             loop.close()
 
+    def _test_ctrl_c_while_processing(self, loop):
+        def SIGINT_after_delay():
+            time.sleep(0.5)
+            if sys.version_info < (3, 8):
+                import os
+                os.kill(os.getpid(), signal.SIGINT)
+            else:
+                signal.raise_signal(signal.SIGINT)
+
+        async def coro():
+            while True:
+                pass
+
+        thread = threading.Thread(target=SIGINT_after_delay)
+        try:
+            with self.assertRaises(KeyboardInterrupt):
+                loop.call_soon(thread.start)
+                loop.run_until_complete(coro())
+        finally:
+            loop.close()
+
+    def _test_ctrl_c_suppressed_1(self, loop):
+        # User should be able to suppress Ctrl+C by installing a no-op handler.
+        async def coro():
+            pass
+
+        signal.signal(signal.SIGINT, _no_op_SIGINT_handler)
+        try:
+            self.assertEqual(loop.run_until_complete(coro()), None)
+        finally:
+            self.assertIs(signal.getsignal(signal.SIGINT),
+                          _no_op_SIGINT_handler)
+            signal.signal(signal.SIGINT, signal.default_int_handler)
+
+    def _test_ctrl_c_suppressed_2(self, loop):
+        # User should be able to suppress Ctrl+C by installing a no-op handler.
+        async def coro():
+            signal.signal(signal.SIGINT, _no_op_SIGINT_handler)
+
+        try:
+            self.assertEqual(loop.run_until_complete(coro()), None)
+        finally:
+            self.assertIs(signal.getsignal(signal.SIGINT),
+                          _no_op_SIGINT_handler)
+            signal.signal(signal.SIGINT, signal.default_int_handler)
+
 
 @unittest.skipIf(sys.platform == 'win32', 'unix only')
 class TestUnixCtrlC(TestCtrlC):
     """Test Ctrl+C under unix."""
 
     def test_unix_loop(self):
-        self._test_ctrl_c(qtinter.QiDefaultEventLoop())
+        self._test_ctrl_c_while_selecting(qtinter.QiDefaultEventLoop())
+        self._test_ctrl_c_while_processing(qtinter.QiDefaultEventLoop())
 
-    def test_unix_loop_with_SIGCHLD_1(self):
+    def test_unix_loop_with_SIGCHLD_1_selecting(self):
         loop = qtinter.QiDefaultEventLoop()
         loop.add_signal_handler(signal.SIGCHLD, _raise_ki)
-        self._test_ctrl_c(loop)
+        self._test_ctrl_c_while_selecting(loop)
 
-    def test_unix_loop_with_SIGCHLD_2(self):
+    def test_unix_loop_with_SIGCHLD_1_processing(self):
+        loop = qtinter.QiDefaultEventLoop()
+        loop.add_signal_handler(signal.SIGCHLD, _raise_ki)
+        self._test_ctrl_c_while_processing(loop)
+
+    def test_unix_loop_with_SIGCHLD_2_selecting(self):
         loop = qtinter.QiDefaultEventLoop()
         loop.add_signal_handler(signal.SIGCHLD, _raise_ki)
         loop.remove_signal_handler(signal.SIGCHLD)
-        self._test_ctrl_c(loop)
+        self._test_ctrl_c_while_selecting(loop)
 
-    def test_unix_loop_with_SIGINT_1(self):
+    def test_unix_loop_with_SIGCHLD_2_processing(self):
+        loop = qtinter.QiDefaultEventLoop()
+        loop.add_signal_handler(signal.SIGCHLD, _raise_ki)
+        loop.remove_signal_handler(signal.SIGCHLD)
+        self._test_ctrl_c_while_processing(loop)
+
+    def test_unix_loop_with_SIGINT_1_selecting(self):
         loop = qtinter.QiDefaultEventLoop()
         loop.add_signal_handler(signal.SIGINT, _raise_ki)
-        self._test_ctrl_c(loop)
+        self._test_ctrl_c_while_selecting(loop)
 
-    def test_unix_loop_with_SIGINT_2(self):
+    # The following test will hang by construction, because add_signal_handler
+    # schedules the handler as a callback in the event loop, which has no
+    # chance to run if the event loop is busy processing.
+    # def test_unix_loop_with_SIGINT_1_processing(self):
+    #     loop = qtinter.QiDefaultEventLoop()
+    #     loop.add_signal_handler(signal.SIGINT, _raise_ki)
+    #     self._test_ctrl_c_while_processing(loop)
+
+    def test_unix_loop_with_SIGINT_2_selecting(self):
         loop = qtinter.QiDefaultEventLoop()
         loop.add_signal_handler(signal.SIGINT, _raise_ki)
         loop.remove_signal_handler(signal.SIGINT)
-        self._test_ctrl_c(loop)
+        self._test_ctrl_c_while_selecting(loop)
+
+    def test_unix_loop_with_SIGINT_2_processing(self):
+        loop = qtinter.QiDefaultEventLoop()
+        loop.add_signal_handler(signal.SIGINT, _raise_ki)
+        loop.remove_signal_handler(signal.SIGINT)
+        self._test_ctrl_c_while_processing(loop)
+
+    def test_unix_loop_ctrl_c_suppressed_1(self):
+        loop = qtinter.QiDefaultEventLoop()
+        self._test_ctrl_c_suppressed_1(loop)
+
+    def test_unix_loop_ctrl_c_suppressed_2(self):
+        loop = qtinter.QiDefaultEventLoop()
+        self._test_ctrl_c_suppressed_2(loop)
 
 
 # The Windows Ctrl+C test is not run for Python 3.7, for two reasons:
@@ -93,11 +177,33 @@ class TestUnixCtrlC(TestCtrlC):
 class TestWindowsCtrlC(TestCtrlC):
     """Test Ctrl+C under windows."""
 
-    def test_windows_proactor_loop(self):
-        self._test_ctrl_c(qtinter.QiProactorEventLoop())
+    def test_windows_proactor_loop_selecting(self):
+        self._test_ctrl_c_while_selecting(qtinter.QiProactorEventLoop())
 
-    def test_windows_selector_loop(self):
-        self._test_ctrl_c(qtinter.QiSelectorEventLoop())
+    def test_windows_proactor_loop_processing(self):
+        self._test_ctrl_c_while_processing(qtinter.QiProactorEventLoop())
+
+    def test_windows_selector_loop_selecting(self):
+        self._test_ctrl_c_while_selecting(qtinter.QiSelectorEventLoop())
+
+    def test_windows_selector_loop_processing(self):
+        self._test_ctrl_c_while_processing(qtinter.QiSelectorEventLoop())
+
+    def test_windows_proactor_loop_ctrl_c_suppressed_1(self):
+        loop = qtinter.QiProactorEventLoop()
+        self._test_ctrl_c_suppressed_1(loop)
+
+    def test_windows_proactor_loop_ctrl_c_suppressed_2(self):
+        loop = qtinter.QiProactorEventLoop()
+        self._test_ctrl_c_suppressed_2(loop)
+
+    def test_windows_selector_loop_ctrl_c_suppressed_1(self):
+        loop = qtinter.QiSelectorEventLoop()
+        self._test_ctrl_c_suppressed_1(loop)
+
+    def test_windows_selector_loop_ctrl_c_suppressed_2(self):
+        loop = qtinter.QiSelectorEventLoop()
+        self._test_ctrl_c_suppressed_2(loop)
 
 
 def exec_qt_loop(loop):
