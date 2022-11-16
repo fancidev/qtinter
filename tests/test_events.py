@@ -703,6 +703,14 @@ class TestRunner(unittest.TestCase):
         loop.close()
         self.assertTrue(t1 - t0 < 1, t1 - t0)
 
+    def test_start_stop(self):
+        # Starting and stopping loop immediately should work.
+        loop = qtinter.new_event_loop()
+        loop.set_mode(qtinter.QiLoopMode.GUEST)
+        loop.start()
+        loop.stop()
+        loop.close()
+
 
 class TestAsyncioFromQt(unittest.TestCase):
     def setUp(self):

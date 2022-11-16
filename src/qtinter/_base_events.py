@@ -2,7 +2,6 @@
 
 import asyncio
 import enum
-import signal
 import sys
 import threading
 from asyncio import events
@@ -36,9 +35,9 @@ class _QiNotifierImpl(_QiNotifier):
 
     @with_deferred_ki
     def _on_notified(self):
-        if self._loop is None:
-            # TODO: print a warning that notification is received after
-            # TODO: the notifier is closed.
+        if self._loop is None:  # pragma: no cover
+            # Notification is received after the notifier is closed.
+            # This branch is never run in testing, but is good to have.
             return
 
         # If Ctrl+C is pressed while the loop is in a 'non-blocking'
@@ -62,10 +61,10 @@ class _QiNotifierImpl(_QiNotifier):
         self._loop._write_to_self()
 
     def close(self):
-        if self._loop is not None:
-            self._qi_object.remove_callback(self._on_notified)
-            self._qi_object = None
-            self._loop = None
+        assert self._loop is not None, "_QiNotifierImpl already closed"
+        self._qi_object.remove_callback(self._on_notified)
+        self._qi_object = None
+        self._loop = None
         if self._signal_handler_installed:
             disable_deferred_ki()
             self._signal_handler_installed = False
@@ -306,7 +305,9 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
 
         # Do not set notifier if a TestSelector is used (during testing).
         if hasattr(self._selector, 'set_notifier'):
-            self._selector.set_notifier(self.__notifier)  # noqa
+            self._selector.set_notifier(self.__notifier)
+        else:  # pragma: no cover
+            pass  # for test.test_asyncio only
 
         events._set_running_loop(self)  # TODO: what does this do?
 
@@ -320,7 +321,9 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
         if self.__notifier is not None:
             # Do not set notifier if a TestSelector is used (during testing).
             if hasattr(self._selector, 'set_notifier'):
-                self._selector.set_notifier(None)  # noqa
+                self._selector.set_notifier(None)
+            else:  # pragma: no cover
+                pass  # for test.test_asyncio only
             self.__notifier.close()
             self.__notifier = None
         # ---- BEGIN COPIED FROM BaseEventLoop.run_forever
