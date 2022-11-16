@@ -13,9 +13,9 @@ for Python, allowing you to use one from the other seamlessly.
   from Qt and vice versa.  **No refactoring** of your existing codebase
   is required.
 
-* *Reliable*: :mod:`qtinter` runs on top of a Qt event loop and passes
+* *Reliable*: :mod:`qtinter` features **100% code coverage** and passes
   the **entire asyncio test suite**.  Rest assured that your favorite
-  asyncio or Qt component **will work**.
+  asyncio or Qt component will work.
 
 Read on for detailed documentation on :mod:`qtinter`.
 

@@ -172,12 +172,11 @@ semantics.
 .. note::
 
    An alternative implementation of :meth:`QiBaseEventLoop.run_task`
-   that is free of task nesting by construction is to replicate the
-   :ref:`using-asyncslot-without` pattern by executing the first step
-   of the coroutine in the caller's context instead of in its own task
-   context.
+   that is free of task nesting by construction is to execute the
+   first step of the coroutine in the caller's context instead of
+   in its own task context.
 
-   A problem with this alternative is that there is no natural
+   The main problem with this approach is that there is no natural
    way to retrieve the task object that wraps the remainder of the
    coroutine:
 
@@ -185,8 +184,8 @@ semantics.
      because a task object for the remainder is not created yet; and
 
    - If returned directly to the caller, it offers no advantage
-     over the :ref:`using-asyncslot-without` pattern if the task
-     object is required.
+     over calling :func:`asyncio.create_task` directly to obtain
+     the task object.
 
    In addition, that part of a coroutine may run out of a task context
    (if invoked from a callback) is just surprising.
