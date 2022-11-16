@@ -88,6 +88,7 @@ class TestCtrlC(unittest.TestCase):
             self.assertIs(signal.getsignal(signal.SIGINT),
                           _no_op_SIGINT_handler)
             signal.signal(signal.SIGINT, signal.default_int_handler)
+            loop.close()
 
     def _test_ctrl_c_suppressed_2(self, loop):
         # User should be able to suppress Ctrl+C by installing a no-op handler.
@@ -100,6 +101,7 @@ class TestCtrlC(unittest.TestCase):
             self.assertIs(signal.getsignal(signal.SIGINT),
                           _no_op_SIGINT_handler)
             signal.signal(signal.SIGINT, signal.default_int_handler)
+            loop.close()
 
 
 @unittest.skipIf(sys.platform == 'win32', 'unix only')
