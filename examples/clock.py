@@ -3,7 +3,7 @@
 import asyncio
 import datetime
 import qtinter  # <-- import module
-from PyQt6 import QtCore, QtWidgets
+from PySide6 import QtWidgets
 
 
 async def tick():
@@ -16,15 +16,11 @@ if __name__ == "__main__":
     app = QtWidgets.QApplication([])
 
     widget = QtWidgets.QLCDNumber()
-    widget.setWindowTitle("qtinter - LCD Clock Example")
-    widget.setNumDigits(8)
+    widget.setDigitCount(8)
+    widget.setWindowTitle("qtinter - Digital Clock example")
     widget.resize(300, 50)
     widget.show()
 
-    timer = QtCore.QTimer(widget)
-    timer.timeout.connect(qtinter.asyncslot(tick))  # <-- wrap in asyncslot
-    timer.setSingleShot(True)
-    timer.start(0)
-
-    with qtinter.using_asyncio_from_qt():  # <-- enclose in context manager
+    with qtinter.using_asyncio_from_qt():  # <-- enable asyncio from qt
+        task = asyncio.create_task(tick())
         app.exec()

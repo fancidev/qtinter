@@ -10,25 +10,22 @@ the usage of :mod:`qtinter`'s API are highlighted.
 
 .. _lcd-clock-example:
 
-LCD Clock
----------
+Digital Clock
+-------------
 
 This basic example displays an LCD-style digital clock.
 
 .. image:: _static/lcd_clock.gif
 
-The example demonstrates the use of :func:`using_asyncio_from_qt` to access
-asyncio functionality from a Qt application.  It also demonstrates the use
-of :func:`asyncslot` to transform a coroutine function into a Qt callback.
+This example demonstrates the use of :func:`using_asyncio_from_qt` to add
+asyncio support to a Qt application.
 
-Source code:
+Source code (``examples/clock.py``):
 
-.. toggle::
-
-   .. literalinclude:: ../examples/lcd_clock.py
-      :language: python
-      :emphasize-lines: 5,25,29
-      :linenos:
+.. literalinclude:: ../examples/clock.py
+   :language: python
+   :emphasize-lines: 5,25,29
+   :linenos:
 
 
 .. _http-client-example:
