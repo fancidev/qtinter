@@ -54,7 +54,7 @@ class TestRunTask(unittest.TestCase):
             return get_call_stack()
 
         async def qi_test_entry():
-            task = self.loop.run_task(coro(), allow_task_nesting=True)
+            task = qtinter.run_task(coro())
             self.assertTrue(task.done())
             return task.result()
 
@@ -70,7 +70,7 @@ class TestRunTask(unittest.TestCase):
 
         async def qi_test_entry():
             output = []
-            task = self.loop.run_task(coro(output), allow_task_nesting=True)
+            task = qtinter.run_task(coro(output))
             self.assertEqual(output, [1])
             self.assertFalse(task.done())
             return await task
@@ -93,8 +93,8 @@ class TestRunTask(unittest.TestCase):
             var /= 8
 
         async def qi_test_entry():
-            task2 = self.loop.create_task(coro2())
-            task1 = self.loop.run_task(coro1(), allow_task_nesting=True)
+            task2 = asyncio.create_task(coro2())
+            task1 = qtinter.run_task(coro1())
             await asyncio.gather(task1, task2)
 
         self.loop.run_until_complete(qi_test_entry())
@@ -146,7 +146,7 @@ class TestRunTask(unittest.TestCase):
 
         async def entry():
             output = []
-            task = self.loop.run_task(coro(output), name="MyTask!")
+            task = qtinter.run_task(coro(output), name="MyTask!")
             self.assertEqual(task.get_name(), "MyTask!")
             self.assertEqual(output, [1])
             self.assertFalse(task.done())
@@ -161,8 +161,7 @@ class TestRunTask(unittest.TestCase):
             pass
 
         async def entry():
-            self.loop.run_task(coro(), allow_task_nesting=False)
-            # return await task
+            qtinter.run_task(coro(), allow_task_nesting=False)
 
         with self.assertRaisesRegex(
                 RuntimeError, "cannot call run_task from a running task"):
@@ -179,32 +178,32 @@ class TestRunTaskWithoutRunningLoop(unittest.TestCase):
     def tearDown(self) -> None:
         self.loop.close()
 
-    def test_no_yield_no_loop(self):
-        # run_task with no yield and no running loop should be ok
-        async def coro():
-            return 'magic'
+    # def test_no_yield_no_loop(self):
+    #     # run_task with no yield and no running loop should be ok
+    #     async def coro():
+    #         return 'magic'
+    #
+    #     task = self.loop.run_task(coro())
+    #     self.assertTrue(task.done())
+    #     self.assertEqual(task.result(), 'magic')
 
-        task = self.loop.run_task(coro())
-        self.assertTrue(task.done())
-        self.assertEqual(task.result(), 'magic')
-
-    def test_one_yield_no_loop(self):
-        # run_task with no running loop should still execute the first step.
-        state = 'initial'
-
-        async def coro():
-            nonlocal state
-            state = 'executed'
-            await asyncio.sleep(0)
-            state = 'finished'
-
-        task = self.loop.run_task(coro())
-        self.assertEqual(state, 'executed')
-        self.assertFalse(task.done())
-        # Finish the suspended task
-        self.loop.run_until_complete(task)
-        self.assertTrue(task.done())
-        self.assertEqual(state, 'finished')
+    # def test_one_yield_no_loop(self):
+    #     # run_task with no running loop should still execute the first step.
+    #     state = 'initial'
+    #
+    #     async def coro():
+    #         nonlocal state
+    #         state = 'executed'
+    #         await asyncio.sleep(0)
+    #         state = 'finished'
+    #
+    #     task = self.loop.run_task(coro())
+    #     self.assertEqual(state, 'executed')
+    #     self.assertFalse(task.done())
+    #     # Finish the suspended task
+    #     self.loop.run_until_complete(task)
+    #     self.assertTrue(task.done())
+    #     self.assertEqual(state, 'finished')
 
 
 if __name__ == '__main__':

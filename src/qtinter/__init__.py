@@ -48,6 +48,7 @@ from ._signal import *
 from ._slot import *
 from ._modal import *
 from ._contexts import *
+from ._tasks import *
 
 
 __all__ = (
@@ -57,7 +58,8 @@ __all__ = (
     _signal.__all__ +
     _slot.__all__ +
     _modal.__all__ +
-    _contexts.__all__
+    _contexts.__all__ +
+    _tasks.__all__
 )
 
 

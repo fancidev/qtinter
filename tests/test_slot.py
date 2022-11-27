@@ -191,19 +191,33 @@ class TestFreeFunction(TestMixin, unittest.TestCase):
         self.assertEqual(self._test_slot(asyncslot(f)), [0])
 
     # -------------------------------------------------------------------------
-    # Test running asyncslot without a loop or with an incompatible loop
+    # Test asyncslot without a loop
     # -------------------------------------------------------------------------
 
     def test_no_loop(self):
         async def f(): pass
-        with self.assertRaisesRegex(RuntimeError, 'without'):
+        with self.assertRaisesRegex(RuntimeError, 'no running event loop'):
             asyncslot(f)()
 
-    def test_incompatible_loop(self):
+    # -------------------------------------------------------------------------
+    # Test asyncslot with a native asyncio loop (which works)
+    # -------------------------------------------------------------------------
+
+    def test_native_loop(self):
+        var = 1
+
+        async def g():
+            nonlocal var
+            var = 2
+            await asyncio.sleep(1)
+            var = 3
+
         async def f():
-            asyncslot(f)()
-        with self.assertRaisesRegex(RuntimeError, 'compatible'):
-            asyncio.run(f())
+            asyncslot(g)()
+            assert var == 2
+
+        asyncio.run(f())
+        self.assertEqual(var, 2)
 
 
 # =============================================================================

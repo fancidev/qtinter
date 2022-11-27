@@ -217,41 +217,6 @@ class QiBaseEventLoop(asyncio.BaseEventLoop):
             raise RuntimeError('cannot call set_mode when the loop is stopping')
         self.__mode = mode
 
-    def run_task(self, coro, *, name=None, allow_task_nesting=True):
-        # If allow_task_nesting is True, run_task() is allowed to be
-        # called from within a running task.  This is achieved by
-        # 'suspending' the calling task before running the nested task
-        # and 'resuming' it after the nested task completes the first step.
-        current_task = asyncio.tasks.current_task(self)
-        if current_task is not None and not allow_task_nesting:
-            raise RuntimeError("cannot call run_task from a running task "
-                               "if allow_task_nesting is False")
-
-        ntodo = len(self._ready)
-        if name is None:
-            task = self.create_task(coro)
-        else:
-            task = self.create_task(coro, name=name)
-
-        # create_task must have scheduled exactly one callback to the end of
-        # the _ready queue, which executes the first __step of the task.
-        assert len(self._ready) == ntodo + 1
-        handle = self._ready.pop()
-
-        if current_task is not None:
-            asyncio.tasks._leave_task(self, current_task)
-        try:
-            # The following call only propagates SystemExit and
-            # KeyboardInterrupt.
-            handle._run()
-        finally:
-            if current_task is not None:
-                asyncio.tasks._enter_task(self, current_task)
-
-        # Return the task object (which encapsulates the remainder of the
-        # coroutine).
-        return task
-
     def exec_modal(self, modal_fn: Callable[[], Any]) -> None:
         """Schedule modal_fn to be called immediately after the current
         callback completes.  modal_fn will be called as if it were
