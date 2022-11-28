@@ -5,7 +5,6 @@ import functools
 import inspect
 import weakref
 from typing import Callable, Coroutine, Dict, Set
-from ._base_events import QiBaseEventLoop
 from ._tasks import run_task
 
 
@@ -50,7 +49,7 @@ _running_tasks: Set[asyncio.Task] = set()
 CoroutineFunction = Callable[..., Coroutine]
 
 
-def _run_coroutine_function(fn, param_count, args, task_factory):
+def _run_coroutine_function(fn, param_count, args, task_runner):
     """Call coroutine function fn with no more than param_count *args and
     return a task wrapping the returned coroutine using task_factory."""
 
@@ -60,7 +59,7 @@ def _run_coroutine_function(fn, param_count, args, task_factory):
     else:
         coro = fn(*args)
 
-    task = task_factory(coro)  # TODO: set name and context
+    task = task_runner(coro)  # TODO: set name and context
     _running_tasks.add(task)
     task.add_done_callback(_running_tasks.discard)
     return task
@@ -73,7 +72,7 @@ _async_slots: Dict[int, "_AsyncSlotMixin"] = dict()
 
 
 class _AsyncSlotMixin:
-    def __init__(self, method, param_count, task_factory):
+    def __init__(self, method, param_count, task_runner):
         super().__init__()
         # Make self.method available to finalizer even if weak_method fails.
         self.method = None
@@ -85,7 +84,7 @@ class _AsyncSlotMixin:
         # strong references to this wrapper object.
         self.method = method
         self.param_count = param_count
-        self.task_factory = task_factory
+        self.task_runner = task_runner
         self.method_name = repr(method)
 
     def __del__(self):
@@ -106,10 +105,10 @@ class _AsyncSlotMixin:
         assert fn is not None, \
             f"method {self.method_name} is unexpectedly garbage collected"
         return _run_coroutine_function(
-            fn, self.param_count, args, self.task_factory)
+            fn, self.param_count, args, self.task_runner)
 
 
-def asyncslot(fn: CoroutineFunction, *, task_factory=run_task):
+def asyncslot(fn: CoroutineFunction, *, task_runner=run_task):
     """Wrap coroutine function to make it usable as a Qt slot.
 
     If fn is a bound method object, the returned wrapper will also be a
@@ -161,12 +160,12 @@ def asyncslot(fn: CoroutineFunction, *, task_factory=run_task):
             functools.update_wrapper(handle, fn)
             handle.__dict__.pop("__wrapped__")  # avoid strong reference
 
-        return _AsyncSlotWrapper(fn, param_count, task_factory).handle
+        return _AsyncSlotWrapper(fn, param_count, task_runner).handle
 
     else:
         # fn is not a method object.  Keep a strong reference in this case.
         @functools.wraps(fn)
         def asyncslot_wrapper(*args):
-            return _run_coroutine_function(fn, param_count, args, task_factory)
+            return _run_coroutine_function(fn, param_count, args, task_runner)
 
         return asyncslot_wrapper
