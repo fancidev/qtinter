@@ -34,13 +34,15 @@ current coding pattern:
   event loop object that runs on top of a Qt event loop.
 
 
-`Low-level classes`_ that do the actual work of bridging Qt and asyncio:
+`Low-level API`_ that does the actual work of bridging Qt and asyncio:
 
 * `Event loop interface`_
 
 * `Event loop objects`_
 
 * `Event loop policy objects`_
+
+* `Task runner`_
 
 
 Context managers
@@ -116,30 +118,36 @@ Helper functions
       keep a strong reference to the sender object, or listen to
       its ``destroyed`` signal.
 
-.. function:: asyncslot(fn: typing.Callable[..., typing.Coroutine]) \
-              -> typing.Callable[..., asyncio.Task]
+.. function:: asyncslot(fn: typing.Callable[[typing.Unpack[Ts]], typing.Coroutine[T]], *, task_runner: Callable[[typing.Coroutine[T]], asyncio.Task[T]] = qtinter.run_task) -> typing.Callable[[typing.Unpack[Ts]], asyncio.Task[T]]
 
    Return a callable object wrapping coroutine function *fn* so that
    it can be connected to a Qt signal.
 
-   When the returned callable object is invoked, *fn* is called with the
-   same arguments to produce a coroutine object.  The coroutine is then
-   wrapped in an :class:`asyncio.Task` and executed immediately until
-   the first ``yield``, ``return`` or ``raise``, whichever comes first.
-   The remainder of the coroutine is scheduled for later execution.
-   The :class:`asyncio.Task` object is returned.
+   When the returned wrapper is called, *fn* is called with the same
+   arguments to produce a coroutine object.  The coroutine object is
+   then passed to *task_runner* to create an :class:`asyncio.Task`
+   object that handles its execution.  The task object is returned
+   by the wrapper.
 
-   A :class:`QiBaseEventLoop` must be running when the returned
-   callable object is invoked.
+   *task_runner* determines how the coroutine is scheduled.  The
+   default runner, :class:`run_task`, eagerly executes the task
+   until the first ``yield``, ``return`` or ``raise`` (whichever comes
+   first) before returning the task object.  The remainder of the
+   coroutine is scheduled for later execution.
+
+   .. note::
+
+      :func:`asyncslot` keeps a strong reference to any task object
+      it creates until the task completes.
 
    .. note::
 
       If *fn* is a (bound) method object, the returned wrapper will also
       be a method object whose lifetime is equal to that of *fn*, except
-      that a strong reference to the wrapper object also keeps *fn* alive.
+      that a strong reference to the returned wrapper keeps *fn* alive.
 
-.. function:: modal(fn: typing.Callable[..., typing.Any]) -> \
-              typing.Callable[..., typing.Coroutine]
+.. function:: modal(fn: typing.Callable[[typing.Unpack[Ts]], T]) -> \
+              typing.Callable[[typing.Unpack[Ts]], typing.Coroutine[T]]
 
    Return a coroutine function that wraps a regular function *fn*.
    The coroutine function takes the same arguments as *fn*.
@@ -180,10 +188,10 @@ Loop factory
    *loop_factory* parameter when constructing :class:`asyncio.Runner`.
 
 
-Low-level classes
------------------
+Low-level API
+-------------
 
-You normally do not have to use these classes directly.
+You normally do not need to use these low-level API directly.
 
 
 Event loop interface
@@ -211,25 +219,6 @@ All `event loop objects`_ below are derived from the abstract base class
       If the current callback raises :exc:`KeyboardInterrupt` or
       :exc:`SystemExit`, *fn* will be called the next time the loop
       is run.
-
-   .. method:: run_task(coro: typing.Coroutine, *, \
-                        name: typing.Optional[str] = None, \
-                        allow_task_nesting: bool = True) -> asyncio.Task
-
-      Create an :external:class:`asyncio.Task` wrapping the coroutine
-      *coro* and execute it immediately until the first ``yield``,
-      ``return`` or ``raise``, whichever comes first.  The remainder
-      of the coroutine is scheduled for later execution.  Return the
-      :external:class:`asyncio.Task` object.
-
-      If *allow_task_nesting* is ``True`` (the default), this method
-      is allowed to be called from within a running task --- the task
-      is 'suspended' before executing the first step of *coro* and
-      'resumed' after that step completes.  If *allow_task_nesting*
-      is ``False``, this method can only be called from a callback or
-      from interleaved code.
-
-      *In Python 3.8 and above*: Added the *name* parameter.
 
    .. method:: set_mode(mode: QiLoopMode) -> None:
 
@@ -311,4 +300,31 @@ Event loop policy objects
 
    Event loop policy that creates :class:`QiSelectorEventLoop`.
 
+
+Task runner
+~~~~~~~~~~~
+
+.. function:: run_task(coro: typing.Coroutine[T], *, \
+                       allow_task_nesting: bool = True, \
+                       name: typing.Optional[str] = None, \
+                       context: typing.Optional[contextvars.Context] = None \
+              ) -> asyncio.Task[T]
+
+   Create an :external:class:`asyncio.Task` wrapping the coroutine
+   *coro* and execute it immediately until the first ``yield``,
+   ``return`` or ``raise``, whichever comes first.  The remainder
+   of the coroutine is scheduled for later execution.  Return the
+   :external:class:`asyncio.Task` object.
+
+   If *allow_task_nesting* is ``True`` (the default), this method
+   is allowed to be called from a running task --- the calling task
+   is 'suspended' before executing the first step of *coro* and
+   'resumed' after that step completes.  If *allow_task_nesting*
+   is ``False``, this method can only be called from a callback.
+
+   An asyncio event loop must be running when this function is called.
+
+   *Since Python 3.8*: Added the *name* parameter.
+
+   *Since Python 3.11*: Added the *context* parameter.
 
