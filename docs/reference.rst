@@ -117,9 +117,9 @@ Helper functions
    .. note::
 
       This function will wait indefinitely if the signal is never
-      emitted or if the sender object is deleted.  To avoid this,
-      keep a strong reference to the sender object, or listen to
-      its ``destroyed`` signal.
+      emitted or if the sender object is deleted.  To handle the
+      latter situation, keep a strong reference to the sender object
+      or listen to its ``destroyed`` signal.
 
 .. function:: asyncslot(fn: typing.Callable[[typing.Unpack[Ts]], typing.Coroutine[T]], *, task_runner: Callable[[typing.Coroutine[T]], asyncio.Task[T]] = qtinter.run_task) -> typing.Callable[[typing.Unpack[Ts]], asyncio.Task[T]]
 
@@ -132,11 +132,10 @@ Helper functions
    object that handles its execution.  The task object is returned
    by the wrapper.
 
-   *task_runner* determines how the coroutine is scheduled.  The
-   default runner, :class:`run_task`, eagerly executes the task
-   until the first ``yield``, ``return`` or ``raise`` (whichever comes
-   first) before returning the task object.  The remainder of the
-   coroutine is scheduled for later execution.
+   The default *task_runner*, :class:`run_task`, eagerly executes the
+   task until the first ``yield``, ``return`` or ``raise`` (whichever
+   comes first) before returning the task object.  The remainder of
+   the coroutine is scheduled for later execution.
 
    .. note::
 
