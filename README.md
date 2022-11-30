@@ -20,10 +20,9 @@ $ pip install qtinter
 ## Using asyncio from Qt
 
 To use asyncio-based libraries in Qt for Python, enclose `app.exec()`
-inside context manager `qtinter.using_asyncio_from_qt()`, and optionally
-connect Qt signals to coroutine functions using `qtinter.asyncslot()`.
+inside context manager `qtinter.using_asyncio_from_qt()`.
 
-Minimal example (taken from `examples/lcd_clock.py`):
+Minimal example (taken from `examples/clock.py`):
 
 ```Python
 """Display LCD-style digital clock"""
@@ -31,7 +30,7 @@ Minimal example (taken from `examples/lcd_clock.py`):
 import asyncio
 import datetime
 import qtinter  # <-- import module
-from PyQt6 import QtCore, QtWidgets
+from PySide6 import QtWidgets
 
 async def tick():
     while True:
@@ -42,37 +41,36 @@ if __name__ == "__main__":
     app = QtWidgets.QApplication([])
 
     widget = QtWidgets.QLCDNumber()
-    widget.setWindowTitle("qtinter - LCD Clock Example")
-    widget.setNumDigits(8)
+    widget.setDigitCount(8)
+    widget.setWindowTitle("qtinter - Digital Clock example")
     widget.resize(300, 50)
     widget.show()
 
-    timer = QtCore.QTimer(widget)
-    timer.timeout.connect(qtinter.asyncslot(tick))  # <-- wrap in asyncslot
-    timer.setSingleShot(True)
-    timer.start(0)
-
-    with qtinter.using_asyncio_from_qt():  # <-- enclose in context manager
+    with qtinter.using_asyncio_from_qt():  # <-- enable asyncio in qt code
+        task = asyncio.create_task(tick())
         app.exec()
 ```
 
 ## Using Qt from asyncio
 
 To use Qt components from asyncio-based code, enclose the asyncio
-entry-point inside context manager `qtinter.using_qt_from_asyncio()`,
-and optionally wait for Qt signals using `qtinter.asyncsignal()`.
+entry-point inside context manager `qtinter.using_qt_from_asyncio()`.
 
 Minimal example (taken from `examples/color.py`):
 
 ```Python
+"""Display the RGB code of a color chosen by the user"""
+
 import asyncio
 import qtinter  # <-- import module
-from PyQt6 import QtWidgets
+from PySide6 import QtWidgets
 
 async def choose_color():
     dialog = QtWidgets.QColorDialog()
     dialog.show()
-    result = await qtinter.asyncsignal(dialog.finished)  # <-- wait for signal
+    future = asyncio.Future()
+    dialog.finished.connect(future.set_result)
+    result = await future
     if result == QtWidgets.QDialog.DialogCode.Accepted:
         return dialog.selectedColor().name()
     else:
@@ -80,7 +78,7 @@ async def choose_color():
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication([])
-    with qtinter.using_qt_from_asyncio():  # <-- enclose in context manager
+    with qtinter.using_qt_from_asyncio():  # <-- enable qt in asyncio code
         color = asyncio.run(choose_color())
         if color is not None:
             print(color)
@@ -88,16 +86,15 @@ if __name__ == "__main__":
 
 ## Using modal dialogs
 
-To execute a modal dialog without blocking the asyncio event loop and
-without the hazard of potential re-entrance, wrap the dialog entry-point
-in `qtinter.modal()` and `await` on it.
+To execute a modal dialog without blocking the asyncio event loop,
+wrap the dialog entry-point in `qtinter.modal()` and `await` on it.
 
 Minimal example (taken from `examples/hit_100.py`):
 
 ```Python
 import asyncio
 import qtinter
-from PyQt6 import QtWidgets
+from PySide6 import QtWidgets
 
 async def main():
     async def counter():

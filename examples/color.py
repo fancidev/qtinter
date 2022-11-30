@@ -1,14 +1,16 @@
-"""Minimal demo using Qt from asyncio code"""
+"""Display the RGB code of a color chosen by the user"""
 
 import asyncio
 import qtinter  # <-- import module
-from PyQt6 import QtWidgets
+from PySide6 import QtWidgets
 
 
 async def choose_color():
     dialog = QtWidgets.QColorDialog()
     dialog.show()
-    result = await qtinter.asyncsignal(dialog.finished)  # <-- wait for signal
+    future = asyncio.Future()
+    dialog.finished.connect(future.set_result)
+    result = await future
     if result == QtWidgets.QDialog.DialogCode.Accepted:
         return dialog.selectedColor().name()
     else:
@@ -17,7 +19,7 @@ async def choose_color():
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication([])
-    with qtinter.using_qt_from_asyncio():  # <-- enclose in context manager
+    with qtinter.using_qt_from_asyncio():  # <-- enable qt in asyncio code
         color = asyncio.run(choose_color())
         if color is not None:
             print(color)

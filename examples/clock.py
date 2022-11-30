@@ -21,6 +21,6 @@ if __name__ == "__main__":
     widget.resize(300, 50)
     widget.show()
 
-    with qtinter.using_asyncio_from_qt():  # <-- enable asyncio from qt
+    with qtinter.using_asyncio_from_qt():  # <-- enable asyncio in qt code
         task = asyncio.create_task(tick())
         app.exec()
