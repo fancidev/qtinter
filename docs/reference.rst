@@ -86,7 +86,9 @@ Context managers
 Helper functions
 ----------------
 
-.. function:: asyncsignal(signal) -> typing.Any
+.. function:: asyncsignal(signal: Signal[]) -> None
+              asyncsignal(signal: Signal[T]) -> T
+              asyncsignal(signal: Signal[typing.Unpack[Ts]]) -> typing.Tuple[typing.Unpack[Ts]]
    :async:
 
    Wait until *signal* is emitted and return the signal arguments.
@@ -96,9 +98,10 @@ Helper functions
    .. _PySide2.QtCore.Signal: https://doc.qt.io/qtforpython-5/PySide2/QtCore/Signal.html
    .. _PySide6.QtCore.Signal: https://doc.qt.io/qtforpython/PySide6/QtCore/Signal.html#PySide6.QtCore.PySide6.QtCore.Signal
 
-   *signal* must be a bound Qt signal, i.e. one of
+   *signal* must be a bound Qt signal object, i.e. a bound
    `PyQt5.QtCore.pyqtSignal`_, `PyQt6.QtCore.pyqtSignal`_,
-   `PySide2.QtCore.Signal`_ or `PySide6.QtCore.Signal`_.
+   `PySide2.QtCore.Signal`_ or `PySide6.QtCore.Signal`_, or
+   an object with a *connect* method that provides equivalent semantics.
 
    If the signal has no arguments, return ``None``.  If the signal has
    just one argument, return that argument.  If the signal has two or
@@ -212,6 +215,7 @@ All `event loop objects`_ below are derived from the abstract base class
 
       Schedule *fn* to be called as interleaved code (i.e. not as a
       callback) immediately after the current callback completes.
+      The return value of *fn* is ignored.
 
       This method must be called from a coroutine or callback.  There
       can be at most one pending *fn* at any time.
@@ -264,7 +268,7 @@ Event loop objects
 
    *In Python 3.7*: alias to :class:`QiSelectorEventLoop`.
 
-   *In Python 3.8 and above*: alias to :class:`QiSelectorEventLoop`
+   *Since Python 3.8*: alias to :class:`QiSelectorEventLoop`
    on Unix and :class:`QiProactorEventLoop` on Windows.
 
 .. class:: QiProactorEventLoop(proactor=None)
@@ -285,9 +289,9 @@ Event loop policy objects
 
 .. class:: QiDefaultEventLoopPolicy
 
-   On Python 3.7, alias to :class:`QiSelectorEventLoopPolicy`.
+   *In Python 3.7*: alias to :class:`QiSelectorEventLoopPolicy`.
 
-   On Python 3.8 and above, alias to :class:`QiSelectorEventLoopPolicy`
+   *Since Python 3.8*: alias to :class:`QiSelectorEventLoopPolicy`
    on Unix and :class:`QiProactorEventLoopPolicy` on Windows.
 
 .. class:: QiProactorEventLoopPolicy
