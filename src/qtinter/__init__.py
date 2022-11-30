@@ -44,8 +44,8 @@ if sys.version_info < (3, 7):  # pragma: no cover
 from ._base_events import *
 from ._selector_events import *
 from ._proactor_events import *
-from ._signal import *
-from ._slot import *
+from ._signals import *
+from ._slots import *
 from ._modal import *
 from ._contexts import *
 from ._tasks import *
@@ -55,8 +55,8 @@ __all__ = (
     _base_events.__all__ +
     _selector_events.__all__ +
     _proactor_events.__all__ +
-    _signal.__all__ +
-    _slot.__all__ +
+    _signals.__all__ +
+    _slots.__all__ +
     _modal.__all__ +
     _contexts.__all__ +
     _tasks.__all__
