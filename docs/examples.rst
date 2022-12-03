@@ -15,7 +15,8 @@ Digital Clock
 
 This basic example displays an LCD-style digital clock.
 
-.. image:: _static/lcd_clock.gif
+.. image:: _static/clock.png
+   :scale: 50%
 
 This example demonstrates the use of :func:`using_asyncio_from_qt` to add
 asyncio support to a Qt application.
@@ -24,7 +25,7 @@ Source code (``examples/clock.py``):
 
 .. literalinclude:: ../examples/clock.py
    :language: python
-   :emphasize-lines: 5,25,29
+   :emphasize-lines: 5,34
    :linenos:
 
 
