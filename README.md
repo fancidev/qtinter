@@ -65,7 +65,7 @@ if __name__ == "__main__":
 To use Qt components from asyncio-based code, enclose the asyncio
 entry-point inside context manager `qtinter.using_qt_from_asyncio()`.
 
-Minimal example (taken from `examples/color.py`):
+Example (taken from `examples/color.py`):
 
 ```Python
 """Display the RGB code of a color chosen by the user"""
@@ -98,7 +98,7 @@ if __name__ == "__main__":
 To execute a modal dialog without blocking the asyncio event loop,
 wrap the dialog entry-point in `qtinter.modal()` and `await` on it.
 
-Minimal example (taken from `examples/hit_100.py`):
+Example (taken from `examples/hit_100.py`):
 
 ```Python
 import asyncio
