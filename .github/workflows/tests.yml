@@ -14,12 +14,12 @@ jobs:
         qt-binding: [PyQt5, PyQt6, PySide2, PySide6]
         python-version: ['3.7', '3.8', '3.9', '3.10', '3.11']
         platform: [ubuntu-latest, macos-latest, windows-latest]
-        exclude:
-          - qt-binding: PySide6
-            python-version: '3.11'
-          - qt-binding: PySide2
-            platform: windows-latest
-            python-version: '3.11'
+#        exclude:
+#          - qt-binding: PySide6
+#            python-version: '3.11'
+#          - qt-binding: PySide2
+#            platform: windows-latest
+#            python-version: '3.11'
     timeout-minutes: 10
 
     steps:
