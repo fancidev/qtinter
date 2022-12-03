@@ -5,7 +5,6 @@ import datetime
 import qtinter  # <-- import module
 from PySide6 import QtWidgets
 
-
 class Clock(QtWidgets.QLCDNumber):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -22,7 +21,6 @@ class Clock(QtWidgets.QLCDNumber):
             t = datetime.datetime.now()
             self.display(t.strftime("%H:%M:%S"))
             await asyncio.sleep(1.0 - t.microsecond / 1000000 + 0.05)
-
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication([])

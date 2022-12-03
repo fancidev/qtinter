@@ -4,7 +4,6 @@ import asyncio
 import qtinter  # <-- import module
 from PySide6 import QtWidgets
 
-
 async def choose_color():
     dialog = QtWidgets.QColorDialog()
     dialog.show()
@@ -15,7 +14,6 @@ async def choose_color():
         return dialog.selectedColor().name()
     else:
         return None
-
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication([])

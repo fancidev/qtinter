@@ -72,7 +72,7 @@ wrapping them with :func:`qtinter.asyncslot`:
 
 And that's it!
 
-To see these in action, check out the :ref:`lcd-clock-example` example
+To see these in action, check out the :ref:`clock-example` example
 and the :ref:`http-client-example` example.
 For usage details, see :ref:`using-using-asyncio-from-qt` and
 :ref:`using-asyncslot`.

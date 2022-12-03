@@ -8,24 +8,52 @@ For each example, the source code is listed, and the lines that demonstrate
 the usage of :mod:`qtinter`'s API are highlighted.
 
 
-.. _lcd-clock-example:
+.. _color-example:
+
+Color Chooser
+-------------
+
+This example implements a command-line utility that displays the RGB value
+of a color chosen by the user from a color dialog.
+
+It demonstrates the use of :func:`using_qt_from_asyncio` to add Qt support
+to an asyncio-based program.
+
+Sample output:
+
+.. code-block:: console
+
+   $ python color.py
+   #ff8655
+
+Source code (``examples/color.py``):
+
+.. literalinclude:: ../examples/color.py
+   :language: python
+   :emphasize-lines: 5,20
+   :linenos:
+
+
+.. _clock-example:
 
 Digital Clock
 -------------
 
-This basic example displays an LCD-style digital clock.
+This example displays an LCD-style digital clock.
+
+It demonstrates the use of :func:`using_asyncio_from_qt` to add
+asyncio support to a Qt application.
+
+Sample screenshot:
 
 .. image:: _static/clock.png
    :scale: 50%
-
-This example demonstrates the use of :func:`using_asyncio_from_qt` to add
-asyncio support to a Qt application.
 
 Source code (``examples/clock.py``):
 
 .. literalinclude:: ../examples/clock.py
    :language: python
-   :emphasize-lines: 5,34
+   :emphasize-lines: 5,32
    :linenos:
 
 
