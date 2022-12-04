@@ -442,5 +442,38 @@ class TestBoundSignal(unittest.TestCase):
         # bound_signal.emit(True)
 
 
+class TestThread(unittest.TestCase):
+    def setUp(self):
+        if QtWidgets.QApplication.instance() is not None:
+            self.app = QtWidgets.QApplication.instance()
+        else:
+            self.app = QtWidgets.QApplication([])
+
+    def tearDown(self):
+        self.app = None
+
+    def test_loop_in_python_thread(self):
+        # It should be possible to use Qt objects from a Python thread.
+        import threading
+
+        var = 0
+
+        def f():
+            nonlocal var
+            var = 1
+
+        def run():
+            qt_loop = QtCore.QEventLoop()
+            QtCore.QTimer.singleShot(0, f)
+            QtCore.QTimer.singleShot(0, qt_loop.quit)
+            qt_loop.exec()
+
+        thread = threading.Thread(target=run)
+        thread.start()
+        thread.join()
+
+        self.assertEqual(var, 1)
+
+
 if __name__ == '__main__':
     unittest.main()
