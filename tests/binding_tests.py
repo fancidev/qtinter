@@ -3,7 +3,7 @@
 import os
 import sys
 import unittest
-from shim import QtCore, Signal, Slot, is_pyqt, run_test_script
+from shim import QtCore, QtWidgets, Signal, Slot, is_pyqt, run_test_script
 
 
 qc = QtCore.Qt.ConnectionType.QueuedConnection
@@ -356,6 +356,14 @@ class TestErrorHandling(unittest.TestCase):
 
 class TestBoundSignal(unittest.TestCase):
     # Tests related to a bound signal.
+    def setUp(self):
+        if QtWidgets.QApplication.instance() is not None:
+            self.app = QtWidgets.QApplication.instance()
+        else:
+            self.app = QtWidgets.QApplication([])
+
+    def tearDown(self):
+        self.app = None
 
     def test_identity(self):
         # Test various identity/equality relation between two bound signals
@@ -366,8 +374,21 @@ class TestBoundSignal(unittest.TestCase):
         if is_pyqt:
             self.assertTrue(s1 == s2)
             self.assertTrue(s1 is not s2)
-        elif QtCore.__name__.startswith('PySide2'):
+        else:
             self.assertTrue(s1 == s2)
+            self.assertTrue(s1 is s2)
+
+    def test_identity_exceptions(self):
+        # The previous test looks nice, but PySide2 'breaks the rule' for
+        # certain bound signals, strangely.
+        sender = QtWidgets.QPushButton()
+        s1 = sender.clicked
+        s2 = sender.clicked
+        if is_pyqt:
+            self.assertTrue(s1 == s2)
+            self.assertTrue(s1 is not s2)
+        elif QtCore.__name__.startswith('PySide2'):
+            self.assertTrue(s1 != s2)
             self.assertTrue(s1 is not s2)
         elif QtCore.__name__.startswith('PySide6'):
             self.assertTrue(s1 == s2)
@@ -398,14 +419,12 @@ class TestBoundSignal(unittest.TestCase):
         bound_signal.emit(True)
         sender = None
 
-        app = QtCore.QCoreApplication([])
         qt_loop = QtCore.QEventLoop()
         QtCore.QTimer.singleShot(100, qt_loop.quit)
         if hasattr(qt_loop, "exec"):
             qt_loop.exec()
         else:
             qt_loop.exec_()
-        app = None
 
         self.assertEqual(var1, 26)
         if is_pyqt:
