@@ -466,7 +466,10 @@ class TestThread(unittest.TestCase):
             qt_loop = QtCore.QEventLoop()
             QtCore.QTimer.singleShot(0, f)
             QtCore.QTimer.singleShot(0, qt_loop.quit)
-            qt_loop.exec()
+            if hasattr(qt_loop, "exec"):
+                qt_loop.exec()
+            else:
+                qt_loop.exec_()
 
         thread = threading.Thread(target=run)
         thread.start()
