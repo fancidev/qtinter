@@ -378,9 +378,9 @@ class TestBoundSignal(unittest.TestCase):
             self.assertTrue(s1 == s2)
             self.assertTrue(s1 is s2)
 
-    def test_identity_exceptions(self):
-        # The previous test looks nice, but PySide2 'breaks the rule' for
-        # certain bound signals, strangely.
+    def test_identity_buggy(self):
+        # Unfortunately, PySide2 5.15.2 introduces a regression that breaks
+        # bound signal equality for certain objects.
         sender = QtWidgets.QPushButton()
         s1 = sender.clicked
         s2 = sender.clicked
@@ -388,8 +388,13 @@ class TestBoundSignal(unittest.TestCase):
             self.assertTrue(s1 == s2)
             self.assertTrue(s1 is not s2)
         elif QtCore.__name__.startswith('PySide2'):
-            self.assertTrue(s1 != s2)
-            self.assertTrue(s1 is not s2)
+            from PySide2 import __version__ as ver
+            if tuple(ver.split(".")) >= (5, 15, 2):
+                self.assertTrue(s1 != s2)
+                self.assertTrue(s1 is not s2)
+            else:
+                self.assertTrue(s1 == s2)
+                self.assertTrue(s1 is s2)
         elif QtCore.__name__.startswith('PySide6'):
             self.assertTrue(s1 == s2)
             self.assertTrue(s1 is s2)
