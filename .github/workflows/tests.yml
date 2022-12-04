@@ -35,7 +35,7 @@ jobs:
         run: sudo apt-get install libgl1-mesa-dev
       - name: Install Qt binding
         if: ${{ matrix.qt-binding == 'PySide2' }}
-        run: pip install PySide2==5.15.0
+        run: pip install PySide2==5.15.1
       - name: Install Qt binding
         run: pip install ${{ matrix.qt-binding }}
       - name: Run Qt binding tests
