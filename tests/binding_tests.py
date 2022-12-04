@@ -354,5 +354,69 @@ class TestErrorHandling(unittest.TestCase):
             self.assertIn("KeyboardInterrupt", err)
 
 
+class TestBoundSignal(unittest.TestCase):
+    # Tests related to a bound signal.
+
+    def test_identity(self):
+        # Test various identity/equality relation between two bound signals
+        # to the same sender and the same (unbound) signal.
+        sender = SenderObject()
+        s1 = sender.signal
+        s2 = sender.signal
+        if is_pyqt:
+            self.assertTrue(s1 == s2)
+            self.assertTrue(s1 is not s2)
+        elif QtCore.__name__.startswith('PySide2'):
+            self.assertTrue(s1 != s2)
+            self.assertTrue(s1 is not s2)
+        elif QtCore.__name__.startswith('PySide6'):
+            self.assertTrue(s1 == s2)
+            self.assertTrue(s1 is s2)
+        else:
+            assert False
+
+    def test_lifetime(self):
+        # Test the lifetime of bound signal.
+        # - If a queued signal is emitted but the sender is then deleted:
+        #   On PySide: the queued callback IS NOT invoked
+        #   On PyQt: the queued callback IS invoked.
+        sender = SenderObject()
+        var1 = 3
+        var2 = 2
+
+        def handler1(v):
+            nonlocal var1
+            var1 += {False: 15, True: 23}[v]
+
+        def handler2(v):
+            nonlocal var2
+            var2 *= {False: -7, True: 2}[not v]
+
+        bound_signal = sender.signal
+        bound_signal.connect(handler1)
+        bound_signal.connect(handler2, qc)
+        bound_signal.emit(True)
+        sender = None
+
+        app = QtCore.QCoreApplication([])
+        qt_loop = QtCore.QEventLoop()
+        QtCore.QTimer.singleShot(100, qt_loop.quit)
+        if hasattr(qt_loop, "exec"):
+            qt_loop.exec()
+        else:
+            qt_loop.exec_()
+        app = None
+
+        self.assertEqual(var1, 26)
+        if is_pyqt:
+            self.assertEqual(var2, -14)
+        else:
+            self.assertEqual(var2, 2)
+
+        # The following line would crash the process with SIGSEGV
+        # under both PySide and PyQt.
+        # bound_signal.emit(True)
+
+
 if __name__ == '__main__':
     unittest.main()
