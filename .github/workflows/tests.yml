@@ -41,6 +41,7 @@ jobs:
         run: python tests/binding_tests.py
         env:
           TEST_QT_MODULE: ${{ matrix.qt-binding }}
+          QT_QPA_PLATFORM: offscreen
       - name: Install Python packages
         run: pip install coverage
       - name: Run unit tests
