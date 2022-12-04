@@ -27,6 +27,9 @@ current coding pattern:
 * :func:`modal` allows the asyncio event loop to continue running
   in a nested Qt event loop.
 
+* :func:`run_task` creates an :class:`asyncio.Task` and eagerly
+  executes its first step.
+
 
 `Loop factory`_ to create `event loop objects`_ directly:
 
@@ -34,15 +37,13 @@ current coding pattern:
   event loop object that runs on top of a Qt event loop.
 
 
-`Low-level API`_ that does the actual work of bridging Qt and asyncio:
+`Low-level classes`_ that do the actual work of bridging Qt and asyncio:
 
 * `Event loop interface`_
 
 * `Event loop objects`_
 
 * `Event loop policy objects`_
-
-* `Task runner`_
 
 
 Context managers
@@ -174,6 +175,30 @@ Helper functions
 
       await qtinter.modal(QtWidgets.QMessageBox.warning)(self, "Title", "Message")
 
+.. function:: run_task(coro: typing.Coroutine[T], *, \
+                       allow_task_nesting: bool = True, \
+                       name: typing.Optional[str] = None, \
+                       context: typing.Optional[contextvars.Context] = None \
+              ) -> asyncio.Task[T]
+
+   Create an :external:class:`asyncio.Task` wrapping the coroutine
+   *coro* and execute it immediately until the first ``yield``,
+   ``return`` or ``raise``, whichever comes first.  The remainder
+   of the coroutine is scheduled for later execution.  Return the
+   :external:class:`asyncio.Task` object.
+
+   If *allow_task_nesting* is ``True`` (the default), this method
+   is allowed to be called from a running task --- the calling task
+   is 'suspended' before executing the first step of *coro* and
+   'resumed' after that step completes.  If *allow_task_nesting*
+   is ``False``, this method can only be called from a callback.
+
+   An asyncio event loop must be running when this function is called.
+
+   *Since Python 3.8*: Added the *name* parameter.
+
+   *Since Python 3.11*: Added the *context* parameter.
+
 
 Loop factory
 ------------
@@ -190,8 +215,8 @@ Loop factory
    *loop_factory* parameter when constructing :class:`asyncio.Runner`.
 
 
-Low-level API
--------------
+Low-level classes
+-----------------
 
 You normally do not need to use these low-level API directly.
 
@@ -302,32 +327,4 @@ Event loop policy objects
 .. class:: QiSelectorEventLoopPolicy
 
    Event loop policy that creates :class:`QiSelectorEventLoop`.
-
-
-Task runner
-~~~~~~~~~~~
-
-.. function:: run_task(coro: typing.Coroutine[T], *, \
-                       allow_task_nesting: bool = True, \
-                       name: typing.Optional[str] = None, \
-                       context: typing.Optional[contextvars.Context] = None \
-              ) -> asyncio.Task[T]
-
-   Create an :external:class:`asyncio.Task` wrapping the coroutine
-   *coro* and execute it immediately until the first ``yield``,
-   ``return`` or ``raise``, whichever comes first.  The remainder
-   of the coroutine is scheduled for later execution.  Return the
-   :external:class:`asyncio.Task` object.
-
-   If *allow_task_nesting* is ``True`` (the default), this method
-   is allowed to be called from a running task --- the calling task
-   is 'suspended' before executing the first step of *coro* and
-   'resumed' after that step completes.  If *allow_task_nesting*
-   is ``False``, this method can only be called from a callback.
-
-   An asyncio event loop must be running when this function is called.
-
-   *Since Python 3.8*: Added the *name* parameter.
-
-   *Since Python 3.11*: Added the *context* parameter.
 
