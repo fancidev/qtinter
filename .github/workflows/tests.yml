@@ -39,7 +39,7 @@ jobs:
       - name: Install Qt binding
         run: pip install ${{ matrix.qt-binding }}
       - name: Run Qt binding tests
-        run: python tests/binding_tests.py
+        run: python tests/binding_tests.py -v
         env:
           TEST_QT_MODULE: ${{ matrix.qt-binding }}
           QT_QPA_PLATFORM: offscreen
