@@ -367,7 +367,7 @@ class TestBoundSignal(unittest.TestCase):
             self.assertTrue(s1 == s2)
             self.assertTrue(s1 is not s2)
         elif QtCore.__name__.startswith('PySide2'):
-            self.assertTrue(s1 != s2)
+            self.assertTrue(s1 == s2)
             self.assertTrue(s1 is not s2)
         elif QtCore.__name__.startswith('PySide6'):
             self.assertTrue(s1 == s2)
