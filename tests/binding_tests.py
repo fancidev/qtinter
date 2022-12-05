@@ -479,4 +479,8 @@ class TestThread(unittest.TestCase):
 
 
 if __name__ == '__main__':
+    # TestBoundSignal.test_identity_buggy requires a QApplication instance.
+    # The instance has to live throughout the lifetime of the program or
+    # PySide2/PySide6 may crash after running TestThread.
+    app = QtWidgets.QApplication([])
     unittest.main()
