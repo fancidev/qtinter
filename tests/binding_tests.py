@@ -454,28 +454,17 @@ class TestThread(unittest.TestCase):
 
     def test_loop_in_python_thread(self):
         # It should be possible to use Qt objects from a Python thread.
-        import threading
-
-        var = 0
-
-        def f():
-            nonlocal var
-            var = 1
-
-        def run():
-            qt_loop = QtCore.QEventLoop()
-            QtCore.QTimer.singleShot(0, f)
-            QtCore.QTimer.singleShot(0, qt_loop.quit)
-            if hasattr(qt_loop, "exec"):
-                qt_loop.exec()
-            else:
-                qt_loop.exec_()
-
-        thread = threading.Thread(target=run)
-        thread.start()
-        thread.join()
-
-        self.assertEqual(var, 1)
+        # We run this test in a child process because the process sometimes
+        # crashes with SIGSEGV after the test finishes (successfully) and
+        # before the process is about to exit.  Likely a bug with PySide.
+        rc, out, err = run_test_script(
+            "binding_thread.py", os.getenv("TEST_QT_MODULE"), "MagicToken")
+        if out.strip() != "MagicToken":
+            print("binding_thread.py error:", file=sys.stderr)
+            print(err, file=sys.stderr)
+        self.assertEqual(out.strip(), "MagicToken")
+        if rc != 0:
+            print(f"binding_thread.py exited with code {rc}", file=sys.stderr)
 
 
 if __name__ == '__main__':
