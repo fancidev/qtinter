@@ -3,7 +3,7 @@
 import os
 import sys
 import unittest
-from shim import QtCore, QtWidgets, Signal, Slot, is_pyqt, run_test_script
+from shim import QtCore, Signal, Slot, is_pyqt, run_test_script
 
 
 qc = QtCore.Qt.ConnectionType.QueuedConnection
@@ -354,52 +354,96 @@ class TestErrorHandling(unittest.TestCase):
             self.assertIn("KeyboardInterrupt", err)
 
 
+class Derived(Control):
+    pass
+
+
 class TestBoundSignal(unittest.TestCase):
     # Tests related to a bound signal.
     def setUp(self):
-        if QtWidgets.QApplication.instance() is not None:
-            self.app = QtWidgets.QApplication.instance()
+        if QtCore.QCoreApplication.instance() is not None:
+            self.app = QtCore.QCoreApplication.instance()
         else:
-            self.app = QtWidgets.QApplication([])
+            self.app = QtCore.QCoreApplication([])
 
     def tearDown(self):
         self.app = None
 
-    def test_identity(self):
-        # Test various identity/equality relation between two bound signals
-        # to the same sender and the same (unbound) signal.
-        sender = SenderObject()
-        s1 = sender.signal
-        s2 = sender.signal
-        if is_pyqt:
-            self.assertTrue(s1 == s2)
-            self.assertTrue(s1 is not s2)
-        else:
-            self.assertTrue(s1 == s2)
-            self.assertTrue(s1 is s2)
+    def test_equality(self):
+        # Two bound signal objects bound to the same sender and same signal
+        # should compare equal.
+        sender = Control()
+        s = sender.valueChanged
+        self.assertEqual(s, s)
+        self.assertEqual(sender.valueChanged, sender.valueChanged)
+        self.assertEqual(sender.valueChanged, sender.valueChanged[int])
+        self.assertEqual(sender.valueChanged[int], sender.valueChanged[int])
+        self.assertEqual(sender.valueChanged[str], sender.valueChanged[str])
+        self.assertNotEqual(sender.valueChanged[int], sender.valueChanged[str])
 
-    def test_identity_buggy(self):
-        # Unfortunately, PySide2 5.15.2 introduces a regression that breaks
-        # bound signal equality for certain objects.
-        sender = QtWidgets.QPushButton()
-        s1 = sender.clicked
-        s2 = sender.clicked
-        if is_pyqt:
-            self.assertTrue(s1 == s2)
-            self.assertTrue(s1 is not s2)
-        elif QtCore.__name__.startswith('PySide2'):
+        # When the signal is bound to an object of a derived class, some
+        # versions of PySide2 has a bug that breaks equality.
+        # See https://bugreports.qt.io/projects/PYSIDE/issues/PYSIDE-2140
+        if QtCore.__name__.startswith('PySide2'):
             from PySide2 import __version__ as ver
-            if tuple(map(int, ver.split("."))) >= (5, 15, 2):
-                self.assertTrue(s1 != s2)
-                self.assertTrue(s1 is not s2)
-            else:
-                self.assertTrue(s1 == s2)
-                self.assertTrue(s1 is s2)
-        elif QtCore.__name__.startswith('PySide6'):
-            self.assertTrue(s1 == s2)
-            self.assertTrue(s1 is s2)
+            expect_broken = tuple(map(int, ver.split("."))) >= (5, 15, 2)
         else:
-            assert False
+            expect_broken = False
+
+        sender = Derived()
+        s = sender.valueChanged
+        self.assertEqual(s, s)
+        if expect_broken:
+            self.assertNotEqual(sender.valueChanged, sender.valueChanged)
+            self.assertNotEqual(sender.valueChanged, sender.valueChanged[int])
+            self.assertNotEqual(sender.valueChanged[int], sender.valueChanged[int])
+            self.assertNotEqual(sender.valueChanged[str], sender.valueChanged[str])
+        else:
+            self.assertEqual(sender.valueChanged, sender.valueChanged)
+            self.assertEqual(sender.valueChanged, sender.valueChanged[int])
+            self.assertEqual(sender.valueChanged[int], sender.valueChanged[int])
+            self.assertEqual(sender.valueChanged[str], sender.valueChanged[str])
+        self.assertNotEqual(sender.valueChanged[int], sender.valueChanged[str])
+
+    def test_identity(self):
+        # Test the identity between two bound signal objects bound to the same
+        # sender and same signal.  This is for information only; we should not
+        # rely on any assumption of identity other than self identity.
+        sender = Control()
+        s = sender.valueChanged
+        self.assertIs(s, s)
+        if is_pyqt:
+            self.assertIsNot(sender.valueChanged, sender.valueChanged)
+            self.assertIsNot(sender.valueChanged, sender.valueChanged[int])
+            self.assertIsNot(sender.valueChanged[int], sender.valueChanged[int])
+            self.assertIsNot(sender.valueChanged[str], sender.valueChanged[str])
+        else:
+            self.assertIs(sender.valueChanged, sender.valueChanged)
+            self.assertIs(sender.valueChanged, sender.valueChanged[int])
+            self.assertIs(sender.valueChanged[int], sender.valueChanged[int])
+            self.assertIs(sender.valueChanged[str], sender.valueChanged[str])
+        self.assertIsNot(sender.valueChanged[int], sender.valueChanged[str])
+
+        if QtCore.__name__.startswith('PySide2'):
+            from PySide2 import __version__ as ver
+            expect_broken = tuple(map(int, ver.split("."))) >= (5, 15, 2)
+        else:
+            expect_broken = False
+
+        sender = Derived()
+        s = sender.valueChanged
+        self.assertIs(s, s)
+        if is_pyqt or expect_broken:
+            self.assertIsNot(sender.valueChanged, sender.valueChanged)
+            self.assertIsNot(sender.valueChanged, sender.valueChanged[int])
+            self.assertIsNot(sender.valueChanged[int], sender.valueChanged[int])
+            self.assertIsNot(sender.valueChanged[str], sender.valueChanged[str])
+        else:
+            self.assertIs(sender.valueChanged, sender.valueChanged)
+            self.assertIs(sender.valueChanged, sender.valueChanged[int])
+            self.assertIs(sender.valueChanged[int], sender.valueChanged[int])
+            self.assertIs(sender.valueChanged[str], sender.valueChanged[str])
+        self.assertIsNot(sender.valueChanged[int], sender.valueChanged[str])
 
     def test_lifetime(self):
         # Test the lifetime of bound signal.
@@ -443,15 +487,6 @@ class TestBoundSignal(unittest.TestCase):
 
 
 class TestThread(unittest.TestCase):
-    def setUp(self):
-        if QtWidgets.QApplication.instance() is not None:
-            self.app = QtWidgets.QApplication.instance()
-        else:
-            self.app = QtWidgets.QApplication([])
-
-    def tearDown(self):
-        self.app = None
-
     def test_loop_in_python_thread(self):
         # It should be possible to use Qt objects from a Python thread.
         # We run this test in a child process because the process sometimes
@@ -468,8 +503,4 @@ class TestThread(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    # TestBoundSignal.test_identity_buggy requires a QApplication instance.
-    # The instance has to live throughout the lifetime of the program or
-    # PySide2/PySide6 may crash after running TestThread.
-    app = QtWidgets.QApplication([])
     unittest.main()
