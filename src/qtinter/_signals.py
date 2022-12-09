@@ -7,8 +7,11 @@ __all__ = 'asyncsignal',
 
 
 async def asyncsignal(signal):
-    # signal must be pyqtSignal or Signal, which automatic closes
-    # the connection when the receiver object is garbage collected.
+    # signal must be a bound pyqtSignal or Signal, or an object
+    # with a `connect` method that provides equivalent semantics.
+    # The connection must be automatically closed when the sender
+    # or the receiver object is deleted.
+    #
     # We do not call disconnect() explicitly because the sender
     # might be gone when we attempt to disconnect, e.g. if waiting
     # for the 'destroyed' signal.
@@ -37,8 +40,12 @@ async def asyncsignal(signal):
         slot = None
 
     slot = _QiSlotObject(handler)
-    signal.connect(slot.slot)
     try:
+        signal.connect(slot.slot)
         return await fut
     finally:
-        slot = None  # break cycle in case of exception
+        # In case of exception, the current frame would be stored in
+        # the exception object, which would keep `slot` alive and
+        # consequently keep the connection.  Set `slot` to None to
+        # prevent this.
+        slot = None

@@ -18,11 +18,11 @@ public API:
 `Helper functions`_ to make interp code fit naturally into the
 current coding pattern:
 
-* :func:`asyncslot` connects a coroutine function
-  to a Qt signal; useful for Qt-driven code.
-
 * :func:`asyncsignal` makes a Qt signal *awaitable*;
   useful for asyncio-driven code.
+
+* :func:`asyncslot` connects a coroutine function
+  to a Qt signal; useful for Qt-driven code.
 
 * :func:`modal` allows the asyncio event loop to continue running
   in a nested Qt event loop.
@@ -92,17 +92,20 @@ Helper functions
               asyncsignal(signal: Signal[typing.Unpack[Ts]]) -> typing.Tuple[typing.Unpack[Ts]]
    :async:
 
-   Wait until *signal* is emitted and return the signal arguments.
+   Wait until *signal* is emitted and return the emitted arguments.
 
    .. _PyQt5.QtCore.pyqtSignal: https://www.riverbankcomputing.com/static/Docs/PyQt5/signals_slots.html#PyQt5.QtCore.pyqtSignal
    .. _PyQt6.QtCore.pyqtSignal: https://www.riverbankcomputing.com/static/Docs/PyQt6/signals_slots.html#PyQt6.QtCore.pyqtSignal
    .. _PySide2.QtCore.Signal: https://doc.qt.io/qtforpython-5/PySide2/QtCore/Signal.html
    .. _PySide6.QtCore.Signal: https://doc.qt.io/qtforpython/PySide6/QtCore/Signal.html#PySide6.QtCore.PySide6.QtCore.Signal
 
+   .. _AutoConnection: https://doc.qt.io/qt-6/qt.html#ConnectionType-enum
+
    *signal* must be a bound Qt signal object, i.e. a bound
    `PyQt5.QtCore.pyqtSignal`_, `PyQt6.QtCore.pyqtSignal`_,
    `PySide2.QtCore.Signal`_ or `PySide6.QtCore.Signal`_, or
-   an object with a *connect* method that provides equivalent semantics.
+   an object with a ``connect`` method that provides equivalent
+   semantics.  *signal* is connected to using an `AutoConnection`_.
 
    If the signal has no arguments, return ``None``.  If the signal has
    just one argument, return that argument.  If the signal has two or
@@ -115,12 +118,15 @@ Helper functions
       Signals that require immediate response from the slot cannot be used
       with this function.  An example is `proxyAuthenticationRequired`_.
 
+   .. _destroyed: https://doc.qt.io/qt-6/qobject.html#destroyed
+
    .. note::
 
       This function will wait indefinitely if the signal is never
-      emitted or if the sender object is deleted.  To handle the
-      latter situation, keep a strong reference to the sender object
-      or listen to its ``destroyed`` signal.
+      emitted, e.g. if the sender object is deleted before emitting
+      a signal.  To handle the latter situation, keep a strong
+      reference to the sender object, or listen to its destroyed_
+      signal.
 
 .. function:: asyncslot(fn: typing.Callable[[typing.Unpack[Ts]], typing.Coroutine[T]], *, task_runner: Callable[[typing.Coroutine[T]], asyncio.Task[T]] = qtinter.run_task) -> typing.Callable[[typing.Unpack[Ts]], asyncio.Task[T]]
 
