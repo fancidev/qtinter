@@ -7,7 +7,7 @@ import threading
 import time
 import unittest
 import warnings
-from shim import QtCore, run_test_script, is_pyqt
+from shim import QtCore, run_test_script, is_pyqt, exec_qt_loop
 
 
 warnings.filterwarnings('default')
@@ -206,13 +206,6 @@ class TestWindowsCtrlC(TestCtrlC):
     def test_windows_selector_loop_ctrl_c_suppressed_2(self):
         loop = qtinter.QiSelectorEventLoop()
         self._test_ctrl_c_suppressed_2(loop)
-
-
-def exec_qt_loop(loop):
-    if hasattr(loop, 'exec'):
-        loop.exec()
-    else:
-        loop.exec_()
 
 
 class TestModal(unittest.TestCase):

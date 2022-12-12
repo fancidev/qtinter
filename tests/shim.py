@@ -56,3 +56,10 @@ def run_test_script(filename, *args, **env):
         str(result.out, encoding="utf-8"),
         str(result.err, encoding="utf-8"),
     )
+
+
+def exec_qt_loop(loop):
+    if hasattr(loop, 'exec'):
+        loop.exec()
+    else:
+        loop.exec_()

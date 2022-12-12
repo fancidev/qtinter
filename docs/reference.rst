@@ -27,6 +27,9 @@ current coding pattern:
 * :func:`modal` allows the asyncio event loop to continue running
   in a nested Qt event loop.
 
+* :func:`multisignal` collects multiple Qt signals and re-emits
+  them with a tag.
+
 * :func:`run_task` creates an :class:`asyncio.Task` and eagerly
   executes its first step.
 
@@ -179,6 +182,18 @@ Helper functions
    .. code-block:: python
 
       await qtinter.modal(QtWidgets.QMessageBox.warning)(self, "Title", "Message")
+
+.. function:: multisignal(signal_map: typing.Mapping[BoundSignal, T]) -> BoundSignal[T, typing.Tuple]
+
+   Return a bound-signal-like object that re-emits the signals
+   in *signal_map* as a 2-tuple with the mapped value as the
+   first element and the original emitted arguments packed in a
+   tuple as the second element.
+
+   The returned object provides a ``connect`` method with the
+   usual semantics.  The sender objects must be alive when
+   ``connect`` is called; otherwise the process will crash with
+   ``SIGSEGV``.
 
 .. function:: run_task(coro: typing.Coroutine[T], *, \
                        allow_task_nesting: bool = True, \

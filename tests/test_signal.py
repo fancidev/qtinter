@@ -1,7 +1,7 @@
 import asyncio
 import qtinter
 import unittest
-from shim import QtCore, Signal
+from shim import QtCore, Signal, exec_qt_loop
 
 
 class SenderObject(QtCore.QObject):
@@ -146,6 +146,43 @@ class TestSignal(unittest.TestCase):
 
         with qtinter.using_qt_from_asyncio():
             self.assertEqual(asyncio.run(coro()), "")
+
+
+class TestMultiSignal(unittest.TestCase):
+    def setUp(self):
+        if QtCore.QCoreApplication.instance() is not None:
+            self.app = QtCore.QCoreApplication.instance()
+        else:
+            self.app = QtCore.QCoreApplication([])
+
+    def tearDown(self):
+        self.app = None
+
+    def test_empty_map(self):
+        # Passing an empty signal map is a no-op
+        ms = qtinter.multisignal(dict())
+        ms.connect(lambda: None)
+
+    def test_multiple_senders(self):
+        # Test multisignal usage with multiple senders.
+
+        timer1 = QtCore.QTimer()
+        timer1.setInterval(100)
+        timer1.start()
+
+        timer2 = QtCore.QTimer()
+        timer2.setInterval(250)
+        timer2.start()
+
+        ms = qtinter.multisignal({timer1.timeout: 'A', timer2.timeout: 4})
+        result = []
+        ms.connect(lambda s, a: result.append((s, a)))
+
+        qt_loop = QtCore.QEventLoop()
+        timer2.timeout.connect(qt_loop.quit)
+        exec_qt_loop(qt_loop)
+
+        self.assertEqual(result, [('A', ()), ('A', ()), (4, ())])
 
 
 if __name__ == "__main__":

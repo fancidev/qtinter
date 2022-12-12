@@ -1,9 +1,10 @@
 """Helper function to make Qt signal awaitable."""
 
 import asyncio
+from ._helpers import create_slot_wrapper
 
 
-__all__ = 'asyncsignal',
+__all__ = 'asyncsignal', 'multisignal',
 
 
 async def asyncsignal(signal):
@@ -43,3 +44,17 @@ async def asyncsignal(signal):
         # consequently keep the connection.  Set `slot` to None to
         # prevent this.
         slot = None
+
+
+def _emit_multisignal(slot, param_count, args, value):
+    slot(value, args)
+
+
+class multisignal:
+    def __init__(self, signal_map):
+        self.signal_map = signal_map
+
+    def connect(self, slot) -> None:
+        for signal, value in self.signal_map.items():
+            wrapper = create_slot_wrapper(slot, _emit_multisignal, value)
+            signal.connect(wrapper)
