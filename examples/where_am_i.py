@@ -31,11 +31,11 @@ async def get_location() -> str:
     await asyncio.gather(pos_task, err_task, return_exceptions=True)
 
     if pos_task in done:
-        position: QtPositioning.QGeoPositionInfo = pos_task.result()
+        position: QtPositioning.QGeoPositionInfo = pos_task.result()[0]
         return position.coordinate().toString()
 
     if err_task in done:
-        error: QtPositioning.QGeoPositionInfoSource.Error = err_task.result()
+        error: QtPositioning.QGeoPositionInfoSource.Error = err_task.result()[0]
         raise RuntimeError(f"Cannot obtain geolocation: {error}")
 
 

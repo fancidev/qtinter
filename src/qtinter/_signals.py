@@ -30,13 +30,7 @@ async def asyncsignal(signal):
                 result = tuple(QtCore.QVariant(arg).value() for arg in args)
             else:
                 result = args
-
-            if len(result) == 0:
-                fut.set_result(None)
-            elif len(result) == 1:
-                fut.set_result(result[0])
-            else:
-                fut.set_result(result)
+            fut.set_result(result)
         slot = None
 
     slot = _QiSlotObject(handler)

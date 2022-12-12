@@ -19,7 +19,7 @@ async def read_out(engine: QtTextToSpeech.QTextToSpeech, echo=False):
         engine.say(line)
         if engine.state() == QtTextToSpeech.QTextToSpeech.State.Speaking:
             # If the line contains no speakable content, state remains Ready.
-            state = await qtinter.asyncsignal(engine.stateChanged)
+            state, = await qtinter.asyncsignal(engine.stateChanged)
             assert state == QtTextToSpeech.QTextToSpeech.State.Ready
 
 

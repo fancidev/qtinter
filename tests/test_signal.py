@@ -42,7 +42,7 @@ class TestSignal(unittest.TestCase):
             return await qtinter.asyncsignal(sender.signal0)
 
         with qtinter.using_qt_from_asyncio():
-            self.assertEqual(asyncio.run(coro()), None)
+            self.assertEqual(asyncio.run(coro()), ())
 
     def test_signal_with_one_argument(self):
         sender = SenderObject()
@@ -53,7 +53,7 @@ class TestSignal(unittest.TestCase):
             return await qtinter.asyncsignal(sender.signal1)
 
         with qtinter.using_qt_from_asyncio():
-            self.assertIs(asyncio.run(coro()), arg)
+            self.assertEqual(asyncio.run(coro()), (arg,))
 
     def test_signal_with_two_arguments(self):
         sender = SenderObject()
@@ -141,7 +141,7 @@ class TestSignal(unittest.TestCase):
         async def coro():
             asyncio.get_running_loop().call_soon(asyncio.create_task, emit())
             position: QtPositioning.QGeoPositionInfo = \
-                await qtinter.asyncsignal(source.positionUpdated)
+                (await qtinter.asyncsignal(source.positionUpdated))[0]
             return position.coordinate().toString()
 
         with qtinter.using_qt_from_asyncio():

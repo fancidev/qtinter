@@ -87,12 +87,11 @@ Context managers
 Helper functions
 ----------------
 
-.. function:: asyncsignal(signal: Signal[]) -> None
-              asyncsignal(signal: Signal[T]) -> T
-              asyncsignal(signal: Signal[typing.Unpack[Ts]]) -> typing.Tuple[typing.Unpack[Ts]]
+.. function:: asyncsignal(signal: Signal[typing.Unpack[Ts]]) -> typing.Tuple[typing.Unpack[Ts]]
    :async:
 
-   Wait until *signal* is emitted and return the emitted arguments.
+   Wait for *signal* to emit and return the emitted arguments in a
+   :class:`tuple`.
 
    .. _PyQt5.QtCore.pyqtSignal: https://www.riverbankcomputing.com/static/Docs/PyQt5/signals_slots.html#PyQt5.QtCore.pyqtSignal
    .. _PyQt6.QtCore.pyqtSignal: https://www.riverbankcomputing.com/static/Docs/PyQt6/signals_slots.html#PyQt6.QtCore.pyqtSignal
@@ -105,11 +104,11 @@ Helper functions
    `PyQt5.QtCore.pyqtSignal`_, `PyQt6.QtCore.pyqtSignal`_,
    `PySide2.QtCore.Signal`_ or `PySide6.QtCore.Signal`_, or
    an object with a ``connect`` method that provides equivalent
-   semantics.  *signal* is connected to using an `AutoConnection`_.
+   semantics.
 
-   If the signal has no arguments, return ``None``.  If the signal has
-   just one argument, return that argument.  If the signal has two or
-   more arguments, return those arguments in a :class:`tuple`.
+   *signal* is connected to using an `AutoConnection`_ when the
+   returned coroutine object is awaited.  It is disconnected after
+   the signal is emitted once.
 
    .. _proxyAuthenticationRequired: https://doc.qt.io/qt-6/qwebsocket.html#proxyAuthenticationRequired
 
