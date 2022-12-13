@@ -7,6 +7,26 @@ from ._helpers import create_slot_wrapper
 __all__ = 'asyncsignal', 'multisignal',
 
 
+def copy_signal_arguments(args):
+    """Return a value-copy of signal arguments where necessary.
+
+    PyQt5/6 passes a temporary reference to signal arguments to slots.
+    In order to use the arguments after the slot returns, call this
+    function to make a copy of them (via QVariant).  Failure to do so
+    may crash the program with SIGSEGV when trying to access the
+    objects later.
+
+    PySide2/6 already passes a copy of the signal arguments to slots,
+    with proper reference counting.  There is no need to copy arguments.
+    """
+    from .bindings import QtCore
+    if hasattr(QtCore, 'QVariant'):
+        # PyQt5/6 defines QVariant; PySide2/6 doesn't.
+        return tuple(QtCore.QVariant(arg).value() for arg in args)
+    else:
+        return args
+
+
 async def asyncsignal(signal):
     # signal must be a bound pyqtSignal or Signal, or an object
     # with a `connect` method that provides equivalent semantics.
@@ -23,15 +43,7 @@ async def asyncsignal(signal):
     def handler(*args):
         nonlocal slot
         if not fut.done():
-            # PyQt5/6 keeps a temporary reference to the signal arguments;
-            # we must make a copy of them to avoid accessing freed memory.
-            # PySide2/6 keeps a copy of the arguments already.
-            if hasattr(QtCore, 'QVariant'):
-                # PyQt5/6 defines QVariant; PySide2/6 doesn't.
-                result = tuple(QtCore.QVariant(arg).value() for arg in args)
-            else:
-                result = args
-            fut.set_result(result)
+            fut.set_result(copy_signal_arguments(args))
         slot = None
 
     slot = _QiSlotObject(handler)
@@ -47,7 +59,7 @@ async def asyncsignal(signal):
 
 
 def _emit_multisignal(slot, param_count, args, value):
-    slot(value, args)
+    slot(value, copy_signal_arguments(args))
 
 
 class multisignal:
