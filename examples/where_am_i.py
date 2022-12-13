@@ -19,23 +19,17 @@ async def get_location() -> str:
     # This is a pattern to call a Qt method *after* installing signal handlers.
     asyncio.get_running_loop().call_soon(source.requestUpdate, 0)
 
-    # Install two signal handlers to handle both success and failure.
-    pos_task = asyncio.create_task(qtinter.asyncsignal(source.positionUpdated))
-    err_task = asyncio.create_task(qtinter.asyncsignal(source.errorOccurred))
+    # Wait for position update or error message.
+    which, [result] = await qtinter.asyncsignal(qtinter.multisignal({
+        source.positionUpdated: "ok",
+        source.errorOccurred: "error",
+    }))
 
-    # Wait for the first signal to occur.
-    done, pending = await asyncio.wait([pos_task, err_task],
-                                       return_when=asyncio.FIRST_COMPLETED)
-    pos_task.cancel()
-    err_task.cancel()
-    await asyncio.gather(pos_task, err_task, return_exceptions=True)
-
-    if pos_task in done:
-        position: QtPositioning.QGeoPositionInfo = pos_task.result()[0]
+    if which == "ok":
+        position: QtPositioning.QGeoPositionInfo = result
         return position.coordinate().toString()
-
-    if err_task in done:
-        error: QtPositioning.QGeoPositionInfoSource.Error = err_task.result()[0]
+    else:
+        error: QtPositioning.QGeoPositionInfoSource.Error = result
         raise RuntimeError(f"Cannot obtain geolocation: {error}")
 
 
