@@ -90,7 +90,7 @@ Context managers
 Helper functions
 ----------------
 
-.. function:: asyncsignal(signal: Signal[typing.Unpack[Ts]]) -> typing.Tuple[typing.Unpack[Ts]]
+.. function:: asyncsignal(signal: BoundSignal[typing.Unpack[Ts]]) -> typing.Tuple[typing.Unpack[Ts]]
    :async:
 
    Wait for *signal* to emit and return the emitted arguments in a
@@ -106,12 +106,12 @@ Helper functions
    *signal* must be a bound Qt signal object, i.e. a bound
    `PyQt5.QtCore.pyqtSignal`_, `PyQt6.QtCore.pyqtSignal`_,
    `PySide2.QtCore.Signal`_ or `PySide6.QtCore.Signal`_, or
-   an object with a ``connect`` method that provides equivalent
-   semantics.
+   an object with a ``connect`` method of equivalent semantics,
+   such as an instance of :class:`multisignal`.
 
    *signal* is connected to using an `AutoConnection`_ when the
-   returned coroutine object is awaited.  It is disconnected after
-   the signal is emitted once.
+   returned coroutine object is awaited.  It is disconnected from
+   after the signal is emitted once.
 
    .. _proxyAuthenticationRequired: https://doc.qt.io/qt-6/qwebsocket.html#proxyAuthenticationRequired
 
@@ -183,17 +183,48 @@ Helper functions
 
       await qtinter.modal(QtWidgets.QMessageBox.warning)(self, "Title", "Message")
 
-.. function:: multisignal(signal_map: typing.Mapping[BoundSignal, T]) -> BoundSignal[T, typing.Tuple]
+.. class:: multisignal(signal_map: typing.Mapping[BoundSignal, typing.Any])
 
-   Return a bound-signal-like object that re-emits the signals
-   in *signal_map* as a 2-tuple with the mapped value as the
-   first element and the original emitted arguments packed in a
-   tuple as the second element.
+   Collect multiple bound signals and re-emit their arguments along with
+   their mapped value.
 
-   The returned object provides a ``connect`` method with the
-   usual semantics.  The sender objects must be alive when
-   ``connect`` is called; otherwise the process will crash with
-   ``SIGSEGV``.
+   A :class:`multisignal` object defines the following instance method:
+
+   .. method:: connect(slot: typing.Callable[[typing.Any, typing.Tuple], typing.Any]) -> None
+
+      Connect *slot* to each signal in (the keys of) *signal_map*,
+      such that if signal *s* is mapped to *v* in *signal_map* and
+      is emitted with arguments ``*args``, *slot* is called with
+      ``v`` and ``args`` as arguments from the thread that called
+      :meth:`connect`.  Its return value is ignored.
+
+      The sender objects of signals in *signal_map* must be alive
+      when :meth:`connect` is called, or the process will crash
+      with SIGSEGV.
+
+   :class:`multisignal` objects do not have a *disconnect* method.
+   The connections are automatically disconnected when the sender
+   (of a signal) or the receiver (of *slot*) is deleted.
+
+   :class:`multisignal` may be used with :func:`asyncsignal`
+   to listen to multiple signals.
+
+   Example:
+
+   .. code-block:: python
+
+      fast_timer = QtCore.QTimer()
+      slow_timer = QtCore.QTimer()
+      # ...
+      ms = qtinter.multisignal({
+          fast_timer.timeout: 'fast',
+          slow_timer.timeout: 'slow',
+      })
+      ms.connect(print)
+
+      # Output:
+      # fast ()
+      # slow ()
 
 .. function:: run_task(coro: typing.Coroutine[T], *, \
                        allow_task_nesting: bool = True, \
