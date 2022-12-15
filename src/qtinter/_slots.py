@@ -3,7 +3,7 @@
 import asyncio
 from typing import Callable, Coroutine, Set
 from ._tasks import run_task
-from ._helpers import create_slot_wrapper
+from ._helpers import get_positional_parameter_count, transform_slot
 
 
 __all__ = 'asyncslot',
@@ -16,7 +16,7 @@ _running_tasks: Set[asyncio.Task] = set()
 CoroutineFunction = Callable[..., Coroutine]
 
 
-def _run_coroutine_function(fn, param_count, args, task_runner):
+def _run_coroutine_function(fn, args, param_count, task_runner):
     """Call coroutine function fn with no more than param_count *args and
     return a task wrapping the returned coroutine using task_factory."""
 
@@ -50,4 +50,10 @@ def asyncslot(fn: CoroutineFunction, *, task_runner=run_task):
         raise TypeError(f'asyncslot expects a coroutine function, '
                         f'but got non-callable object {fn!r}')
 
-    return create_slot_wrapper(fn, _run_coroutine_function, task_runner)
+    # Because the wrapper's signature is (*args), PySide/PyQt will
+    # always call the wrapper with the signal's (full) parameters
+    # list instead of the slot's parameter list if it is shorter.
+    # Work around this by "truncating" input parameters if needed.
+    param_count = get_positional_parameter_count(fn)
+
+    return transform_slot(fn, _run_coroutine_function, param_count, task_runner)

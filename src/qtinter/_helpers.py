@@ -6,7 +6,7 @@ import weakref
 from typing import Callable, Dict
 
 
-__all__ = 'create_slot_wrapper',
+__all__ = 'get_positional_parameter_count', 'transform_slot',
 
 
 # Holds strong references to SemiWeakRef objects keyed by their id().
@@ -77,36 +77,19 @@ def get_positional_parameter_count(fn: Callable) -> int:
     return param_count
 
 
-def create_slot_wrapper(fn: Callable, invoke: Callable, *extra_args):
-    """Return a wrapper object that calls fn via invoke.
+def transform_slot(slot, transform, *extra):
+    """Return a callable wrapper that takes variadic arguments *args,
+    such that wrapper(*arg) returns transform(slot, args, *extra).
 
-    The returned wrapper takes variadic positional arguments only.
-    invoke is called with fn as the first argument, followed by the
-    count of positional parameters of fn, followed by the arguments
-    passed to the wrapper.
+    If slot is a bound method object, wrapper will also be a bound
+    method object with the same lifetime as slot, except that a strong
+    reference to wrapper keeps slot alive.
 
-    If fn is a bound method object, the returned wrapper will be
-    a bound method object with the following properties:
-
-    1. If a strong reference to the wrapper is held by external code,
-       fn is kept alive.
-
-    2. If no strong reference to the wrapper is held by external code,
-       the wrapper is kept alive until fn is garbage collected.  This
-       will automatically disconnect any connection connected to the
-       wrapper.
-
-    If fn is not a bound method object, the returned wrapper always
-    holds a strong reference to fn.
+    If slot is not a bound method object, wrapper will be a function
+    object that holds a strong reference to slot.
     """
     # TODO: Enclose entire function body in try...finally... to remove
     # TODO: strong reference to fn if an exception occurs.
-
-    # Because the wrapper's signature is (*args), PySide/PyQt will
-    # always call the wrapper with the signal's (full) parameters
-    # list instead of the slot's parameter list if it is shorter.
-    # Work around this by "truncating" input parameters if needed.
-    param_count = get_positional_parameter_count(fn)
 
     # fn may have been decorated with Slot() or pyqtSlot():
     # - Slot() adds '_slots' to the function's __dict__.
@@ -114,11 +97,11 @@ def create_slot_wrapper(fn: Callable, invoke: Callable, *extra_args):
     # In either case, functools.wraps() or functools.update_wrapper()
     # will update the wrapper's __dict__ with these attributes.
 
-    if hasattr(fn, "__self__"):
-        # fn is a method object.  Return a method object whose lifetime
-        # is equal to that of the wrapped method, so that a connection
-        # will be automatically disconnected if the wrapped object goes
-        # out of scope.
+    if hasattr(slot, "__self__"):
+        # slot is a method object.  Return a method object whose lifetime
+        # is equal to that of the receiver object of slot, so that a
+        # connection will be automatically disconnected if the receiver
+        # object is deleted.
         from .bindings import QtCore
 
         # PyQt5/6 requires decorated slots to be hosted in QObject.
@@ -128,23 +111,23 @@ def create_slot_wrapper(fn: Callable, invoke: Callable, *extra_args):
         else:
             BaseClass = object
 
-        class _SlotWrapper(SemiWeakRef, BaseClass):
+        class _Wrapper(SemiWeakRef, BaseClass):
             # Subclass in order to modify function's __dict__.
             def handle(self, *args):
                 method = self.referent()
                 assert method is not None, \
                     "slot called after receiver is supposedly finalized"
-                invoke(method, param_count, args, *extra_args)
+                transform(method, args, *extra)
 
-            functools.update_wrapper(handle, fn)
+            functools.update_wrapper(handle, slot)
             handle.__dict__.pop("__wrapped__")  # remove strong ref to fn
 
-        return _SlotWrapper(fn, weakref.WeakMethod).handle
+        return _Wrapper(slot, weakref.WeakMethod).handle
 
     else:
         # fn is not a method object.  Keep a strong reference to it.
-        @functools.wraps(fn)
-        def slot_wrapper(*args):
-            return invoke(fn, param_count, args, *extra_args)
+        @functools.wraps(slot)
+        def wrapper(*args):
+            return transform(slot, args, *extra)
 
-        return slot_wrapper
+        return wrapper
