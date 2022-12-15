@@ -1,10 +1,11 @@
 """Helper function to make Qt signal awaitable."""
 
 import asyncio
+import functools
 from ._helpers import transform_slot
 
 
-__all__ = 'asyncsignal', 'multisignal',
+__all__ = 'asyncsignal', 'asyncsignalstream', 'multisignal',
 
 
 def copy_signal_arguments(args):
@@ -56,6 +57,25 @@ async def asyncsignal(signal):
         # consequently keep the connection.  Set `slot` to None to
         # prevent this.
         slot = None
+
+
+def _asyncsignalstream_handle(queue: asyncio.Queue, *args):
+    queue.put_nowait(copy_signal_arguments(args))
+
+
+class asyncsignalstream:
+    def __init__(self, signal):
+        from .bindings import _QiSlotObject
+        self._queue = asyncio.Queue()
+        self._slot = _QiSlotObject(
+            functools.partial(_asyncsignalstream_handle, self._queue))
+        signal.connect(self._slot.slot)
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        return await self._queue.get()
 
 
 def _emit_multisignal(slot, args, value):

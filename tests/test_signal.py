@@ -148,6 +148,37 @@ class TestSignal(unittest.TestCase):
             self.assertEqual(asyncio.run(coro()), "")
 
 
+class TestAsyncSignalStream(unittest.TestCase):
+    def setUp(self):
+        if QtCore.QCoreApplication.instance() is not None:
+            self.app = QtCore.QCoreApplication.instance()
+        else:
+            self.app = QtCore.QCoreApplication([])
+
+    def tearDown(self):
+        self.app = None
+
+    def test_timer(self):
+        timer = QtCore.QTimer()
+        timer.setInterval(100)
+        timer.start()
+
+        async def coro():
+            n = 0
+            async for _ in qtinter.asyncsignalstream(timer.timeout):
+                n += 1
+                if n == 10:
+                    break
+
+        import time
+        t1 = time.time()
+        with qtinter.using_qt_from_asyncio():
+            asyncio.run(coro())
+        t2 = time.time()
+
+        self.assertTrue(0.9 < t2 - t1 < 1.5, t2 - t1)
+
+
 class TestMultiSignal(unittest.TestCase):
     def setUp(self):
         if QtCore.QCoreApplication.instance() is not None:

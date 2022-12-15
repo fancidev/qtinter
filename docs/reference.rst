@@ -21,6 +21,9 @@ current coding pattern:
 * :func:`asyncsignal` makes a Qt signal *awaitable*;
   useful for asyncio-driven code.
 
+* :func:`asyncsignalstream` exposes a Qt signal as an asynchronous
+  iterator; useful for asyncio-driven code.
+
 * :func:`asyncslot` connects a coroutine function
   to a Qt signal; useful for Qt-driven code.
 
@@ -129,6 +132,29 @@ Helper functions
       a signal.  To handle the latter situation, keep a strong
       reference to the sender object, or listen to its destroyed_
       signal.
+
+.. function:: asyncsignalstream(signal: BoundSignal[typing.Unpack[Ts]]) -> typing.AsyncIterator[typing.Tuple[typing.Unpack[Ts]]]
+
+   Return an :external:term:`asynchronous iterator` that produces the emitted arguments from *signal* as a :class:`tuple`.
+
+   *signal* is connected to via an AutoConnection_ before the function
+   returns.  It is disconnected from when the returned iterator object
+   is deleted.  Emitted arguments in the interim are stored in an
+   internal buffer that grows without bound.  It is advised to consume
+   the iterator timely to avoid exhausting memory.
+
+   Example:
+
+   .. code-block:: python
+
+      timer = QtCore.QTimer()
+      timer.setInterval(1000)
+      timer.start()
+
+      what = 'tick'
+      async for _ in qtinter.asyncsignalstream(timer.timeout):
+          print(what)
+          what = 'tock' if what == 'tick' else 'tick'
 
 .. function:: asyncslot(fn: typing.Callable[[typing.Unpack[Ts]], typing.Coroutine[T]], *, task_runner: Callable[[typing.Coroutine[T]], asyncio.Task[T]] = qtinter.run_task) -> typing.Callable[[typing.Unpack[Ts]], asyncio.Task[T]]
 
