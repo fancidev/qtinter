@@ -39,8 +39,8 @@ current coding pattern:
 
 `Loop factory`_ to create `event loop objects`_ directly:
 
-* :func:`new_event_loop` creates an asyncio-compatible
-  event loop object that runs on top of a Qt event loop.
+* :func:`new_event_loop` creates an asyncio-compatible *logical*
+  event loop object that runs on top of a *physical* Qt event loop.
 
 
 `Low-level classes`_ that do the actual work of bridging Qt and asyncio:
@@ -50,6 +50,9 @@ current coding pattern:
 * `Event loop objects`_
 
 * `Event loop policy objects`_
+
+
+`Private API`_ that supports the internal implementation of :mod:`qtinter`.
 
 
 Context managers
@@ -404,4 +407,60 @@ Event loop policy objects
 .. class:: QiSelectorEventLoopPolicy
 
    Event loop policy that creates :class:`QiSelectorEventLoop`.
+
+
+Private API
+-----------
+
+The following classes and functions are used internally to support
+:mod:`qtinter`'s implementation.  They are documented here solely
+for developing :mod:`qtinter`, and are subject to change at any time.
+
+.. class:: SemiWeakRef(o, ref=weakref.ref)
+
+   Return an object that is deleted when *o* is deleted, except that
+   a strong reference to the returned object in user code keeps *o*
+   alive.
+
+   *ref* should be a weak reference class suitable for *o*: If *o* is
+   a method object, *ref* should be set to :class:`weakref.WeakMethod`;
+   otherwise, *ref* should be set to :class:`weakref.ref`.
+
+   .. method:: referent()
+
+      Return *o* if it is still live, or ``None``.
+
+.. function:: copy_signal_arguments(args: typing.Tuple[typing.Unpack[Ts]]) -> typing.Tuple[typing.Unpack[Ts]]
+
+   Return a copy of signal arguments *args* where necessary.
+
+   In PyQt5/6, signal arguments passed to a slot may be temporary objects
+   whose lifetime is only valid during the slot's execution.  In order to
+   use the signal arguments after the slot returns, one must call this
+   function to make a copy of them, or the program may crash with SIGSEGV
+   when the signal arguments are accessed later.
+
+   PySide2/6 already passes a copy of the signal arguments to slots,
+   whose lifetime is controlled by the usual Python mechanisms.  This
+   function returns *args* as is in this case.
+
+.. function:: get_positional_parameter_count(fn: typing.Callable) -> int
+
+   Return the number of positional parameters of *fn*, or ``-1``
+   if *fn* takes variadic positional parameters (``*args``).
+
+   Raises :class:`TypeError` if *fn* takes any keyword-only parameter
+   without a default.
+
+.. function:: transform_slot(slot: typing.Callable[[typing.Unpack[Ts]], T], transform: typing.Callable[[typing.Callable[[typing.Unpack[Ts]], T], typing.Tuple[typing.Unpack[Rs]], typing.Unpack[Es]], R], *extras: typing.Unpack[Es]) -> typing.Callable[[typing.Unpack[Rs]], R]
+
+   Return a callable *wrapper* that takes variadic arguments ``*args``,
+   such that ``wrapper(*arg)`` returns ``transform(slot, args, *extra)``.
+
+   If *slot* is a bound method object, *wrapper* will also be a bound
+   method object with the same lifetime as *slot*, except that a strong
+   reference to *wrapper* keeps *slot* alive.
+
+   If *slot* is not a bound method object, *wrapper* will be a function
+   object that holds a strong reference to *slot*.
 

@@ -82,11 +82,17 @@ Source code:
 Read Out
 --------
 
+.. _QtTextToSpeech: https://doc-snapshots.qt.io/qt6-dev/qttexttospeech-index.html
+
 .. _say: https://ss64.com/osx/say.html
 
 This example implements a command line utility that reads out the text
 from standard input.  It is a cross-platform version of the macOS `say`_
 command.
+
+The example demonstrates the use of :func:`using_qt_from_asyncio` to
+use a Qt component (`QtTextToSpeech`_) in asyncio-driven code, and the
+use of :func:`asyncsignal` to wait for a Qt signal.
 
 .. note::
 
@@ -107,20 +113,12 @@ Sample output (on macOS 12):
        -r rate     Number between -1.0 and +1.0 (default: 0.0)
        -v voice    One of Alex, Fiona, Fred, Samantha, Victoria (default: Alex)
 
-.. _QtTextToSpeech: https://doc-snapshots.qt.io/qt6-dev/qttexttospeech-index.html
-
-The example demonstrates the use of :func:`qtinter.using_qt_from_asyncio`
-to use a Qt component (`QtTextToSpeech`_) in asyncio-driven code, and the
-use of :func:`qtinter.asyncsignal` to wait for a Qt signal.
-
 Source code:
 
-.. toggle::
-
-   .. literalinclude:: ../examples/read_out.py
-      :language: python
-      :emphasize-lines: 6,22,77
-      :linenos:
+.. literalinclude:: ../examples/read_out.py
+   :language: python
+   :emphasize-lines: 6,22,77
+   :linenos:
 
 
 .. _where-am-i-example:
@@ -128,8 +126,15 @@ Source code:
 Where am I
 ----------
 
+.. _QtPositioning: https://doc-snapshots.qt.io/qt6-dev/qtpositioning-index.html
+
 This example implements a command line utility that prints the current
 geolocation.
+
+It demonstrates the use of :func:`using_qt_from_asyncio` to use
+a Qt component (`QtPositioning`_) in asyncio-driven code.
+It also demonstrates the use of :func:`asyncsignal` and
+:func:`multisignal` to wait for the first of multiple Qt signals.
 
 Sample output:
 
@@ -138,26 +143,10 @@ Sample output:
    $ python where_am_i.py
    12° 34' 56.7" N, 98° 76' 54.3" E, 123.456m
 
-.. _QtPositioning: https://doc-snapshots.qt.io/qt6-dev/qtpositioning-index.html
-
-The example demonstrates the use of :func:`qtinter.using_qt_from_asyncio`
-to use a Qt component (`QtPositioning`_) in asyncio-driven code, and the
-use of :func:`qtinter.asyncsignal` to wait for a Qt signal.
-
-In addition, the example demonstrates two coding patterns:
-
-#. Use :external:meth:`asyncio.loop.call_soon` to start the operation of
-   a Qt object *after* connecting to its signals (line 20).
-
-#. Use :func:`asyncio.wait` to wait for the first of multiple Qt
-   signals (lines 27-28).
-
 Source code:
 
-.. toggle::
-
-   .. literalinclude:: ../examples/where_am_i.py
-      :language: python
-      :emphasize-lines: 5,23,24,48
-      :linenos:
+.. literalinclude:: ../examples/where_am_i.py
+   :language: python
+   :emphasize-lines: 5,23,42
+   :linenos:
 
