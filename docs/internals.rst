@@ -5,9 +5,9 @@ Under the Hood
 
 This page explains how :mod:`qtinter` is implemented.
 
-We first give an overview of how ``asyncio`` works.  We then give an
-overview of how Qt works.  We then explain how :mod:`qtinter` bridges
-them.
+We first give an overview of how :external:mod:`asyncio` works.
+We then give an overview of how Qt works.  We then explain how
+:mod:`qtinter` bridges the two.
 
 
 .. _loop-modes:
@@ -15,7 +15,7 @@ them.
 Loop modes
 ----------
 
-A :class:`qtinter.QiBaseEventLoop` has three *modes* of operations:
+A :class:`QiBaseEventLoop` has three *modes of operations*:
 *owner mode*, *guest mode*, and *native mode*.
 
 .. note::
@@ -23,34 +23,50 @@ A :class:`qtinter.QiBaseEventLoop` has three *modes* of operations:
    Both owner mode and guest mode require a ``QtCore.QCoreApplication``,
    ``QtGui.QGuiApplication`` or ``QtWidgets.QApplication`` instance to
    exist in order to run the loop.  This is because these modes use Qt's
-   signals and slots to schedule callbacks.
+   signal-slot mechanism to schedule callbacks.
 
 Owner mode
 ~~~~~~~~~~
 
-*Owner mode* provides 100% asyncio loop semantics and should be used
+*Owner mode* provides 100% asyncio event loop semantics.  It should be used
 if your code calls :func:`asyncio.run` or equivalent as its entry point.
-You normally launch a loop in host mode using the
-:func:`qtinter.using_qt_from_asyncio` context manager.  Alternatively,
-call :func:`qtinter.default_loop_factory` to create a loop in host mode
+
+You normally launch a :class:`QiBaseEventLoop` in host mode using the
+:func:`using_qt_from_asyncio` context manager.  Alternatively, call
+:func:`new_event_loop` to create a :class:`QiBaseEventLoop` in host mode
 and then manipulate it manually.
 
 .. note::
 
-   :class:`qtinter.QiBaseEventLoop` runs a ``QtCore.QEventLoop`` when
+   :class:`QiBaseEventLoop` executes a ``QtCore.QEventLoop`` when
    operating in owner mode.  If a Qt event loop is already running,
-   the loop will be nested, which is not recommended.  Also, after
-   ``QtCore.QCoreApplication.exit()`` is called, it is no longer
-   possible to start a ``QtCore.QEventLoop``, and hence not possible
-   to run a :class:`qtinter.QiBaseEventLoop` in owner mode.
+   the new loop will run nested, which may cause the usual subtle
+   consequences with nested loops and therefore is not recommended.
+   If you already have a Qt event loop running and want to use asyncio
+   functionalities, use the :func:`using_asyncio_from_qt` context
+   manager instead.
+
+.. note::
+
+   If ``QtCore.QCoreApplication.exit()`` has been called, it will be
+   no longer possible to start a ``QtCore.QEventLoop`` and hence not
+   possible to run a :class:`QiBaseEventLoop` in owner mode.  You
+   may run the :class:`QiBaseEventLoop` in native mode if needed.
 
 Guest mode
 ~~~~~~~~~~
 
-*Guest mode* is designed for Qt-driven code, and is normally activated
-using the :func:`qtinter.using_asyncio_from_qt` context manager.
-In guest mode, only a *logical* asyncio event loop is activated; the
-*physical* Qt event loop must still be run by the application code,
+*Guest mode* runs a *logical* asyncio event loop on top of a *physical*
+Qt event loop.  It is designed to enable asyncio access for Qt-driven
+code.
+
+Guest mode is normally activated using the :func:`using_asyncio_from_qt`
+context manager.  Under the hood, the context manager calls
+:func:`new_event_loop` to create a :class:`QiBaseEventLoop` object
+and then calls its :meth:`QiBaseEventLoop.set_mode` method with
+argument :data:`QiLoopMode.GUEST`.
+
+The physical Qt event loop must be run by the application code,
 e.g. by calling ``app.exec()``.
 
 .. note::
@@ -62,16 +78,25 @@ e.g. by calling ``app.exec()``.
 Native mode
 ~~~~~~~~~~~
 
-*Native mode* is activated when :external:meth:`asyncio.loop.run_forever`
-is called on a :class:`qtinter.QiBaseEventLoop` object operating in guest
-mode.  In native mode, a native asyncio event loop is run, and no
-Qt event loop is used at all.  This is designed for running clean-up code,
-possibly after ``QtCore.QCoreApplication.exec`` has been called.
+A :class:`QiBaseEventLoop` in *native mode* runs a *physical* asyncio
+event loop and behaves exactly like a standard asyncio event loop;
+no Qt functionality is involved.
+
+Native mode is activated by the :func:`using_asyncio_from_qt` context
+manager in its clean-up code before running the coroutines to cancel
+pending tasks and shutdown async generators.  This mode allows
+coroutines to run even after ``QtCore.QCoreApplication.exec``
+has been called.
+
+To manually activate native mode, call :meth:`QiBaseEventLoop.set_mode`
+with argument :data:`QiLoopMode.NATIVE`.
 
 .. note::
 
    Because no Qt event loop is running in native mode, you should not
-   use any Qt objects in clean-up code.
+   use any Qt objects in this mode.  In particular, the clean-up code
+   in your coroutines should work without requiring a running Qt event
+   loop.
 
 
 Interleaved code
