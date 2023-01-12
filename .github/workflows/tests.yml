@@ -30,9 +30,9 @@ jobs:
           architecture: x64
       - name: Run system tests
         run: python -m test.test_asyncio
-      - name: Install Qt dependencies
-        if: ${{ matrix.platform == 'ubuntu-latest' }}
-        run: sudo apt-get install libgl1-mesa-dev
+#      - name: Install Qt dependencies
+#        if: ${{ matrix.platform == 'ubuntu-latest' }}
+#        run: sudo apt-get install libgl1-mesa-dev
 #      - name: Install Qt binding
 #        if: ${{ matrix.qt-binding == 'PySide2' }}
 #        run: pip install PySide2==5.15.2
