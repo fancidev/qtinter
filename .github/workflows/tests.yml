@@ -32,7 +32,7 @@ jobs:
         run: python -m test.test_asyncio
       - name: Install Qt dependencies
         if: ${{ matrix.platform == 'ubuntu-latest' }}
-        run: sudo apt-get install libgl1-mesa-dev
+        run: sudo apt-get update && sudo apt-get install libgl1-mesa-dev
 #      - name: Install Qt binding
 #        if: ${{ matrix.qt-binding == 'PySide2' }}
 #        run: pip install PySide2==5.15.2
