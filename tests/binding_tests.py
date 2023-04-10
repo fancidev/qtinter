@@ -358,6 +358,16 @@ class Derived(Control):
     pass
 
 
+def get_PySide2_version():
+    from PySide2 import __version__ as ver
+    return tuple(map(int, ver.split(".")))
+
+
+def get_PySide6_version():
+    from PySide6 import __version__ as ver
+    return tuple(map(int, ver.split(".")))
+
+
 class TestBoundSignal(unittest.TestCase):
     # Tests related to a bound signal.
     def setUp(self):
@@ -385,8 +395,7 @@ class TestBoundSignal(unittest.TestCase):
         # versions of PySide2 has a bug that breaks equality.
         # See https://bugreports.qt.io/projects/PYSIDE/issues/PYSIDE-2140
         if QtCore.__name__.startswith('PySide2'):
-            from PySide2 import __version__ as ver
-            expect_broken = tuple(map(int, ver.split("."))) >= (5, 15, 2)
+            expect_broken = get_PySide2_version() >= (5, 15, 2)
         else:
             expect_broken = False
 
@@ -425,8 +434,7 @@ class TestBoundSignal(unittest.TestCase):
         self.assertIsNot(sender.valueChanged[int], sender.valueChanged[str])
 
         if QtCore.__name__.startswith('PySide2'):
-            from PySide2 import __version__ as ver
-            expect_broken = tuple(map(int, ver.split("."))) >= (5, 15, 2)
+            expect_broken = get_PySide2_version() >= (5, 15, 2)
         else:
             expect_broken = False
 
@@ -448,8 +456,8 @@ class TestBoundSignal(unittest.TestCase):
     def test_lifetime(self):
         # Test the lifetime of bound signal.
         # - If a queued signal is emitted but the sender is then deleted:
-        #   On PySide: the queued callback IS NOT invoked
-        #   On PyQt: the queued callback IS invoked.
+        #   On PySide < 6.5: the queued callback IS NOT invoked
+        #   On PyQt or PySide >= 6.5: the queued callback IS invoked.
         sender = SenderObject()
         var1 = 3
         var2 = 2
@@ -476,7 +484,12 @@ class TestBoundSignal(unittest.TestCase):
             qt_loop.exec_()
 
         self.assertEqual(var1, 26)
-        if is_pyqt:
+
+        expect_queued_callback = is_pyqt or (
+            QtCore.__name__.startswith('PySide6') and
+            get_PySide6_version() >= (6, 5)
+        )
+        if expect_queued_callback:
             self.assertEqual(var2, -14)
         else:
             self.assertEqual(var2, 2)
